@@ -92,7 +92,7 @@ st.markdown("""
     <button id="zmb-chat-close">✕</button>
   </div>
   <div id="zmb-chat-body">
-    <div class="zmb-msg-ai">Hi! Ask me anything about Zambia's geospatial data, or say "generate a report on health facilities" or "summarise the schools dataset".</div>
+    <div class="zmb-msg-ai" id="zmb-welcome">Hi! Ask me anything about Zambia's geospatial data, or say "generate a report on health facilities" or "summarise the schools dataset".</div>
   </div>
   <div id="zmb-chat-footer">
     <input id="zmb-chat-input" type="text" placeholder="Ask about Zambia data..." />
@@ -115,6 +115,17 @@ function addMsg(text, role) {
     body.appendChild(div);
     body.scrollTop = body.scrollHeight;
 }
+// Detect dataset context from URL params and customise welcome message
+(function() {
+    const params = new URLSearchParams(window.location.search);
+    const dsName = params.get('dataset_name');
+    if (dsName) {
+        const welcome = document.getElementById('zmb-welcome');
+        if (welcome) {
+            welcome.innerText = 'Hi! I can see you\'re viewing the ' + dsName + ' dataset. Ask me any question about it — for example "What districts are covered?" or "Generate a report on this dataset".';
+        }
+    }
+})();
 sendBtn.onclick = () => {
     const q = input.value.trim();
     if (!q) return;
@@ -141,6 +152,43 @@ def get_builder(): return ReportBuilder()
 hub = get_hub()
 claude = get_claude()
 builder = get_builder()
+
+# ---------------------------------------------------------------------------
+# Context detection — dataset passed from Hub iframe embed
+#
+# The Hub page embeds this app as:
+#   <iframe src="https://...streamlit.app/?dataset_url=...&dataset_name=...">
+#
+# Supported params:
+#   dataset_url  — FeatureServer layer URL of the open dataset
+#   dataset_name — Human-readable name (shown in the banner)
+# ---------------------------------------------------------------------------
+params = st.query_params
+_ctx_url  = params.get("dataset_url", "")
+_ctx_name = params.get("dataset_name", "")
+
+# Resolve the context dataset from the catalog (by URL) or create a minimal entry
+context_dataset = None
+if _ctx_url:
+    catalog = hub.get_catalog()
+    # Try exact URL match first
+    for ds in catalog:
+        if ds["url"].rstrip("/") == _ctx_url.rstrip("/"):
+            context_dataset = ds
+            break
+    # If not found in catalog, create a minimal entry so we can still query it
+    if context_dataset is None:
+        context_dataset = {
+            "id": "ctx",
+            "name": _ctx_name or "Selected Dataset",
+            "description": f"Dataset loaded from the Zambia GeoHub: {_ctx_url}",
+            "url": _ctx_url,
+            "tags": ["zambia"],
+            "fields": hub._fetch_fields(_ctx_url),
+            "geometry_type": "Unknown",
+            "extent": {},
+            "modified": "",
+        }
 
 # ---------------------------------------------------------------------------
 # Session state
@@ -171,6 +219,15 @@ with col_title:
         "Ask questions about Zambia's geospatial data • Say **'generate a report on...'** for Word/PDF reports "
         "• Say **'summarise...'** for dataset summaries • Ask **'what data is available?'** to explore the Hub"
     )
+
+# Context banner — shown when a dataset is passed from the Hub page
+if context_dataset:
+    st.info(
+        f"📍 **Context loaded:** You are viewing **{context_dataset['name']}** on the Hub. "
+        f"Your questions will be answered from this dataset first.",
+        icon=None,
+    )
+
 st.markdown("---")
 
 # ---------------------------------------------------------------------------
@@ -258,23 +315,33 @@ if st.session_state.edit_idx is not None:
 def process_question(question: str):
     intent = detect_intent(question)
 
-    # Search Hub
-    with st.spinner("Searching Zambia GeoHub..."):
-        try:
-            datasets = hub.search_datasets(question, max_results=5)
-        except Exception:
-            datasets = []
-
     geojson = None
     sample_features = []
 
-    if datasets:
-        with st.spinner(f"Loading data from '{datasets[0]['name']}'..."):
+    if context_dataset:
+        # Hub context mode — the dataset is already known from the page the user is on
+        datasets = [context_dataset]
+        with st.spinner(f"Loading data from '{context_dataset['name']}'..."):
             try:
-                geojson = hub.fetch_geojson(datasets[0]["url"], query_hint=question)
+                geojson = hub.fetch_geojson(context_dataset["url"], query_hint=question)
                 sample_features = geojson_to_sample_rows(geojson, n=10)
             except Exception:
                 pass
+    else:
+        # Free search mode — find the most relevant dataset
+        with st.spinner("Searching Zambia GeoHub..."):
+            try:
+                datasets = hub.search_datasets(question, max_results=5)
+            except Exception:
+                datasets = []
+
+        if datasets:
+            with st.spinner(f"Loading data from '{datasets[0]['name']}'..."):
+                try:
+                    geojson = hub.fetch_geojson(datasets[0]["url"], query_hint=question)
+                    sample_features = geojson_to_sample_rows(geojson, n=10)
+                except Exception:
+                    pass
 
     ds = datasets[0] if datasets else {}
 
