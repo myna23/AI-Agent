@@ -34,6 +34,9 @@ _BROKEN_HOSTS = {
 # Specific service URLs that are broken despite having a valid host
 _BROKEN_URLS = {
     "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/OSM_rivers_buffered_2km/FeatureServer/0",
+    "https://services7.arcgis.com/dZosTnbDNAhfMkt3/arcgis/rest/services/ZMB_Form_1_view/FeatureServer/0",  # token required
+    "https://services9.arcgis.com/zdTKtWQehTjbybEv/arcgis/rest/services/Affected_Adm2_ZMB/FeatureServer/0",  # token required
+    "https://utility.arcgis.com/usrsvcs/servers/8b00a549b01f435eaafa076452e3ee05/rest/services/ZMB_Boundaries/FeatureServer/0",  # 403
 }
 
 
@@ -372,9 +375,9 @@ _SEED_CATALOG = [
      "url": "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/Zambia_Administrative_Boundaries_Districts_2020/FeatureServer/0",
      "tags": ["districts", "boundaries", "administrative", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
     {"id": "a0293a6e84c143298227518eb3418d23", "name": "GRID3 ZMB Operational Settlement Names",
-     "description": "Settlement point locations and names across Zambia. Source: ZamStats 2010 census cartography.",
+     "description": "Settlement point locations and names across Zambia including villages, towns, and urban areas. Fields: Province, District, Name, settlement type. Source: ZamStats 2010 census cartography.",
      "url": "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_Zambia_Operational_Settlement_Points_and_Names_Version01/FeatureServer/0",
-     "tags": ["settlements", "villages", "towns", "population", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
+     "tags": ["settlements", "villages", "towns", "urban", "rural", "communities", "population", "copperbelt", "lusaka", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
     {"id": "8f73c42ed3884256904ae12440fae558", "name": "ZMB Operational Points of Interest",
      "description": (
          "Points of interest across Zambia from ZamStats 2010 census. "
@@ -409,25 +412,25 @@ _SEED_CATALOG = [
      "url": "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/OSM_rivers/FeatureServer/0",
      "tags": ["rivers", "water", "osm", "environment", "zambia", "zmb"], "fields": [], "geometry_type": "Polyline", "extent": {}, "modified": ""},
     {"id": "ef791bcb05db473a9dc4eb04e41664b5", "name": "Zambia Wetlands and Lakes",
-     "description": "Wetlands and lakes in Zambia from OpenStreetMap.",
+     "description": "Wetlands and lakes across Zambia from OpenStreetMap. Includes named lakes (Kariba, Bangweulu, Mweru, Tanganyika) and wetland areas. Useful for water resource mapping and environmental planning.",
      "url": "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/Zambia_wetlands_lakes/FeatureServer/0",
-     "tags": ["wetlands", "lakes", "water", "environment", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+     "tags": ["wetlands", "lakes", "water", "environment", "kariba", "bangweulu", "mweru", "tanganyika", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
     {"id": "7be52e48252c464bbb8e1c713f87a5d1", "name": "Zambia Biodiversity Data",
-     "description": "Biodiversity polygon data for Zambia. Source: RCMRD/CIFOR-ICRAF.",
+     "description": "Protected areas and biodiversity polygon data for Zambia including national parks, game management areas, and conservation areas. Source: RCMRD/CIFOR-ICRAF.",
      "url": "https://services6.arcgis.com/zOnyumh63cMmLBBH/arcgis/rest/services/Zambia_Biodiversity_Data/FeatureServer/0",
-     "tags": ["biodiversity", "environment", "conservation", "nature", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+     "tags": ["biodiversity", "national parks", "conservation", "protected areas", "wildlife", "nature", "game", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
     {"id": "c6d0ce455cae4f4c96ef98e7d44f9793", "name": "Zambia Forests Data",
-     "description": "Forest polygon data for Zambia. Source: RCMRD/CIFOR-ICRAF.",
+     "description": "Forest polygon data for Zambia showing forest reserves and woodland areas. Source: RCMRD/CIFOR-ICRAF. Useful for land cover, deforestation, and environmental analysis.",
      "url": "https://services6.arcgis.com/zOnyumh63cMmLBBH/arcgis/rest/services/Zambia_Forests_Data/FeatureServer/0",
-     "tags": ["forests", "trees", "environment", "land cover", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+     "tags": ["forests", "forest reserves", "woodland", "trees", "land cover", "deforestation", "environment", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
     {"id": "883e648672134f6488ffbc9f31533a65", "name": "Zambia Biodiversity Point Data",
-     "description": "Biodiversity point observations across Zambia. Source: RCMRD/CIFOR-ICRAF.",
+     "description": "Biodiversity point observations across Zambia including species occurrence data. Source: RCMRD/CIFOR-ICRAF.",
      "url": "https://services6.arcgis.com/zOnyumh63cMmLBBH/arcgis/rest/services/Zambia_Biodiversity_Point_Data/FeatureServer/0",
-     "tags": ["biodiversity", "species", "environment", "conservation", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
+     "tags": ["biodiversity", "species", "wildlife", "environment", "conservation", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
     {"id": "c571868321cc41ef99ed27535ffa964d", "name": "Zambia Major Roads",
-     "description": "Major road network in Zambia.",
+     "description": "Major road network in Zambia including highways, primary and secondary roads. Useful for transport planning, accessibility analysis, and infrastructure mapping.",
      "url": "https://services3.arcgis.com/t6lYS2Pmd8iVx1fy/arcgis/rest/services/glc_ZMB_trs_roads_major_b_view/FeatureServer/0",
-     "tags": ["roads", "transport", "infrastructure", "highway", "zambia", "zmb"], "fields": [], "geometry_type": "Polyline", "extent": {}, "modified": ""},
+     "tags": ["roads", "highway", "transport", "infrastructure", "network", "accessibility", "zambia", "zmb"], "fields": [], "geometry_type": "Polyline", "extent": {}, "modified": ""},
     {"id": "bb0ba0c4ee1945f0ae35c1430b12574c", "name": "Lusaka Townships Risk Layers",
      "description": "Risk index by Lusaka township — socioeconomic vulnerability and communication access.",
      "url": "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/Lusaka_Townships_Risk_Layers/FeatureServer/0",
