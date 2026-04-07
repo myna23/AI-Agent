@@ -31,6 +31,11 @@ _BROKEN_HOSTS = {
     "services.arcgis.com/Xpv2nwwwvzUSJGCV",   # protected areas — returns 400
 }
 
+# Specific service URLs that are broken despite having a valid host
+_BROKEN_URLS = {
+    "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/OSM_rivers_buffered_2km/FeatureServer/0",
+}
+
 
 class HubClient:
     """
@@ -185,8 +190,10 @@ class HubClient:
             if not url or "FeatureServer" not in url:
                 continue
 
-            # Skip known broken hosts
+            # Skip known broken hosts and specific broken URLs
             if any(host in url for host in _BROKEN_HOSTS):
+                continue
+            if url in _BROKEN_URLS or url + "/0" in _BROKEN_URLS:
                 continue
 
             # For multi-layer services from the Hub org, enumerate all layers

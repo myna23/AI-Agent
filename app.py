@@ -316,6 +316,7 @@ def process_question(question: str):
     intent = detect_intent(question)
 
     geojson = None
+    map_geojson = None   # lightweight copy for map rendering (≤50 features)
     sample_features = []
 
     if context_dataset:
@@ -325,6 +326,7 @@ def process_question(question: str):
             try:
                 geojson = hub.fetch_geojson(context_dataset["url"], query_hint=question)
                 sample_features = geojson_to_sample_rows(geojson, n=200)
+                map_geojson = {"type": "FeatureCollection", "features": geojson.get("features", [])[:50]}
             except Exception:
                 pass
     else:
@@ -342,6 +344,7 @@ def process_question(question: str):
                     geojson = hub.fetch_geojson(candidate["url"], query_hint=question)
                     sample_features = geojson_to_sample_rows(geojson, n=200)
                     if sample_features:
+                        map_geojson = {"type": "FeatureCollection", "features": geojson.get("features", [])[:50]}
                         # Reorder so the dataset that actually returned data is first
                         datasets = [candidate] + [d for d in datasets if d != candidate]
                         break
@@ -361,7 +364,7 @@ def process_question(question: str):
                 return
 
             with st.spinner("Generating report (~15 seconds)..."):
-                stats = summarize_geojson(geojson) if geojson else {"feature_count": 0, "geometry_type": "Unknown", "fields": [], "numeric_stats": {}, "exceeded_limit": False}
+                stats = summarize_geojson(map_geojson) if map_geojson else {"feature_count": 0, "geometry_type": "Unknown", "fields": [], "numeric_stats": {}, "exceeded_limit": False}
                 rpt_text = claude.ask(
                     system=report_system_prompt(),
                     user=report_prompt(ds["name"], ds["description"], ds.get("fields", []), stats, sample_features),
@@ -384,13 +387,13 @@ def process_question(question: str):
                 file_name=f"{ds['name'].replace(' ','_')}_report.pdf",
                 mime="application/pdf", key="dl_pdf_new", use_container_width=True)
 
-            if geojson:
-                st_folium(make_folium_map(geojson, ds["name"]), width=720, height=340, returned_objects=[], key="map_new_rpt")
+            if map_geojson:
+                st_folium(make_folium_map(map_geojson, ds["name"]), width=720, height=340, returned_objects=[], key="map_new_rpt")
 
             st.session_state.messages.append({
                 "role": "assistant", "content": rpt_text, "intent": intent,
                 "docx_bytes": docx_bytes, "pdf_bytes": pdf_bytes,
-                "ds_name": ds["name"], "geojson": geojson,
+                "ds_name": ds["name"], "geojson": map_geojson,
             })
 
     # --- SUMMARY ---
@@ -403,7 +406,7 @@ def process_question(question: str):
                 st.session_state.messages.append({"role": "assistant", "content": response, "intent": intent})
                 return
 
-            stats = summarize_geojson(geojson) if geojson else {"feature_count": 0, "geometry_type": "Unknown", "fields": [], "numeric_stats": {}, "exceeded_limit": False}
+            stats = summarize_geojson(map_geojson) if map_geojson else {"feature_count": 0, "geometry_type": "Unknown", "fields": [], "numeric_stats": {}, "exceeded_limit": False}
             with st.spinner("Generating summary..."):
                 summary = claude.ask(
                     system=summarizer_system_prompt(),
@@ -411,7 +414,7 @@ def process_question(question: str):
                     max_tokens=1024,
                 )
 
-            if geojson:
+            if map_geojson:
                 s = stats
                 c1, c2, c3 = st.columns(3)
                 c1.metric("Features", f"{s['feature_count']:,}")
@@ -424,12 +427,12 @@ def process_question(question: str):
                 file_name=f"{ds['name'].replace(' ','_')}_summary.txt",
                 mime="text/plain", key="dl_sum_new")
 
-            if geojson:
-                st_folium(make_folium_map(geojson, ds["name"]), width=720, height=340, returned_objects=[], key="map_new_sum")
+            if map_geojson:
+                st_folium(make_folium_map(map_geojson, ds["name"]), width=720, height=340, returned_objects=[], key="map_new_sum")
 
             st.session_state.messages.append({
                 "role": "assistant", "content": summary, "intent": intent,
-                "summary_txt": summary, "ds_name": ds["name"], "geojson": geojson,
+                "summary_txt": summary, "ds_name": ds["name"], "geojson": map_geojson,
             })
 
     # --- CHAT (default) ---
@@ -448,12 +451,12 @@ def process_question(question: str):
                     for d in datasets:
                         st.markdown(f"- **{d['name']}** — {d['description'][:120]}")
 
-            if geojson:
-                st_folium(make_folium_map(geojson, ds["name"]), width=720, height=340, returned_objects=[], key="map_new_chat")
+            if map_geojson:
+                st_folium(make_folium_map(map_geojson, ds["name"]), width=720, height=340, returned_objects=[], key="map_new_chat")
 
             st.session_state.messages.append({
                 "role": "assistant", "content": response, "intent": intent,
-                "ds_name": ds.get("name", ""), "geojson": geojson,
+                "ds_name": ds.get("name", ""), "geojson": map_geojson,
             })
 
 # ---------------------------------------------------------------------------
