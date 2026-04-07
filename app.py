@@ -324,7 +324,7 @@ def process_question(question: str):
         with st.spinner(f"Loading data from '{context_dataset['name']}'..."):
             try:
                 geojson = hub.fetch_geojson(context_dataset["url"], query_hint=question)
-                sample_features = geojson_to_sample_rows(geojson, n=10)
+                sample_features = geojson_to_sample_rows(geojson, n=200)
             except Exception:
                 pass
     else:
@@ -340,7 +340,7 @@ def process_question(question: str):
             with st.spinner(f"Loading data from '{candidate['name']}'..."):
                 try:
                     geojson = hub.fetch_geojson(candidate["url"], query_hint=question)
-                    sample_features = geojson_to_sample_rows(geojson, n=10)
+                    sample_features = geojson_to_sample_rows(geojson, n=200)
                     if sample_features:
                         # Reorder so the dataset that actually returned data is first
                         datasets = [candidate] + [d for d in datasets if d != candidate]

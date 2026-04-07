@@ -18,18 +18,35 @@ def chatbot_system_prompt() -> str:
         "Your job is to help users understand and explore Zambia's geospatial data.\n\n"
         "RULES:\n"
         "- Answer using the dataset names, descriptions, and sample records provided to you.\n"
-        "- If sample records are provided, use them to give specific answers.\n"
-        "- If no sample records are provided but dataset names/descriptions are, "
-        "describe what those datasets contain and how they could answer the question.\n"
+        "- If sample records are provided, USE THEM to give specific, concrete answers "
+        "— name actual places, districts, provinces, and values from the records.\n"
+        "- The 'Type' field in the Points of Interest dataset uses these categories: "
+        "Commercial (markets, shops, businesses), Religion (churches, mosques), "
+        "Farm (farming areas, agriculture), Well, Borehole, Bridge, Dam, Airport, "
+        "Bank, Police, Post Office, Mining, Fisheries, Cooperative, Pharmacy, "
+        "Cemetery, Railway, Bus Stop, Mill, Recreation, Administration. "
+        "When sample records show Type='Religion', that means churches and mosques. "
+        "When Type='Commercial', that means marketplaces and shops. Etc.\n"
+        "- For 'which district has the most X' questions: count occurrences in the "
+        "sample records by District field and report the top districts from the sample, "
+        "noting it is based on the loaded sample.\n"
         "- If the question asks what data is available, list the datasets provided to you.\n"
         "- NEVER invent statistics or facts not present in the data.\n"
         "- Do NOT answer from general world knowledge — only from what is given to you.\n"
         "- Always cite the dataset name you used.\n"
-        "- Be concise and helpful — 3 to 5 sentences unless a list is clearer.\n"
-        "- If data is genuinely not available in any provided dataset, say: "
-        "'This specific information is not in the current GeoHub datasets loaded. "
-        "Try searching for a more specific dataset on zmb-geowb.hub.arcgis.com.'"
+        "- Be concise and helpful — use bullet points or short paragraphs.\n"
+        "- Only say data is unavailable if NO sample records and NO relevant dataset "
+        "description exists. If records are present, answer from them."
     )
+
+
+def _aggregate(features: list[dict], field: str) -> dict:
+    """Count features by a categorical field value."""
+    counts: dict = {}
+    for f in features:
+        val = str(f.get(field, "Unknown") or "Unknown")
+        counts[val] = counts.get(val, 0) + 1
+    return dict(sorted(counts.items(), key=lambda x: x[1], reverse=True))
 
 
 def chatbot_user_prompt(
@@ -51,7 +68,7 @@ def chatbot_user_prompt(
         fields_str = ", ".join(f["name"] for f in ds.get("fields", [])[:15])
         dataset_context += (
             f"\nDataset {i}: {ds['name']}\n"
-            f"  Description: {ds['description'][:250]}\n"
+            f"  Description: {ds['description'][:300]}\n"
         )
         if fields_str:
             dataset_context += f"  Fields: {fields_str}\n"
@@ -59,12 +76,24 @@ def chatbot_user_prompt(
     if not dataset_context:
         dataset_context = "No matching datasets found for this query.\n"
 
-    # Sample records
+    # Sample records + pre-aggregated counts
     if sample_features:
+        # Show up to 15 sample records
         sample_section = (
-            f"Sample records from top dataset ({len(sample_features)} records):\n"
-            f"```json\n{json.dumps(sample_features[:5], indent=2)}\n```\n"
+            f"Sample records from top dataset ({len(sample_features)} records loaded):\n"
+            f"```json\n{json.dumps(sample_features[:15], indent=2)}\n```\n"
         )
+        # Pre-aggregate by key categorical fields so AI can answer counting questions
+        agg_section = ""
+        for field in ["District", "Province", "Type", "SubType", "Facility_T", "PROVINCE", "DISTRICT"]:
+            if sample_features and field in sample_features[0]:
+                counts = _aggregate(sample_features, field)
+                top = list(counts.items())[:10]
+                agg_section += f"\nCount by {field} (from loaded sample):\n"
+                for val, cnt in top:
+                    agg_section += f"  {val}: {cnt}\n"
+        if agg_section:
+            sample_section += f"\nAggregated counts:{agg_section}"
     else:
         sample_section = (
             "No sample records were loaded (dataset may be empty or unavailable). "
@@ -84,8 +113,8 @@ def chatbot_user_prompt(
         f"{sample_section}"
         f"{catalog_overview}\n"
         "Answer the question using the information above. "
-        "If sample records are available use them for specific answers. "
-        "If only dataset descriptions are available, describe what the dataset covers and how it relates to the question."
+        "Use the aggregated counts and sample records for specific answers about distribution, counts, or rankings. "
+        "Note when counts are based on a sample of the full dataset."
     )
 
 
