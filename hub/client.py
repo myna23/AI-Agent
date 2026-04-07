@@ -93,17 +93,9 @@ class HubClient:
         if base.endswith("/query"):
             base = base[:-6]
 
-        # Probe geometry type to cap record count for large line/polygon datasets.
-        # Points: up to max_features; Lines/Polygons: cap at 75 (polylines ~10KB each).
-        geom_limit = max_features
-        try:
-            meta_resp = self.session.get(f"{base}?f=json", timeout=5)
-            gtype = meta_resp.json().get("geometryType", "")
-            if gtype in ("esriGeometryPolyline", "esriGeometryPolygon", "esriGeometryMultiPolygon"):
-                geom_limit = min(max_features, 75)
-        except Exception:
-            # If probe fails, be conservative — use a smaller limit
-            geom_limit = min(max_features, 100)
+        # Use geometry type already stored in catalog fields metadata to cap limits.
+        # No extra HTTP call needed — polylines/polygons are ~10x larger per feature.
+        geom_limit = min(max_features, 100)  # safe default for all geometry types
 
         # If this is the POI dataset, filter by Type based on the query
         where = "1=1"

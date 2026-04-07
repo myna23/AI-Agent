@@ -274,9 +274,10 @@ for i, msg in enumerate(st.session_state.messages):
                     key=f"sum_{i}",
                 )
 
-            # Map
-            if msg.get("geojson") and msg.get("ds_name"):
-                m = make_folium_map(msg["geojson"], msg["ds_name"])
+            # Map — always show (empty basemap if no data loaded)
+            if msg.get("ds_name"):
+                hist_geojson = msg.get("geojson") or {"type": "FeatureCollection", "features": []}
+                m = make_folium_map(hist_geojson, msg["ds_name"])
                 st_folium(m, width=720, height=340, returned_objects=[], key=f"map_{i}")
 
             # Edit prompt button
@@ -387,8 +388,8 @@ def process_question(question: str):
                 file_name=f"{ds['name'].replace(' ','_')}_report.pdf",
                 mime="application/pdf", key="dl_pdf_new", use_container_width=True)
 
-            if map_geojson:
-                st_folium(make_folium_map(map_geojson, ds["name"]), width=720, height=340, returned_objects=[], key="map_new_rpt")
+            display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
+            st_folium(make_folium_map(display_geojson, ds["name"]), width=720, height=340, returned_objects=[], key="map_new_rpt")
 
             st.session_state.messages.append({
                 "role": "assistant", "content": rpt_text, "intent": intent,
@@ -427,8 +428,8 @@ def process_question(question: str):
                 file_name=f"{ds['name'].replace(' ','_')}_summary.txt",
                 mime="text/plain", key="dl_sum_new")
 
-            if map_geojson:
-                st_folium(make_folium_map(map_geojson, ds["name"]), width=720, height=340, returned_objects=[], key="map_new_sum")
+            display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
+            st_folium(make_folium_map(display_geojson, ds["name"]), width=720, height=340, returned_objects=[], key="map_new_sum")
 
             st.session_state.messages.append({
                 "role": "assistant", "content": summary, "intent": intent,
@@ -451,8 +452,9 @@ def process_question(question: str):
                     for d in datasets:
                         st.markdown(f"- **{d['name']}** — {d['description'][:120]}")
 
-            if map_geojson:
-                st_folium(make_folium_map(map_geojson, ds["name"]), width=720, height=340, returned_objects=[], key="map_new_chat")
+            # Always show a map — with data if available, plain Zambia basemap if not
+            display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
+            st_folium(make_folium_map(display_geojson, ds.get("name", "")), width=720, height=340, returned_objects=[], key="map_new_chat")
 
             st.session_state.messages.append({
                 "role": "assistant", "content": response, "intent": intent,
