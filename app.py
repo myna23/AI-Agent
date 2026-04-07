@@ -339,6 +339,7 @@ def process_question(question: str):
                 datasets = []
 
         # Try each ranked dataset until one returns actual features
+        _fetch_errors = []
         for candidate in datasets:
             with st.spinner(f"Loading data from '{candidate['name']}'..."):
                 try:
@@ -346,11 +347,16 @@ def process_question(question: str):
                     sample_features = geojson_to_sample_rows(geojson, n=200)
                     if sample_features:
                         map_geojson = {"type": "FeatureCollection", "features": geojson.get("features", [])[:50]}
-                        # Reorder so the dataset that actually returned data is first
                         datasets = [candidate] + [d for d in datasets if d != candidate]
                         break
-                except Exception:
-                    pass
+                except Exception as e:
+                    _fetch_errors.append(f"{candidate['name']}: {e}")
+
+        # Show fetch errors in expander so we can diagnose cloud issues
+        if _fetch_errors and not sample_features:
+            with st.expander("⚠️ Data fetch details (debug)", expanded=False):
+                for err in _fetch_errors:
+                    st.caption(err)
 
     ds = datasets[0] if datasets else {}
 
