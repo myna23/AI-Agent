@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 MAX_FEATURES = int(os.getenv("MAX_FEATURES", "200"))
-REQUEST_TIMEOUT = 20
+REQUEST_TIMEOUT = 30
 
 # Irrelevant items that happen to have zmb in their tags (not Zambia geospatial data)
 _SKIP_TITLES = {
@@ -106,9 +106,15 @@ class HubClient:
                     where = f"Type='{poi_type}'"
                     break
 
+        # For large datasets, fetch only essential fields to reduce payload size.
+        # Key fields cover name, location, type across all Zambia datasets.
+        essential_fields = (
+            "name,NAME,Type,SubType,Province,District,surface,roadnoloc,"
+            "speedlimitkmh,fclass,WETLAND_NA,ADM1_EN,ADM2_EN,FID,OBJECTID"
+        )
         params = {
             "where": where,
-            "outFields": "*",
+            "outFields": essential_fields,
             "resultRecordCount": geom_limit,
             "f": "geojson",
         }
