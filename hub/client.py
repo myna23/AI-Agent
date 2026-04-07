@@ -110,10 +110,20 @@ class HubClient:
     # ------------------------------------------------------------------
 
     def _load_catalog(self) -> list:
-        """Load catalog from ArcGIS Online (cached after first call)."""
+        """Load catalog from ArcGIS Online (cached after first call).
+
+        Combines two sources:
+          1. Public datasets tagged 'zmb' on ArcGIS Online (community/partner data)
+          2. Public Feature Services in the Zambia GeoHub org (iQ1dY19aHwbSDYIF)
+        Falls back to _SEED_CATALOG if network is unreachable.
+        """
         if self._catalog:
             return self._catalog
 
+        catalog = []
+        seen_urls: set = set()
+
+        # ---- Source 1: tags:zmb on ArcGIS Online ----
         try:
             resp = self.session.get(
                 "https://www.arcgis.com/sharing/rest/search",
@@ -125,16 +135,41 @@ class HubClient:
                 timeout=REQUEST_TIMEOUT,
             )
             resp.raise_for_status()
-            results = resp.json().get("results", [])
+            zmb_results = resp.json().get("results", [])
         except Exception:
-            # Fall back to built-in seed catalog if network fails
+            zmb_results = []
+
+        # ---- Source 2: Zambia GeoHub org services ----
+        try:
+            resp2 = self.session.get(
+                "https://www.arcgis.com/sharing/rest/search",
+                params={
+                    "q": 'orgid:iQ1dY19aHwbSDYIF type:"Feature Service"',
+                    "f": "json",
+                    "num": 100,
+                },
+                timeout=REQUEST_TIMEOUT,
+            )
+            resp2.raise_for_status()
+            org_results = resp2.json().get("results", [])
+            # Filter to Zambia-relevant items only
+            org_results = [
+                r for r in org_results
+                if any(
+                    kw in ((r.get("title") or "") + " " + (r.get("snippet") or "") + " " + " ".join(r.get("tags") or [])).lower()
+                    for kw in ("zambia", "zmb", "lusaka", "copperbelt")
+                )
+            ]
+        except Exception:
+            org_results = []
+
+        all_results = zmb_results + org_results
+
+        if not all_results:
             self._catalog = _SEED_CATALOG
             return self._catalog
 
-        catalog = []
-        seen_urls = set()
-
-        for r in results:
+        for r in all_results:
             title = r.get("title", "") or ""
             if title.lower() in _SKIP_TITLES:
                 continue
@@ -143,7 +178,31 @@ class HubClient:
             if not url or "FeatureServer" not in url:
                 continue
 
-            # Ensure layer 0 is appended
+            # For multi-layer services from the Hub org, enumerate all layers
+            if r in org_results and not url.split("/")[-1].isdigit():
+                layers = self._fetch_service_layers(url)
+                for layer_id, layer_name in layers:
+                    layer_url = f"{url}/{layer_id}"
+                    if layer_url in seen_urls:
+                        continue
+                    seen_urls.add(layer_url)
+                    fields = self._fetch_fields(layer_url)
+                    tags = [t.lower() for t in (r.get("tags") or [])]
+                    snippet = (r.get("snippet") or "")[:300]
+                    catalog.append({
+                        "id": f"{r.get('id', '')}_{layer_id}",
+                        "name": f"{title} — {layer_name}" if layer_name != title else title,
+                        "description": snippet,
+                        "url": layer_url,
+                        "tags": tags,
+                        "fields": fields,
+                        "geometry_type": "Unknown",
+                        "extent": {},
+                        "modified": str(r.get("modified", "")),
+                    })
+                continue
+
+            # Single-layer or already layer-specific URL
             if not url.split("/")[-1].isdigit():
                 url = url + "/0"
 
@@ -167,7 +226,34 @@ class HubClient:
                 "modified": str(r.get("modified", "")),
             })
 
-        self._catalog = catalog if catalog else _SEED_CATALOG
+        if not catalog:
+            self._catalog = _SEED_CATALOG
+            return self._catalog
+
+        # Build a lookup from URL to seed entry for enrichment
+        seed_by_url = {s["url"]: s for s in _SEED_CATALOG}
+
+        # Enrich live catalog entries with extra tags/descriptions from seed
+        # (ArcGIS Online tags are minimal; seed has curated marketplace/POI tags etc.)
+        for ds in catalog:
+            seed = seed_by_url.get(ds["url"])
+            if seed:
+                # Merge tags (deduplicated)
+                existing_tags = set(ds["tags"])
+                for t in seed["tags"]:
+                    if t not in existing_tags:
+                        ds["tags"].append(t)
+                # Use seed description if richer
+                if len(seed["description"]) > len(ds["description"]):
+                    ds["description"] = seed["description"]
+
+        # Add seed entries whose URL isn't in the live catalog at all
+        live_urls = {ds["url"] for ds in catalog}
+        for seed_entry in _SEED_CATALOG:
+            if seed_entry["url"] not in live_urls:
+                catalog.append(seed_entry)
+
+        self._catalog = catalog
         return self._catalog
 
     # ------------------------------------------------------------------
@@ -202,6 +288,15 @@ class HubClient:
     # ------------------------------------------------------------------
     # Field metadata
     # ------------------------------------------------------------------
+
+    def _fetch_service_layers(self, service_url: str) -> list:
+        """Return list of (layer_id, layer_name) for a FeatureServer."""
+        try:
+            resp = self.session.get(f"{service_url}?f=json", timeout=10)
+            layers = resp.json().get("layers", [])
+            return [(l.get("id", 0), l.get("name", f"Layer {l.get('id',0)}")) for l in layers]
+        except Exception:
+            return [(0, "Layer 0")]
 
     def _fetch_fields(self, layer_url: str) -> list:
         """Fetch field definitions from a FeatureServer layer."""
@@ -302,4 +397,25 @@ _SEED_CATALOG = [
      "description": "Risk index by Lusaka township — socioeconomic vulnerability and communication access.",
      "url": "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/Lusaka_Townships_Risk_Layers/FeatureServer/0",
      "tags": ["lusaka", "townships", "risk", "urban", "vulnerability", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    # ---- From Zambia GeoHub org (iQ1dY19aHwbSDYIF) ----
+    {"id": "zmb_borders_adm1", "name": "Zambia Provincial Boundaries (Admin 1)",
+     "description": "Official province-level administrative boundaries for Zambia. ITOS/OCHA standard. Fields: ADM1_EN (province name), ADM1_PCODE.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia Borders/FeatureServer/3",
+     "tags": ["provinces", "boundaries", "administrative", "admin1", "zambia", "zmb", "itos", "ocha"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    {"id": "zmb_borders_adm2", "name": "Zambia District Boundaries (Admin 2)",
+     "description": "Official district-level administrative boundaries for Zambia. ITOS/OCHA standard. Fields: ADM2_EN (district name), ADM2_PCODE.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia Borders/FeatureServer/4",
+     "tags": ["districts", "boundaries", "administrative", "admin2", "zambia", "zmb", "itos", "ocha"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    {"id": "zmb_borders_adm0", "name": "Zambia National Boundary (Admin 0)",
+     "description": "Official national boundary polygon for Zambia. ITOS/OCHA standard.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia Borders/FeatureServer/2",
+     "tags": ["national", "boundary", "country", "admin0", "zambia", "zmb", "itos"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    {"id": "zmb_onshore_aquaculture", "name": "Zambia Onshore Aquaculture Suitability Zones",
+     "description": "Suitability zones for onshore aquaculture across Zambia by province. Fields: suitability, area_km2, ADM1_EN (province).",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_onshore_aquaculture/FeatureServer/0",
+     "tags": ["aquaculture", "fisheries", "fish", "farming", "suitability", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    {"id": "zmb_kariba_aquaculture", "name": "Zambia Lake Kariba Cage Aquaculture Suitability Zones",
+     "description": "Suitability zones for cage aquaculture on Lake Kariba (Zambia portion). Fields: suitability, area_km2.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Suitability_zones_for_cage_aquaculture_on_lake_Kariba_(Zambia_part)/FeatureServer/0",
+     "tags": ["aquaculture", "fisheries", "kariba", "lake", "cage", "fish", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
 ]
