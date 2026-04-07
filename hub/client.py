@@ -29,6 +29,8 @@ _SKIP_TITLES = {
 _BROKEN_HOSTS = {
     "services9.arcgis.com/ZNWWwa7zEkUIYLEA",  # all services return 400
     "services.arcgis.com/Xpv2nwwwvzUSJGCV",   # protected areas — returns 400
+    "gis.logcluster.org",                       # MapServer not started (500)
+    "utility.arcgis.com",                       # requires auth (403)
 }
 
 # Specific service URLs that are broken despite having a valid host
@@ -37,6 +39,7 @@ _BROKEN_URLS = {
     "https://services7.arcgis.com/dZosTnbDNAhfMkt3/arcgis/rest/services/ZMB_Form_1_view/FeatureServer/0",  # token required
     "https://services9.arcgis.com/zdTKtWQehTjbybEv/arcgis/rest/services/Affected_Adm2_ZMB/FeatureServer/0",  # token required
     "https://utility.arcgis.com/usrsvcs/servers/8b00a549b01f435eaafa076452e3ee05/rest/services/ZMB_Boundaries/FeatureServer/0",  # 403
+    "https://gis.logcluster.org/server/rest/services/Zambia/zmb_trs_roads_s_w_viewer/MapServer/0",  # MapServer not started (500)
 }
 
 
@@ -82,10 +85,25 @@ class HubClient:
         """Fetch features from a FeatureServer layer as GeoJSON.
 
         query_hint: original user query — used to filter POI by type when applicable.
+
+        For line/polygon datasets, fewer features are fetched to keep response sizes
+        manageable (polylines/polygons are ~10-20x larger per feature than points).
         """
         base = feature_url.rstrip("/")
         if base.endswith("/query"):
             base = base[:-6]
+
+        # Probe geometry type to cap record count for large line/polygon datasets.
+        # Points: up to max_features; Lines/Polygons: cap at 75 (polylines ~10KB each).
+        geom_limit = max_features
+        try:
+            meta_resp = self.session.get(f"{base}?f=json", timeout=5)
+            gtype = meta_resp.json().get("geometryType", "")
+            if gtype in ("esriGeometryPolyline", "esriGeometryPolygon", "esriGeometryMultiPolygon"):
+                geom_limit = min(max_features, 75)
+        except Exception:
+            # If probe fails, be conservative — use a smaller limit
+            geom_limit = min(max_features, 100)
 
         # If this is the POI dataset, filter by Type based on the query
         where = "1=1"
@@ -99,7 +117,7 @@ class HubClient:
         params = {
             "where": where,
             "outFields": "*",
-            "resultRecordCount": max_features,
+            "resultRecordCount": geom_limit,
             "f": "geojson",
         }
         try:
