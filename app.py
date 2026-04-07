@@ -335,11 +335,16 @@ def process_question(question: str):
             except Exception:
                 datasets = []
 
-        if datasets:
-            with st.spinner(f"Loading data from '{datasets[0]['name']}'..."):
+        # Try each ranked dataset until one returns actual features
+        for candidate in datasets:
+            with st.spinner(f"Loading data from '{candidate['name']}'..."):
                 try:
-                    geojson = hub.fetch_geojson(datasets[0]["url"], query_hint=question)
+                    geojson = hub.fetch_geojson(candidate["url"], query_hint=question)
                     sample_features = geojson_to_sample_rows(geojson, n=10)
+                    if sample_features:
+                        # Reorder so the dataset that actually returned data is first
+                        datasets = [candidate] + [d for d in datasets if d != candidate]
+                        break
                 except Exception:
                     pass
 

@@ -24,6 +24,13 @@ _SKIP_TITLES = {
     "1893 chicago ucla 3d", "mpjb", "enriched_gadm41_zmb_shp___gadm41_zmb_0",
 }
 
+# ArcGIS Server hosts that return 400 / non-JSON for GeoJSON queries.
+# Datasets from these hosts are excluded from the catalog at load time.
+_BROKEN_HOSTS = {
+    "services9.arcgis.com/ZNWWwa7zEkUIYLEA",  # all services return 400
+    "services.arcgis.com/Xpv2nwwwvzUSJGCV",   # protected areas — returns 400
+}
+
 
 class HubClient:
     """
@@ -178,6 +185,10 @@ class HubClient:
             if not url or "FeatureServer" not in url:
                 continue
 
+            # Skip known broken hosts
+            if any(host in url for host in _BROKEN_HOSTS):
+                continue
+
             # For multi-layer services from the Hub org, enumerate all layers
             if r in org_results and not url.split("/")[-1].isdigit():
                 layers = self._fetch_service_layers(url)
@@ -260,9 +271,23 @@ class HubClient:
     # Search ranking
     # ------------------------------------------------------------------
 
+    # Words that are too generic to carry ranking weight (appear in nearly every dataset)
+    _STOP_WORDS = {"zambia", "zmb", "area", "areas", "data", "layer", "dataset", "show", "where", "what", "many", "the"}
+
     def _rank(self, query: str, catalog: list) -> list:
         """Rank catalog entries by relevance to query."""
-        words = [w.lower() for w in query.split() if len(w) > 2]
+        query_lower = query.lower()
+        words = [w for w in query_lower.split() if len(w) > 2 and w not in self._STOP_WORDS]
+
+        # POI boost: if query contains any POI keyword, strongly favour the POI dataset
+        poi_boost_urls = set()
+        for keyword in self._POI_TYPE_MAP:
+            if keyword in query_lower:
+                for ds in catalog:
+                    if "Points_of_Interest" in ds["url"] or "POI" in ds["url"]:
+                        poi_boost_urls.add(ds["url"])
+                break
+
         scored = []
         for ds in catalog:
             score = 0
@@ -270,10 +295,13 @@ class HubClient:
             for word in words:
                 if word in text:
                     score += 2
-                # partial match
+                # partial match (only against content tokens, not query stop-words)
                 for token in text.split():
                     if word in token or token in word:
                         score += 0.5
+            # POI keyword boost — ensures POI dataset wins for marketplace/farm/etc queries
+            if ds["url"] in poi_boost_urls:
+                score += 20
             if score > 0:
                 scored.append((score, ds))
 
