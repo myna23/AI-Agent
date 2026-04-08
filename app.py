@@ -26,6 +26,41 @@ from ai.prompts import (
 )
 from reports.builder import ReportBuilder
 from utils.geo_utils import make_folium_map, summarize_geojson, geojson_to_sample_rows
+import json as _json_mod
+import os as _os_mod
+
+# Pre-load context layers once (district boundaries + roads) for map background.
+# These are shown underneath point datasets so users can see which district/road
+# is nearest to each church, market, health facility, school, etc.
+@st.cache_resource(show_spinner=False)
+def _load_context_layers():
+    data_dir = _os_mod.path.join(_os_mod.path.dirname(__file__), "data")
+    layers = []
+    _dist_path = _os_mod.path.join(data_dir, "districts.json")
+    if _os_mod.path.exists(_dist_path):
+        with open(_dist_path) as f:
+            layers.append({"geojson": _json_mod.load(f), "name": "Districts", "type": "boundary"})
+    _road_path = _os_mod.path.join(data_dir, "roads.json")
+    if _os_mod.path.exists(_road_path):
+        with open(_road_path) as f:
+            layers.append({"geojson": _json_mod.load(f), "name": "Major Roads", "type": "road"})
+    return layers
+
+_CONTEXT_LAYERS = _load_context_layers()
+
+
+def _map(geojson: dict, name: str, with_context: bool = False) -> object:
+    """Wrapper: adds district + road context layers for point datasets."""
+    ctx = _CONTEXT_LAYERS if with_context else None
+    return make_folium_map(geojson, name, context_layers=ctx)
+
+
+def _is_point_geojson(geojson: dict) -> bool:
+    feats = geojson.get("features", [])
+    if not feats:
+        return False
+    g = feats[0].get("geometry")
+    return bool(g and g.get("type") == "Point")
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -277,7 +312,7 @@ for i, msg in enumerate(st.session_state.messages):
             # Map — always show (empty basemap if no data loaded)
             if msg.get("ds_name"):
                 hist_geojson = msg.get("geojson") or {"type": "FeatureCollection", "features": []}
-                m = make_folium_map(hist_geojson, msg["ds_name"])
+                m = _map(hist_geojson, msg["ds_name"], with_context=_is_point_geojson(hist_geojson))
                 st_folium(m, width=720, height=340, returned_objects=[], key=f"map_{i}")
 
             # Edit prompt button
@@ -450,7 +485,7 @@ def process_question(question: str):
                 mime="application/pdf", key="dl_pdf_new", use_container_width=True)
 
             display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
-            st_folium(make_folium_map(display_geojson, ds["name"]), width=720, height=340, returned_objects=[], key="map_new_rpt")
+            st_folium(_map(display_geojson, ds["name"], with_context=_is_point_geojson(display_geojson)), width=720, height=340, returned_objects=[], key="map_new_rpt")
 
             st.session_state.messages.append({
                 "role": "assistant", "content": rpt_text, "intent": intent,
@@ -490,7 +525,7 @@ def process_question(question: str):
                 mime="text/plain", key="dl_sum_new")
 
             display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
-            st_folium(make_folium_map(display_geojson, ds["name"]), width=720, height=340, returned_objects=[], key="map_new_sum")
+            st_folium(_map(display_geojson, ds["name"], with_context=_is_point_geojson(display_geojson)), width=720, height=340, returned_objects=[], key="map_new_sum")
 
             st.session_state.messages.append({
                 "role": "assistant", "content": summary, "intent": intent,
@@ -515,7 +550,7 @@ def process_question(question: str):
 
             # Always show a map — with data if available, plain Zambia basemap if not
             display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
-            st_folium(make_folium_map(display_geojson, ds.get("name", "")), width=720, height=340, returned_objects=[], key="map_new_chat")
+            st_folium(_map(display_geojson, ds.get("name", ""), with_context=_is_point_geojson(display_geojson)), width=720, height=340, returned_objects=[], key="map_new_chat")
 
             st.session_state.messages.append({
                 "role": "assistant", "content": response, "intent": intent,

@@ -14,17 +14,54 @@ ZAMBIA_CENTER = [-13.5, 28.5]
 ZAMBIA_ZOOM = 6
 
 
-def make_folium_map(geojson: dict, dataset_name: str = "") -> folium.Map:
+def make_folium_map(
+    geojson: dict,
+    dataset_name: str = "",
+    context_layers: list = None,
+) -> folium.Map:
     """
     Build a Folium map from a GeoJSON FeatureCollection.
 
-    - Points → CircleMarker with popup
+    - Points → CircleMarker with popup (+ optional district/road context layers)
     - Lines / Polygons → GeoJson overlay
     - No geometry → plain Zambia-centered basemap
+
+    context_layers: list of {"geojson": dict, "name": str, "type": "boundary"|"road"}
+      Added as background layers when the primary data is points, so users can
+      see which district/road is nearest to each facility or POI.
     """
     m = folium.Map(location=ZAMBIA_CENTER, zoom_start=ZAMBIA_ZOOM, tiles="CartoDB positron")
 
     features = geojson.get("features", [])
+
+    # Add context layers (districts, roads) before the main data so points sit on top
+    if context_layers:
+        for ctx in context_layers:
+            ctx_feats = ctx["geojson"].get("features", [])
+            if not ctx_feats:
+                continue
+            ctx_type = ctx.get("type", "boundary")
+            if ctx_type == "boundary":
+                def _boundary_style(_feature):
+                    return {"fillColor": "transparent", "color": "#888888", "weight": 1, "fillOpacity": 0}
+                label_fields = _pick_label_fields(ctx_feats)
+                folium.GeoJson(
+                    ctx["geojson"],
+                    name=ctx["name"],
+                    style_function=_boundary_style,
+                    tooltip=folium.GeoJsonTooltip(fields=label_fields, aliases=label_fields, localize=True) if label_fields else None,
+                ).add_to(m)
+            elif ctx_type == "road":
+                def _road_style(_feature):
+                    return {"color": "#b5838d", "weight": 1.5, "opacity": 0.6}
+                label_fields = _pick_label_fields(ctx_feats)
+                folium.GeoJson(
+                    ctx["geojson"],
+                    name=ctx["name"],
+                    style_function=_road_style,
+                    tooltip=folium.GeoJsonTooltip(fields=label_fields, aliases=label_fields, localize=True) if label_fields else None,
+                ).add_to(m)
+
     if not features:
         return m
 
