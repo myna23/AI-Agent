@@ -424,74 +424,80 @@ def process_question(question: str):
             except Exception:
                 datasets = []
 
-        # Try each ranked dataset until one returns actual features
-        _fetch_errors = []
-        _empty_fetches = []
-        for candidate in datasets:
-            with st.spinner(f"Loading data from '{candidate['name']}'..."):
-                try:
-                    geojson = hub.fetch_geojson(candidate["url"], query_hint=question)
-                    feat_count = len(geojson.get("features", []))
-                    sample_features = geojson_to_sample_rows(geojson, n=200)
-                    if sample_features:
-                        map_geojson = {"type": "FeatureCollection", "features": geojson.get("features", [])[:50]}
-                        datasets = [candidate] + [d for d in datasets if d != candidate]
-                        break
-                    else:
-                        _empty_fetches.append(
-                            f"{candidate['name']}: returned {feat_count} features\n  URL: {candidate['url']}"
-                        )
-                except Exception as e:
-                    _fetch_errors.append(f"{candidate['name']}: {e}\n  URL: {candidate['url']}")
+        from hub.client import _load_static, _POI_TYPE_MAP_MODULE, _SUBJECT_BOOST_MODULE
 
-        # If live fetch returned nothing, load static sample data.
-        # Use module-level constants (not hub instance attrs) to avoid cache issues.
-        if not sample_features:
-            from hub.client import _load_static, _STATIC_MAP, _POI_TYPE_MAP_MODULE, _SUBJECT_BOOST_MODULE
+        # Detect location mention early — if present, use static data so we
+        # have all records available to filter (live fetch only returns 30 random ones)
+        _location, _loc_type = _extract_location(question)
 
-            _poi_type = ""
-            for kw, ptype in _POI_TYPE_MAP_MODULE.items():
-                if kw in question.lower():
-                    _poi_type = ptype
-                    break
+        _poi_type = ""
+        for kw, ptype in _POI_TYPE_MAP_MODULE.items():
+            if kw in question.lower():
+                _poi_type = ptype
+                break
 
-            _static_data = None
-            _static_candidate = None
-            q_lower = question.lower()
+        def _find_static(q_lower):
             catalog = hub.get_catalog()
-
-            # Step 1: Subject keyword → URL fragment → static file
             for kw, frag in _SUBJECT_BOOST_MODULE.items():
                 if kw in q_lower:
                     for ds in catalog:
                         if frag in ds["url"]:
-                            _static_data = _load_static(ds["url"], poi_type=_poi_type)
-                            if _static_data and _static_data.get("features"):
-                                _static_candidate = ds
-                                break
-                    if _static_data:
-                        break
+                            sd = _load_static(ds["url"], poi_type=_poi_type)
+                            if sd and sd.get("features"):
+                                return sd, ds
+            for kw in _POI_TYPE_MAP_MODULE:
+                if kw in q_lower:
+                    for ds in catalog:
+                        if "Points_of_Interest" in ds["url"]:
+                            sd = _load_static(ds["url"], poi_type=_poi_type)
+                            if sd and sd.get("features"):
+                                return sd, ds
+                    break
+            for candidate in datasets:
+                sd = _load_static(candidate["url"], poi_type=_poi_type)
+                if sd and sd.get("features"):
+                    return sd, candidate
+            return None, None
 
-            # Step 2: POI keywords
-            if not _static_data:
-                for kw in _POI_TYPE_MAP_MODULE:
-                    if kw in q_lower:
-                        for ds in catalog:
-                            if "Points_of_Interest" in ds["url"]:
-                                _static_data = _load_static(ds["url"], poi_type=_poi_type)
-                                if _static_data and _static_data.get("features"):
-                                    _static_candidate = ds
-                                    break
-                        break
+        # If location is mentioned, always load full static data and filter it
+        # (live fetch returns only 30 random records — misses location-specific ones)
+        if _location:
+            _static_data, _static_candidate = _find_static(question.lower())
+            if _static_data and _static_data.get("features"):
+                all_feats = _static_data["features"]
+                loc_feats = _filter_by_location(all_feats, _location, _loc_type)
+                # Use location-filtered features for AI analysis
+                use_feats = loc_feats if loc_feats else all_feats
+                sample_features = geojson_to_sample_rows(
+                    {"type": "FeatureCollection", "features": use_feats},
+                    n=len(use_feats)
+                )
+                map_geojson = {"type": "FeatureCollection", "features": use_feats[:50]}
+                if _static_candidate:
+                    datasets = [_static_candidate] + [d for d in datasets if d != _static_candidate]
+                if loc_feats:
+                    st.info(f"📦 Showing {len(loc_feats)} records for {_location} from pre-loaded sample.")
+                else:
+                    st.info(f"📦 No records found for {_location} in sample — showing full dataset.")
 
-            # Step 3: Fall back to ranked candidates
-            if not _static_data:
-                for candidate in datasets:
-                    _static_data = _load_static(candidate["url"], poi_type=_poi_type)
-                    if _static_data and _static_data.get("features"):
-                        _static_candidate = candidate
-                        break
+        # No location: try live fetch, fall back to static
+        if not sample_features:
+            _fetch_errors = []
+            for candidate in datasets:
+                with st.spinner(f"Loading data from '{candidate['name']}'..."):
+                    try:
+                        geojson = hub.fetch_geojson(candidate["url"], query_hint=question)
+                        sample_features = geojson_to_sample_rows(geojson, n=200)
+                        if sample_features:
+                            map_geojson = {"type": "FeatureCollection", "features": geojson.get("features", [])[:50]}
+                            datasets = [candidate] + [d for d in datasets if d != candidate]
+                            break
+                    except Exception as e:
+                        _fetch_errors.append(f"{candidate['name']}: {e}")
 
+        # Last resort: static fallback
+        if not sample_features:
+            _static_data, _static_candidate = _find_static(question.lower())
             if _static_data and _static_data.get("features"):
                 sample_features = geojson_to_sample_rows(_static_data, n=len(_static_data["features"]))
                 map_geojson = {"type": "FeatureCollection", "features": _static_data["features"][:50]}
@@ -610,14 +616,6 @@ def process_question(question: str):
                 with st.expander("Datasets used"):
                     for d in datasets:
                         st.markdown(f"- **{d['name']}** — {d['description'][:120]}")
-
-            # Filter map to specific location if mentioned in question
-            location, loc_type = _extract_location(question)
-            map_feats = (map_geojson or {}).get("features", [])
-            if location and map_feats:
-                filtered = _filter_by_location(map_feats, location, loc_type)
-                if filtered:
-                    map_geojson = {"type": "FeatureCollection", "features": filtered}
 
             display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
             st_folium(_map(display_geojson, ds.get("name", ""), with_context=_is_point_geojson(display_geojson)), width=720, height=340, returned_objects=[], key="map_new_chat")
