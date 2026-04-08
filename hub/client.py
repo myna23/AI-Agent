@@ -53,7 +53,14 @@ class HubClient:
 
     def __init__(self):
         self.session = requests.Session()
-        self.session.headers.update({"Accept": "application/json"})
+        self.session.headers.update({
+            "Accept": "application/json",
+            # ArcGIS services check Referer to decide whether to serve public data.
+            # Setting this to the Hub domain allows requests that would otherwise
+            # return 0 features or 403 from cloud datacenter IPs.
+            "Referer": "https://zmb-geowb.hub.arcgis.com",
+            "Origin": "https://zmb-geowb.hub.arcgis.com",
+        })
         self._catalog: list = []  # cached on first use
 
     # ------------------------------------------------------------------
@@ -128,13 +135,38 @@ class HubClient:
             raise RuntimeError(f"Feature fetch failed: {exc}") from exc
 
         if "features" not in geojson:
-            # Include a snippet of the response so the caller can log it
             snippet = str(geojson)[:300]
             raise ValueError(f"Response is not GeoJSON — keys={list(geojson.keys())} snippet={snippet}")
 
-        # If response has an error block, surface it
         if "error" in geojson:
             raise ValueError(f"ArcGIS error: {geojson['error']}")
+
+        # If GeoJSON came back empty, retry without geometry (attributes only via JSON).
+        # Some ArcGIS servers refuse GeoJSON format from cloud IPs but serve plain JSON.
+        if not geojson.get("features"):
+            params_json = {
+                "where": where,
+                "outFields": "*",
+                "resultRecordCount": geom_limit,
+                "returnGeometry": "false",
+                "f": "json",
+            }
+            try:
+                resp2 = self.session.get(f"{base}/query", params=params_json, timeout=REQUEST_TIMEOUT)
+                resp2.raise_for_status()
+                json_resp = resp2.json()
+                if "error" not in json_resp and json_resp.get("features"):
+                    # Convert esri JSON features to GeoJSON-like structure (no geometry)
+                    geojson = {
+                        "type": "FeatureCollection",
+                        "features": [
+                            {"type": "Feature", "geometry": None,
+                             "properties": f.get("attributes", {})}
+                            for f in json_resp["features"]
+                        ],
+                    }
+            except Exception:
+                pass  # return original empty geojson
 
         return geojson
 
