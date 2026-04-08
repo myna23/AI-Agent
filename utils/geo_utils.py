@@ -52,7 +52,7 @@ def make_folium_map(geojson: dict, dataset_name: str = "") -> folium.Map:
                 fill_color="#e63946",
                 fill_opacity=0.7,
                 popup=folium.Popup(popup_html, max_width=300),
-                tooltip=props.get("NAME", props.get("name", "Feature")),
+                tooltip=props.get("Name") or props.get("NAME") or props.get("name") or props.get("DISTRICT") or props.get("District") or "Feature",
             ).add_to(m)
         # Fit bounds to points
         lats = [f["geometry"]["coordinates"][1] for f in features if f.get("geometry") and len(f["geometry"].get("coordinates", [])) >= 2]
@@ -194,7 +194,7 @@ def _pick_label_fields(features: list[dict], max_fields: int = 3) -> list[str]:
     if not features:
         return []
     props = features[0].get("properties") or {}
-    priority = ["NAME", "name", "DISTRICT", "PROVINCE", "REGION", "TYPE", "type", "ID"]
+    priority = ["Name", "NAME", "name", "District", "DISTRICT", "Province", "PROVINCE", "REGION", "Type", "TYPE", "type", "ID"]
     chosen = [f for f in priority if f in props]
     if not chosen:
         chosen = list(props.keys())
