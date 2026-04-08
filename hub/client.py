@@ -93,12 +93,14 @@ class HubClient:
         if base.endswith("/query"):
             base = base[:-6]
 
-        # Use geometry type already stored in catalog fields metadata to cap limits.
-        # No extra HTTP call needed — polylines/polygons are ~10x larger per feature.
-        geom_limit = min(max_features, 100)  # safe default for all geometry types
+        # Cap at 30 features — enough for AI analysis and map display,
+        # keeps payloads under ~60KB for any geometry type on Streamlit Cloud.
+        geom_limit = min(max_features, 30)
 
-        # If this is the POI dataset, filter by Type based on the query
+        # Build WHERE clause
         where = "1=1"
+
+        # POI dataset: filter by Type based on the query keyword
         if "Points_of_Interest" in base or "POI" in base:
             hint_lower = query_hint.lower()
             for keyword, poi_type in self._POI_TYPE_MAP.items():
@@ -106,15 +108,13 @@ class HubClient:
                     where = f"Type='{poi_type}'"
                     break
 
-        # For large datasets, fetch only essential fields to reduce payload size.
-        # Key fields cover name, location, type across all Zambia datasets.
-        essential_fields = (
-            "name,NAME,Type,SubType,Province,District,surface,roadnoloc,"
-            "speedlimitkmh,fclass,WETLAND_NA,ADM1_EN,ADM2_EN,FID,OBJECTID"
-        )
+        # Global datasets: restrict to Zambia to avoid worldwide results
+        if "Border_Crossing" in base or "GLOBAL_Border" in base:
+            where = "iso3_1='ZMB' OR iso3_2='ZMB'"
+
         params = {
             "where": where,
-            "outFields": essential_fields,
+            "outFields": "*",
             "resultRecordCount": geom_limit,
             "f": "geojson",
         }
