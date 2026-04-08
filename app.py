@@ -358,16 +358,16 @@ def process_question(question: str):
                 except Exception as e:
                     _fetch_errors.append(f"{candidate['name']}: {e}\n  URL: {candidate['url']}")
 
-        # Show debug info whenever no features loaded — captures both silent empty
-        # responses (cloud IP blocked) and real exceptions
+        # Show debug info whenever no features loaded
         if not sample_features and (_fetch_errors or _empty_fetches):
             with st.expander("⚠️ Data fetch details (debug)", expanded=True):
+                st.caption("Live data unavailable — check errors below. Static sample data should have been used instead.")
                 if _empty_fetches:
-                    st.caption("**Fetched OK but returned 0 features (possible IP block or empty dataset):**")
+                    st.caption("**Returned 0 features (possible IP block):**")
                     for msg in _empty_fetches:
                         st.code(msg, language=None)
                 if _fetch_errors:
-                    st.caption("**Fetch errors (exceptions):**")
+                    st.caption("**Exceptions:**")
                     for err in _fetch_errors:
                         st.code(err, language=None)
 

@@ -10,6 +10,7 @@ Strategy:
 No API key required — all zmb-tagged datasets used here are publicly accessible.
 """
 
+import json
 import os
 import requests
 from dotenv import load_dotenv
@@ -18,6 +19,53 @@ load_dotenv()
 
 MAX_FEATURES = int(os.getenv("MAX_FEATURES", "200"))
 REQUEST_TIMEOUT = 30
+
+# ---------------------------------------------------------------------------
+# Static sample data — used as fallback when the live FeatureServer is
+# unreachable from cloud hosting (IP-level block by the ArcGIS server).
+# Files are pre-downloaded in /data/ and committed to the repo.
+# ---------------------------------------------------------------------------
+_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+
+# Maps URL substring → static JSON filename (and optional POI type override)
+_STATIC_MAP = {
+    "GRID3_ZMB_HealthFac":                                          "health_facilities.json",
+    "GRID3_ZMB_School":                                             "schools.json",
+    "GRID3_Zambia_Operational_Points_of_Interest":                  "poi_all.json",
+    "GRID3_Zambia_Operational_Settlement_Points_and_Names":         "settlements.json",
+    "Zambia_Administrative_Boundaries_Districts_2020":              "districts.json",
+    "Zambia_Flood_Prone_Districts":                                 "flood_prone.json",
+    "Zambia_Risk_Layers_Aggregated_Districts_Provinces":            "risk_layers.json",
+    "Zambia_Fraym_Risk_Aggregations":                               "risk_layers.json",
+    "Lusaka_Townships_Risk_Layers":                                 "lusaka_risk.json",
+    "OSM_rivers":                                                   "rivers.json",
+    "Zambia_wetlands_lakes":                                        "wetlands.json",
+    "glc_ZMB_trs_roads_major_b_view":                              "roads.json",
+    "Zambia_Biodiversity_Data":                                     "biodiversity.json",
+    "Zambia_Forests_Data":                                          "forests.json",
+    "Zambia_Biodiversity_Point_Data":                               "biodiversity_points.json",
+}
+
+# POI type → dedicated pre-filtered file (better for type-specific queries)
+_POI_TYPE_FILES = {
+    "Commercial": "poi_commercial.json",
+    "Religion":   "poi_religion.json",
+    "Farm":       "poi_farm.json",
+}
+
+
+def _load_static(url: str, poi_type: str = "") -> dict | None:
+    """Return cached static GeoJSON for a URL, or None if no match."""
+    for key, fname in _STATIC_MAP.items():
+        if key in url:
+            # For POI, prefer the type-specific file if available
+            if "Points_of_Interest" in url and poi_type and poi_type in _POI_TYPE_FILES:
+                fname = _POI_TYPE_FILES[poi_type]
+            path = os.path.join(_DATA_DIR, fname)
+            if os.path.exists(path):
+                with open(path) as f:
+                    return json.load(f)
+    return None
 
 # Irrelevant items that happen to have zmb in their tags (not Zambia geospatial data)
 _SKIP_TITLES = {
@@ -156,7 +204,6 @@ class HubClient:
                 resp2.raise_for_status()
                 json_resp = resp2.json()
                 if "error" not in json_resp and json_resp.get("features"):
-                    # Convert esri JSON features to GeoJSON-like structure (no geometry)
                     geojson = {
                         "type": "FeatureCollection",
                         "features": [
@@ -166,7 +213,19 @@ class HubClient:
                         ],
                     }
             except Exception:
-                pass  # return original empty geojson
+                pass
+
+        # Last resort: use pre-downloaded static sample data.
+        # This ensures the app works even when the ArcGIS server blocks cloud IPs.
+        if not geojson.get("features"):
+            # Determine POI type from the WHERE clause so we serve the right file
+            poi_type = ""
+            if "Type='" in where:
+                poi_type = where.split("Type='")[1].rstrip("'")
+            static = _load_static(feature_url, poi_type=poi_type)
+            if static and static.get("features"):
+                static["_source"] = "static_sample"
+                return static
 
         return geojson
 
