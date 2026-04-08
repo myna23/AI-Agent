@@ -538,7 +538,19 @@ if hasattr(st.session_state, "_pending_question") and st.session_state._pending_
 # Chat input
 # ---------------------------------------------------------------------------
 st.markdown("---")
-col_input, col_clear = st.columns([8, 1])
+col_input, col_save, col_clear = st.columns([7, 1, 1])
+with col_save:
+    if st.session_state.messages:
+        lines = []
+        for m in st.session_state.messages:
+            role = "You" if m["role"] == "user" else "AI"
+            lines.append(f"[{role}]\n{m.get('content','')}\n")
+        st.download_button(
+            "💾 Save", "\n".join(lines).encode(),
+            file_name="zambia_geohub_chat.txt", mime="text/plain",
+            use_container_width=True,
+            help="Download this conversation as a text file",
+        )
 with col_clear:
     if st.session_state.messages:
         if st.button("🗑️ Clear", use_container_width=True):
