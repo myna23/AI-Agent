@@ -128,7 +128,14 @@ class HubClient:
             raise RuntimeError(f"Feature fetch failed: {exc}") from exc
 
         if "features" not in geojson:
-            raise ValueError(f"Response is not GeoJSON: {list(geojson.keys())}")
+            # Include a snippet of the response so the caller can log it
+            snippet = str(geojson)[:300]
+            raise ValueError(f"Response is not GeoJSON — keys={list(geojson.keys())} snippet={snippet}")
+
+        # If response has an error block, surface it
+        if "error" in geojson:
+            raise ValueError(f"ArcGIS error: {geojson['error']}")
+
         return geojson
 
     def get_catalog(self) -> list:

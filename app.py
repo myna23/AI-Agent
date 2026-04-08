@@ -340,23 +340,36 @@ def process_question(question: str):
 
         # Try each ranked dataset until one returns actual features
         _fetch_errors = []
+        _empty_fetches = []
         for candidate in datasets:
             with st.spinner(f"Loading data from '{candidate['name']}'..."):
                 try:
                     geojson = hub.fetch_geojson(candidate["url"], query_hint=question)
+                    feat_count = len(geojson.get("features", []))
                     sample_features = geojson_to_sample_rows(geojson, n=200)
                     if sample_features:
                         map_geojson = {"type": "FeatureCollection", "features": geojson.get("features", [])[:50]}
                         datasets = [candidate] + [d for d in datasets if d != candidate]
                         break
+                    else:
+                        _empty_fetches.append(
+                            f"{candidate['name']}: returned {feat_count} features\n  URL: {candidate['url']}"
+                        )
                 except Exception as e:
-                    _fetch_errors.append(f"{candidate['name']}: {e}")
+                    _fetch_errors.append(f"{candidate['name']}: {e}\n  URL: {candidate['url']}")
 
-        # Show fetch errors in expander so we can diagnose cloud issues
-        if _fetch_errors and not sample_features:
-            with st.expander("⚠️ Data fetch details (debug)", expanded=False):
-                for err in _fetch_errors:
-                    st.caption(err)
+        # Show debug info whenever no features loaded — captures both silent empty
+        # responses (cloud IP blocked) and real exceptions
+        if not sample_features and (_fetch_errors or _empty_fetches):
+            with st.expander("⚠️ Data fetch details (debug)", expanded=True):
+                if _empty_fetches:
+                    st.caption("**Fetched OK but returned 0 features (possible IP block or empty dataset):**")
+                    for msg in _empty_fetches:
+                        st.code(msg, language=None)
+                if _fetch_errors:
+                    st.caption("**Fetch errors (exceptions):**")
+                    for err in _fetch_errors:
+                        st.code(err, language=None)
 
     ds = datasets[0] if datasets else {}
 
