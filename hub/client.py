@@ -31,6 +31,8 @@ _BROKEN_HOSTS = {
     "services.arcgis.com/Xpv2nwwwvzUSJGCV",   # protected areas — returns 400
     "gis.logcluster.org",                       # MapServer not started (500)
     "utility.arcgis.com",                       # requires auth (403)
+    "services.arcgis.com/P3ePLMYs2RVChkJx",   # returns non-JSON (broken)
+    "services3.arcgis.com/JpMWbwty02wMiNWh",   # returns non-JSON (broken)
 }
 
 # Specific service URLs that are broken despite having a valid host
