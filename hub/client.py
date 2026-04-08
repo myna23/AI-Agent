@@ -398,21 +398,63 @@ class HubClient:
     # ------------------------------------------------------------------
 
     # Words that are too generic to carry ranking weight (appear in nearly every dataset)
-    _STOP_WORDS = {"zambia", "zmb", "area", "areas", "data", "layer", "dataset", "show", "where", "what", "many", "the"}
+    _STOP_WORDS = {
+        "zambia", "zmb", "area", "areas", "data", "layer", "dataset",
+        "show", "where", "what", "many", "the", "which", "most", "has",
+        "district", "province", "districts", "provinces",  # too generic — every dataset matches these
+        "how", "are", "there", "in", "of",
+    }
+
+    # Explicit subject → dataset URL fragment mapping (overrides generic ranking)
+    _SUBJECT_BOOST = {
+        "school": "GRID3_ZMB_School",
+        "schools": "GRID3_ZMB_School",
+        "education": "GRID3_ZMB_School",
+        "road": "glc_ZMB_trs_roads",
+        "roads": "glc_ZMB_trs_roads",
+        "highway": "glc_ZMB_trs_roads",
+        "transport": "glc_ZMB_trs_roads",
+        "river": "OSM_rivers",
+        "rivers": "OSM_rivers",
+        "stream": "OSM_rivers",
+        "wetland": "Zambia_wetlands_lakes",
+        "lake": "Zambia_wetlands_lakes",
+        "forest": "Zambia_Forests_Data",
+        "woodland": "Zambia_Forests_Data",
+        "tree": "Zambia_Forests_Data",
+        "flood": "Zambia_Flood_Prone_Districts",
+        "flooding": "Zambia_Flood_Prone_Districts",
+        "biodiversity": "Zambia_Biodiversity_Data",
+        "wildlife": "Zambia_Biodiversity_Data",
+        "park": "Zambia_Biodiversity_Data",
+        "conservation": "Zambia_Biodiversity_Data",
+        "settlement": "GRID3_Zambia_Operational_Settlement",
+        "village": "GRID3_Zambia_Operational_Settlement",
+        "town": "GRID3_Zambia_Operational_Settlement",
+        "health": "GRID3_ZMB_HealthFac",
+        "hospital": "GRID3_ZMB_HealthFac",
+        "clinic": "GRID3_ZMB_HealthFac",
+        "facility": "GRID3_ZMB_HealthFac",
+    }
 
     def _rank(self, query: str, catalog: list) -> list:
         """Rank catalog entries by relevance to query."""
         query_lower = query.lower()
         words = [w for w in query_lower.split() if len(w) > 2 and w not in self._STOP_WORDS]
 
-        # POI boost: if query contains any POI keyword, strongly favour the POI dataset
-        poi_boost_urls = set()
+        # Build boosted URL sets: POI + subject-specific
+        boost_urls: dict = {}  # url → extra score
         for keyword in self._POI_TYPE_MAP:
             if keyword in query_lower:
                 for ds in catalog:
                     if "Points_of_Interest" in ds["url"] or "POI" in ds["url"]:
-                        poi_boost_urls.add(ds["url"])
+                        boost_urls[ds["url"]] = boost_urls.get(ds["url"], 0) + 20
                 break
+        for keyword, frag in self._SUBJECT_BOOST.items():
+            if keyword in query_lower:
+                for ds in catalog:
+                    if frag in ds["url"]:
+                        boost_urls[ds["url"]] = boost_urls.get(ds["url"], 0) + 25
 
         scored = []
         for ds in catalog:
@@ -421,13 +463,10 @@ class HubClient:
             for word in words:
                 if word in text:
                     score += 2
-                # partial match (only against content tokens, not query stop-words)
                 for token in text.split():
                     if word in token or token in word:
                         score += 0.5
-            # POI keyword boost — ensures POI dataset wins for marketplace/farm/etc queries
-            if ds["url"] in poi_boost_urls:
-                score += 20
+            score += boost_urls.get(ds["url"], 0)
             if score > 0:
                 scored.append((score, ds))
 

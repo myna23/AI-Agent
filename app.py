@@ -358,21 +358,22 @@ def process_question(question: str):
                 except Exception as e:
                     _fetch_errors.append(f"{candidate['name']}: {e}\n  URL: {candidate['url']}")
 
-        # If live fetch returned nothing, load static sample directly in app.py
+        # If live fetch returned nothing, try static sample for each candidate in order
         if not sample_features and datasets:
             from hub.client import _load_static
-            top_url = datasets[0]["url"]
             _poi_type = ""
             for kw, ptype in hub._POI_TYPE_MAP.items():
                 if kw in question.lower():
                     _poi_type = ptype
                     break
-            static_data = _load_static(top_url, poi_type=_poi_type)
-            if static_data and static_data.get("features"):
-                # Use all records from static file for accurate distribution counts
-                sample_features = geojson_to_sample_rows(static_data, n=len(static_data["features"]))
-                map_geojson = {"type": "FeatureCollection", "features": static_data["features"][:50]}
-                st.info("📦 Using pre-loaded sample data (live server temporarily unavailable).")
+            for candidate in datasets:
+                static_data = _load_static(candidate["url"], poi_type=_poi_type)
+                if static_data and static_data.get("features"):
+                    sample_features = geojson_to_sample_rows(static_data, n=len(static_data["features"]))
+                    map_geojson = {"type": "FeatureCollection", "features": static_data["features"][:50]}
+                    datasets = [candidate] + [d for d in datasets if d != candidate]
+                    st.info("📦 Using pre-loaded sample data (live server temporarily unavailable).")
+                    break
 
     ds = datasets[0] if datasets else {}
 
