@@ -54,6 +54,40 @@ _POI_TYPE_FILES = {
 }
 
 
+# Module-level copies of the class dicts — safe to import from app.py
+# without depending on a cached HubClient instance.
+_POI_TYPE_MAP_MODULE = {
+    "marketplace": "Commercial", "marketplaces": "Commercial", "market": "Commercial",
+    "markets": "Commercial", "shop": "Commercial", "shops": "Commercial",
+    "business": "Commercial", "trade": "Commercial", "commercial": "Commercial",
+    "church": "Religion", "mosque": "Religion", "religion": "Religion",
+    "farm": "Farm", "farming": "Farm", "agriculture": "Farm",
+    "well": "Well", "borehole": "Borehole",
+    "bridge": "Bridge", "dam": "Dam", "airport": "Airport",
+    "bank": "Bank", "police": "Police", "post office": "Post Office",
+    "mining": "Mining", "fisheries": "Fisheries", "cooperative": "Cooperative",
+    "pharmacy": "Pharmacy", "cemetery": "Cemetery", "railway": "Railway",
+    "bus stop": "Bus Stop", "prison": "Prison", "mill": "Mill",
+}
+
+_SUBJECT_BOOST_MODULE = {
+    "school": "GRID3_ZMB_School", "schools": "GRID3_ZMB_School", "education": "GRID3_ZMB_School",
+    "road": "glc_ZMB_trs_roads", "roads": "glc_ZMB_trs_roads", "highway": "glc_ZMB_trs_roads",
+    "transport": "glc_ZMB_trs_roads",
+    "river": "OSM_rivers", "rivers": "OSM_rivers", "stream": "OSM_rivers",
+    "wetland": "Zambia_wetlands_lakes", "lake": "Zambia_wetlands_lakes",
+    "forest": "Zambia_Forests_Data", "woodland": "Zambia_Forests_Data", "tree": "Zambia_Forests_Data",
+    "flood": "Zambia_Flood_Prone_Districts", "flooding": "Zambia_Flood_Prone_Districts",
+    "biodiversity": "Zambia_Biodiversity_Data", "wildlife": "Zambia_Biodiversity_Data",
+    "park": "Zambia_Biodiversity_Data", "conservation": "Zambia_Biodiversity_Data",
+    "settlement": "GRID3_Zambia_Operational_Settlement", "village": "GRID3_Zambia_Operational_Settlement",
+    "town": "GRID3_Zambia_Operational_Settlement",
+    "health": "GRID3_ZMB_HealthFac", "hospital": "GRID3_ZMB_HealthFac",
+    "clinic": "GRID3_ZMB_HealthFac", "facility": "GRID3_ZMB_HealthFac",
+    "facilities": "GRID3_ZMB_HealthFac",
+}
+
+
 def _load_static(url: str, poi_type: str = ""):
     """Return cached static GeoJSON for a URL, or None if no match."""
     for key, fname in _STATIC_MAP.items():
