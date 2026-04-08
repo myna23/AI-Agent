@@ -176,13 +176,13 @@ input.addEventListener('keydown', e => { if (e.key === 'Enter') sendBtn.click();
 # Clients
 # ---------------------------------------------------------------------------
 @st.cache_resource(show_spinner=False)
-def get_hub(): return HubClient()
+def get_hub(_v=3): return HubClient()
 
 @st.cache_resource(show_spinner=False)
-def get_claude(): return ClaudeClient()
+def get_claude(_v=3): return ClaudeClient()
 
 @st.cache_resource(show_spinner=False)
-def get_builder(): return ReportBuilder()
+def get_builder(_v=3): return ReportBuilder()
 
 hub = get_hub()
 claude = get_claude()
