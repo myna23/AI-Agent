@@ -6,7 +6,6 @@ Geospatial utility helpers:
 """
 
 import folium
-import json
 
 
 # Zambia center coordinates and default zoom
@@ -44,22 +43,24 @@ def make_folium_map(
             if ctx_type == "boundary":
                 def _boundary_style(_feature):
                     return {"fillColor": "transparent", "color": "#888888", "weight": 1, "fillOpacity": 0}
-                label_fields = _pick_label_fields(ctx_feats)
+                label_fields = _safe_label_fields(ctx_feats)
+                tooltip = folium.GeoJsonTooltip(fields=label_fields, aliases=label_fields, localize=True) if label_fields else None
                 folium.GeoJson(
                     ctx["geojson"],
                     name=ctx["name"],
                     style_function=_boundary_style,
-                    tooltip=folium.GeoJsonTooltip(fields=label_fields, aliases=label_fields, localize=True) if label_fields else None,
+                    tooltip=tooltip,
                 ).add_to(m)
             elif ctx_type == "road":
                 def _road_style(_feature):
                     return {"color": "#b5838d", "weight": 1.5, "opacity": 0.6}
-                label_fields = _pick_label_fields(ctx_feats)
+                label_fields = _safe_label_fields(ctx_feats)
+                tooltip = folium.GeoJsonTooltip(fields=label_fields, aliases=label_fields, localize=True) if label_fields else None
                 folium.GeoJson(
                     ctx["geojson"],
                     name=ctx["name"],
                     style_function=_road_style,
-                    tooltip=folium.GeoJsonTooltip(fields=label_fields, aliases=label_fields, localize=True) if label_fields else None,
+                    tooltip=tooltip,
                 ).add_to(m)
 
     if not features:
@@ -226,7 +227,7 @@ def _props_to_html(props: dict) -> str:
     return f"<table style='font-size:12px'>{rows}</table>"
 
 
-def _pick_label_fields(features: list[dict], max_fields: int = 3) -> list[str]:
+def _pick_label_fields(features: list, max_fields: int = 3) -> list:
     """Pick the most useful label fields for a GeoJson tooltip."""
     if not features:
         return []
@@ -235,4 +236,19 @@ def _pick_label_fields(features: list[dict], max_fields: int = 3) -> list[str]:
     chosen = [f for f in priority if f in props]
     if not chosen:
         chosen = list(props.keys())
+    return chosen[:max_fields]
+
+
+def _safe_label_fields(features: list, max_fields: int = 2) -> list:
+    """Like _pick_label_fields but only returns fields that exist in the data.
+    Used for context layers (districts, roads) where field names vary."""
+    if not features:
+        return []
+    props = features[0].get("properties") or {}
+    available = set(props.keys())
+    priority = ["DISTRICT", "District", "PROVINCE", "Province", "NAME", "Name",
+                "name", "road_name", "ref", "highway", "TYPE", "type"]
+    chosen = [f for f in priority if f in available]
+    if not chosen:
+        chosen = [k for k in props if k not in ("OBJECTID", "FID", "Shape_Area", "Shape_Length")]
     return chosen[:max_fields]
