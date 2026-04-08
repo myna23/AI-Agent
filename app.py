@@ -244,6 +244,57 @@ def detect_intent(text: str) -> str:
         return "summary"
     return "chat"
 
+
+# ---------------------------------------------------------------------------
+# Location filter helpers
+# ---------------------------------------------------------------------------
+import re as _re
+
+# Zambia districts and provinces (lowercase) for map filtering
+_ZAMBIA_PROVINCES = {
+    "lusaka", "copperbelt", "central", "eastern", "northern", "southern",
+    "western", "northwestern", "north-western", "luapula", "muchinga",
+}
+
+def _extract_location(text: str):
+    """
+    Extract a district/province name from a question.
+    Returns (location_str, location_type) or (None, None).
+    E.g. 'schools in Chadiza' → ('Chadiza', 'district')
+         'hospitals in Lusaka Province' → ('Lusaka', 'province')
+    """
+    t = text.lower()
+    # Check for explicit province mention
+    for prov in _ZAMBIA_PROVINCES:
+        if prov in t:
+            return (prov.title(), "province")
+    # Look for "in <Word>" or "within <Word>" pattern — likely a district name
+    match = _re.search(r'\b(?:in|within|around|near|at)\s+([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})?)', text)
+    if match:
+        loc = match.group(1).strip()
+        # Skip generic words
+        if loc.lower() not in {"zambia", "the", "all", "zambia province", "africa"}:
+            return (loc, "district")
+    return (None, None)
+
+
+def _filter_by_location(features: list, location: str, loc_type: str) -> list:
+    """Filter features to only those matching district or province."""
+    loc_lower = location.lower()
+    result = []
+    for f in features:
+        props = f.get("properties") or {}
+        if loc_type == "province":
+            val = (props.get("Province") or props.get("PROVINCE") or "").lower()
+        else:
+            val = (
+                props.get("District") or props.get("DISTRICT") or
+                props.get("Province") or props.get("PROVINCE") or ""
+            ).lower()
+        if loc_lower in val or val in loc_lower:
+            result.append(f)
+    return result
+
 # ---------------------------------------------------------------------------
 # Header
 # ---------------------------------------------------------------------------
@@ -536,9 +587,21 @@ def process_question(question: str):
     else:
         with st.chat_message("assistant"):
             st.markdown('<span class="intent-badge intent-chat">Answer</span>', unsafe_allow_html=True)
+
+            # Build multi-turn message history for Claude so follow-up questions
+            # reference previous answers (e.g. "how many of those are in Lusaka?")
+            history = []
+            for m in st.session_state.messages[:-1]:  # exclude the just-added user msg
+                if m["role"] in ("user", "assistant") and m.get("content"):
+                    history.append({"role": m["role"], "content": m["content"]})
+            # Add current user prompt (with dataset context) as the final user turn
             user_p = chatbot_user_prompt(question, datasets, sample_features, all_catalog=hub.get_catalog())
+            history.append({"role": "user", "content": user_p})
+
             try:
-                response = st.write_stream(claude.stream(chatbot_system_prompt(), user_p, max_tokens=1500))
+                response = st.write_stream(
+                    claude.stream_with_history(chatbot_system_prompt(), history, max_tokens=1500)
+                )
             except Exception as e:
                 response = f"AI error: {e}"
                 st.error(response)
@@ -548,7 +611,14 @@ def process_question(question: str):
                     for d in datasets:
                         st.markdown(f"- **{d['name']}** — {d['description'][:120]}")
 
-            # Always show a map — with data if available, plain Zambia basemap if not
+            # Filter map to specific location if mentioned in question
+            location, loc_type = _extract_location(question)
+            map_feats = (map_geojson or {}).get("features", [])
+            if location and map_feats:
+                filtered = _filter_by_location(map_feats, location, loc_type)
+                if filtered:
+                    map_geojson = {"type": "FeatureCollection", "features": filtered}
+
             display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
             st_folium(_map(display_geojson, ds.get("name", ""), with_context=_is_point_geojson(display_geojson)), width=720, height=340, returned_objects=[], key="map_new_chat")
 

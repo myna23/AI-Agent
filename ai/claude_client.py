@@ -96,20 +96,22 @@ class ClaudeClient:
             for text in stream.text_stream:
                 yield text
 
-    def ask_with_history(
+    def stream_with_history(
         self,
         system: str,
-        messages: list[dict],
+        messages: list,
         max_tokens: int = 2048,
-    ) -> str:
+    ):
         """
-        Multi-turn chat: pass full message history.
-        messages format: [{"role": "user"|"assistant", "content": "..."}]
+        Multi-turn streaming chat.
+        messages: [{"role": "user"|"assistant", "content": "..."}]
+        Compatible with st.write_stream().
         """
-        message = self.client.messages.create(
+        with self.client.messages.stream(
             model=self.model,
             max_tokens=max_tokens,
             system=system,
             messages=messages,
-        )
-        return message.content[0].text
+        ) as stream:
+            for text in stream.text_stream:
+                yield text
