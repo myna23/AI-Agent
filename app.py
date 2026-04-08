@@ -358,22 +358,62 @@ def process_question(question: str):
                 except Exception as e:
                     _fetch_errors.append(f"{candidate['name']}: {e}\n  URL: {candidate['url']}")
 
-        # If live fetch returned nothing, try static sample for each candidate in order
-        if not sample_features and datasets:
-            from hub.client import _load_static
+        # If live fetch returned nothing, load static sample data.
+        # We look up the correct dataset by subject keyword directly (ignoring
+        # runtime ranking order, which may differ between local and cloud).
+        if not sample_features:
+            from hub.client import _load_static, _STATIC_MAP
+            import os as _os
+
             _poi_type = ""
             for kw, ptype in hub._POI_TYPE_MAP.items():
                 if kw in question.lower():
                     _poi_type = ptype
                     break
-            for candidate in datasets:
-                static_data = _load_static(candidate["url"], poi_type=_poi_type)
-                if static_data and static_data.get("features"):
-                    sample_features = geojson_to_sample_rows(static_data, n=len(static_data["features"]))
-                    map_geojson = {"type": "FeatureCollection", "features": static_data["features"][:50]}
-                    datasets = [candidate] + [d for d in datasets if d != candidate]
-                    st.info("📦 Using pre-loaded sample data (live server temporarily unavailable).")
-                    break
+
+            # Step 1: Try subject-boost match — keyword → URL fragment → static file
+            _static_data = None
+            _static_candidate = None
+            q_lower = question.lower()
+            for kw, frag in hub._SUBJECT_BOOST.items():
+                if kw in q_lower:
+                    # Find dataset in catalog whose URL contains this fragment
+                    catalog = hub.get_catalog()
+                    for ds in catalog:
+                        if frag in ds["url"]:
+                            _static_data = _load_static(ds["url"], poi_type=_poi_type)
+                            if _static_data and _static_data.get("features"):
+                                _static_candidate = ds
+                                break
+                    if _static_data:
+                        break
+
+            # Step 2: Also check POI keywords
+            if not _static_data:
+                for kw in hub._POI_TYPE_MAP:
+                    if kw in q_lower:
+                        for ds in (hub.get_catalog()):
+                            if "Points_of_Interest" in ds["url"]:
+                                _static_data = _load_static(ds["url"], poi_type=_poi_type)
+                                if _static_data and _static_data.get("features"):
+                                    _static_candidate = ds
+                                    break
+                        break
+
+            # Step 3: Fall back to ranked candidates
+            if not _static_data:
+                for candidate in datasets:
+                    _static_data = _load_static(candidate["url"], poi_type=_poi_type)
+                    if _static_data and _static_data.get("features"):
+                        _static_candidate = candidate
+                        break
+
+            if _static_data and _static_data.get("features"):
+                sample_features = geojson_to_sample_rows(_static_data, n=len(_static_data["features"]))
+                map_geojson = {"type": "FeatureCollection", "features": _static_data["features"][:50]}
+                if _static_candidate:
+                    datasets = [_static_candidate] + [d for d in datasets if d != _static_candidate]
+                st.info("📦 Using pre-loaded sample data (live server temporarily unavailable).")
 
     ds = datasets[0] if datasets else {}
 
