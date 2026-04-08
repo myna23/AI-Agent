@@ -54,7 +54,7 @@ _POI_TYPE_FILES = {
 }
 
 
-def _load_static(url: str, poi_type: str = "") -> dict | None:
+def _load_static(url: str, poi_type: str = ""):
     """Return cached static GeoJSON for a URL, or None if no match."""
     for key, fname in _STATIC_MAP.items():
         if key in url:
