@@ -359,11 +359,9 @@ def process_question(question: str):
                     _fetch_errors.append(f"{candidate['name']}: {e}\n  URL: {candidate['url']}")
 
         # If live fetch returned nothing, load static sample directly in app.py
-        # (belt-and-suspenders: static fallback also runs inside fetch_geojson)
         if not sample_features and datasets:
-            from hub.client import _load_static, _POI_TYPE_FILES, _STATIC_MAP
+            from hub.client import _load_static
             top_url = datasets[0]["url"]
-            # Determine POI type from query for targeted file
             _poi_type = ""
             for kw, ptype in hub._POI_TYPE_MAP.items():
                 if kw in question.lower():
@@ -371,16 +369,10 @@ def process_question(question: str):
                     break
             static_data = _load_static(top_url, poi_type=_poi_type)
             if static_data and static_data.get("features"):
-                sample_features = geojson_to_sample_rows(static_data, n=200)
+                # Use all records from static file for accurate distribution counts
+                sample_features = geojson_to_sample_rows(static_data, n=len(static_data["features"]))
                 map_geojson = {"type": "FeatureCollection", "features": static_data["features"][:50]}
-                st.info("📦 Showing pre-loaded sample data (live server unavailable from this host).")
-            else:
-                # Show what went wrong
-                st.warning(f"⚠️ v=bf26228 | datasets={len(datasets)} | errors={len(_fetch_errors)} | empty={len(_empty_fetches)} | static_match={'yes' if static_data else 'no (url: ' + top_url[:80] + ')'}")
-                if _fetch_errors or _empty_fetches:
-                    with st.expander("Fetch details", expanded=True):
-                        for msg in _empty_fetches + _fetch_errors:
-                            st.code(msg, language=None)
+                st.info("📦 Using pre-loaded sample data (live server temporarily unavailable).")
 
     ds = datasets[0] if datasets else {}
 
