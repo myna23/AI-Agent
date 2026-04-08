@@ -49,10 +49,10 @@ def _load_context_layers():
 _CONTEXT_LAYERS = _load_context_layers()
 
 
-def _map(geojson: dict, name: str, with_context: bool = False) -> object:
+def _map(geojson: dict, name: str, with_context: bool = False, highlight_location: str = "") -> object:
     """Wrapper: adds district + road context layers for point datasets."""
     ctx = _CONTEXT_LAYERS if with_context else None
-    return make_folium_map(geojson, name, context_layers=ctx)
+    return make_folium_map(geojson, name, context_layers=ctx, highlight_location=highlight_location)
 
 
 def _is_point_geojson(geojson: dict) -> bool:
@@ -262,18 +262,24 @@ def _extract_location(text: str):
     Returns (location_str, location_type) or (None, None).
     E.g. 'schools in Chadiza' → ('Chadiza', 'district')
          'hospitals in Lusaka Province' → ('Lusaka', 'province')
+    Case-insensitive: works for 'kalomo' and 'Kalomo' alike.
     """
     t = text.lower()
     # Check for explicit province mention
     for prov in _ZAMBIA_PROVINCES:
         if prov in t:
             return (prov.title(), "province")
-    # Look for "in <Word>" or "within <Word>" pattern — likely a district name
-    match = _re.search(r'\b(?:in|within|around|near|at)\s+([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})?)', text)
+    # Look for "in/within/around/near/at <place>" — case-insensitive
+    match = _re.search(r'\b(?:in|within|around|near|at)\s+([a-zA-Z][a-z]{2,}(?:\s+[a-zA-Z][a-z]{2,})?)', text, _re.IGNORECASE)
     if match:
-        loc = match.group(1).strip()
-        # Skip generic words
+        loc = _re.sub(r'\s+(?:district|province|region)\s*$', '', match.group(1).strip(), flags=_re.IGNORECASE).title()
         if loc.lower() not in {"zambia", "the", "all", "zambia province", "africa"}:
+            return (loc, "district")
+    # Also catch "<place> district" pattern (e.g. "Kalomo district hospitals")
+    match2 = _re.search(r'\b([A-Za-z][a-z]{2,}(?:\s+[A-Za-z][a-z]{2,})?)\s+district\b', text, _re.IGNORECASE)
+    if match2:
+        loc = match2.group(1).strip().title()
+        if loc.lower() not in {"zambia", "the", "all", "africa"}:
             return (loc, "district")
     return (None, None)
 
@@ -304,6 +310,7 @@ with col_title:
     st.caption(
         "Ask questions about Zambia's geospatial data • Say **'generate a report on...'** for Word/PDF reports "
         "• Say **'summarise...'** for dataset summaries • Ask **'what data is available?'** to explore the Hub"
+        " • v2.1-district-filter"
     )
 
 # Context banner — shown when a dataset is passed from the Hub page
@@ -363,7 +370,7 @@ for i, msg in enumerate(st.session_state.messages):
             # Map — always show (empty basemap if no data loaded)
             if msg.get("ds_name"):
                 hist_geojson = msg.get("geojson") or {"type": "FeatureCollection", "features": []}
-                m = _map(hist_geojson, msg["ds_name"], with_context=_is_point_geojson(hist_geojson))
+                m = _map(hist_geojson, msg["ds_name"], with_context=_is_point_geojson(hist_geojson), highlight_location=msg.get("location", ""))
                 st_folium(m, width=720, height=340, returned_objects=[], key=f"map_{i}")
 
             # Edit prompt button
@@ -406,16 +413,41 @@ def process_question(question: str):
     map_geojson = None   # lightweight copy for map rendering (≤50 features)
     sample_features = []
 
+    # Detect location once, at the top — used in both context mode and free search mode
+    _location, _loc_type = _extract_location(question)
+
     if context_dataset:
-        # Hub context mode — the dataset is already known from the page the user is on
+        # Hub context mode — direct request so no hub/client.py reload needed
         datasets = [context_dataset]
         with st.spinner(f"Loading data from '{context_dataset['name']}'..."):
             try:
-                geojson = hub.fetch_geojson(context_dataset["url"], query_hint=question)
-                sample_features = geojson_to_sample_rows(geojson, n=200)
-                map_geojson = {"type": "FeatureCollection", "features": geojson.get("features", [])[:50]}
-            except Exception:
-                pass
+                import requests as _req
+                _base_url = context_dataset["url"].rstrip("/")
+                if _base_url.endswith("/query"):
+                    _base_url = _base_url[:-6]
+                if _location and _loc_type == "district":
+                    _where = f"District='{_location}' OR DISTRICT='{_location}'"
+                elif _location and _loc_type == "province":
+                    _where = f"Province='{_location}' OR PROVINCE='{_location}'"
+                else:
+                    _where = "1=1"
+                _resp = _req.get(
+                    f"{_base_url}/query",
+                    params={"where": _where, "outFields": "*",
+                            "resultRecordCount": 30, "f": "geojson"},
+                    headers={"Referer": "https://zmb-geowb.hub.arcgis.com",
+                             "Origin": "https://zmb-geowb.hub.arcgis.com"},
+                    timeout=30,
+                )
+                _resp.raise_for_status()
+                geojson = _resp.json()
+                live_feats = geojson.get("features", [])
+                if live_feats and _location:
+                    st.info(f"🌐 Showing {len(live_feats)} live records for {_location}.")
+                sample_features = geojson_to_sample_rows(geojson, n=len(live_feats))
+                map_geojson = {"type": "FeatureCollection", "features": live_feats[:50]}
+            except Exception as _ctx_e:
+                st.warning(f"⚠️ Could not load data for {_location or 'this dataset'}: {_ctx_e}")
     else:
         # Free search mode — find the most relevant dataset
         with st.spinner("Searching Zambia GeoHub..."):
@@ -425,10 +457,6 @@ def process_question(question: str):
                 datasets = []
 
         from hub.client import _load_static, _POI_TYPE_MAP_MODULE, _SUBJECT_BOOST_MODULE
-
-        # Detect location mention early — if present, use static data so we
-        # have all records available to filter (live fetch only returns 30 random ones)
-        _location, _loc_type = _extract_location(question)
 
         _poi_type = ""
         for kw, ptype in _POI_TYPE_MAP_MODULE.items():
@@ -459,26 +487,76 @@ def process_question(question: str):
                     return sd, candidate
             return None, None
 
-        # If location is mentioned, always load full static data and filter it
-        # (live fetch returns only 30 random records — misses location-specific ones)
+        # If location is mentioned, always try live fetch first with a district/province
+        # filter — this gives accurate counts for ALL 116 Zambia districts regardless of
+        # whether the local static sample covers that area.
+        # Fallback chain: live filtered → static filtered → static full
         if _location:
             _static_data, _static_candidate = _find_static(question.lower())
-            if _static_data and _static_data.get("features"):
-                all_feats = _static_data["features"]
-                loc_feats = _filter_by_location(all_feats, _location, _loc_type)
-                # Use location-filtered features for AI analysis
-                use_feats = loc_feats if loc_feats else all_feats
-                sample_features = geojson_to_sample_rows(
-                    {"type": "FeatureCollection", "features": use_feats},
-                    n=len(use_feats)
-                )
-                map_geojson = {"type": "FeatureCollection", "features": use_feats[:50]}
-                if _static_candidate:
-                    datasets = [_static_candidate] + [d for d in datasets if d != _static_candidate]
+            _live_candidate = _static_candidate or (datasets[0] if datasets else None)
+
+            # 1. Direct district-filtered fetch — implemented here in app.py using requests
+            # so it always picks up code changes without requiring hub/client.py reload.
+            _live_error = ""
+            if _live_candidate:
+                with st.spinner(f"Querying live data for {_location}..."):
+                    try:
+                        import requests as _req
+                        _base_url = _live_candidate["url"].rstrip("/")
+                        if _base_url.endswith("/query"):
+                            _base_url = _base_url[:-6]
+                        _where = (
+                            f"District='{_location}' OR DISTRICT='{_location}'"
+                            if _loc_type == "district"
+                            else f"Province='{_location}' OR PROVINCE='{_location}'"
+                        )
+                        _resp = _req.get(
+                            f"{_base_url}/query",
+                            params={"where": _where, "outFields": "*",
+                                    "resultRecordCount": 30, "f": "geojson"},
+                            headers={"Referer": "https://zmb-geowb.hub.arcgis.com",
+                                     "Origin": "https://zmb-geowb.hub.arcgis.com"},
+                            timeout=30,
+                        )
+                        _resp.raise_for_status()
+                        _gjson = _resp.json()
+                        live_feats = _gjson.get("features", [])
+                        if live_feats and "error" not in _gjson:
+                            geojson = _gjson
+                            sample_features = geojson_to_sample_rows(geojson, n=len(live_feats))
+                            map_geojson = {"type": "FeatureCollection", "features": live_feats[:50]}
+                            datasets = [_live_candidate] + [d for d in datasets if d != _live_candidate]
+                            st.info(f"🌐 Showing {len(live_feats)} live records for {_location}.")
+                    except Exception as _e:
+                        _live_error = str(_e)
+
+            # 2. Live failed or was blocked — filter static data by location
+            if not sample_features and _static_data and _static_data.get("features"):
+                loc_feats = _filter_by_location(_static_data["features"], _location, _loc_type)
                 if loc_feats:
-                    st.info(f"📦 Showing {len(loc_feats)} records for {_location} from pre-loaded sample.")
-                else:
-                    st.info(f"📦 No records found for {_location} in sample — showing full dataset.")
+                    sample_features = geojson_to_sample_rows(
+                        {"type": "FeatureCollection", "features": loc_feats}, n=len(loc_feats)
+                    )
+                    map_geojson = {"type": "FeatureCollection", "features": loc_feats[:50]}
+                    if _static_candidate:
+                        datasets = [_static_candidate] + [d for d in datasets if d != _static_candidate]
+                    st.info(f"📦 Showing {len(loc_feats)} pre-loaded records for {_location} (live server unavailable).")
+
+            # 3. Location not found anywhere — tell the AI explicitly so it gives the right answer.
+            # Do NOT pass nationwide data: that causes the AI to say "none in Kalomo" from wrong records.
+            if not sample_features:
+                if _live_candidate or _static_candidate:
+                    datasets = [_live_candidate or _static_candidate] + [
+                        d for d in datasets if d not in (_live_candidate, _static_candidate)
+                    ]
+                _err_detail = f" (error: {_live_error})" if _live_error else ""
+                st.warning(
+                    f"⚠️ Could not load live data for **{_location}**{_err_detail}. "
+                    f"The live GeoHub server may be temporarily unavailable."
+                )
+                # Pass a placeholder so the AI knows to say it couldn't retrieve the data
+                sample_features = [{"_note": f"No data could be retrieved for {_location}. "
+                                    f"Inform the user that the live server is unavailable and suggest they try again later."}]
 
         # No location: try live fetch, fall back to static
         if not sample_features:
@@ -542,7 +620,7 @@ def process_question(question: str):
                 mime="application/pdf", key="dl_pdf_new", use_container_width=True)
 
             display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
-            st_folium(_map(display_geojson, ds["name"], with_context=_is_point_geojson(display_geojson)), width=720, height=340, returned_objects=[], key="map_new_rpt")
+            st_folium(_map(display_geojson, ds["name"], with_context=_is_point_geojson(display_geojson), highlight_location=_location or ""), width=720, height=340, returned_objects=[], key="map_new_rpt")
 
             st.session_state.messages.append({
                 "role": "assistant", "content": rpt_text, "intent": intent,
@@ -582,7 +660,7 @@ def process_question(question: str):
                 mime="text/plain", key="dl_sum_new")
 
             display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
-            st_folium(_map(display_geojson, ds["name"], with_context=_is_point_geojson(display_geojson)), width=720, height=340, returned_objects=[], key="map_new_sum")
+            st_folium(_map(display_geojson, ds["name"], with_context=_is_point_geojson(display_geojson), highlight_location=_location or ""), width=720, height=340, returned_objects=[], key="map_new_sum")
 
             st.session_state.messages.append({
                 "role": "assistant", "content": summary, "intent": intent,
@@ -618,11 +696,12 @@ def process_question(question: str):
                         st.markdown(f"- **{d['name']}** — {d['description'][:120]}")
 
             display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
-            st_folium(_map(display_geojson, ds.get("name", ""), with_context=_is_point_geojson(display_geojson)), width=720, height=340, returned_objects=[], key="map_new_chat")
+            st_folium(_map(display_geojson, ds.get("name", ""), with_context=_is_point_geojson(display_geojson), highlight_location=_location or ""), width=720, height=340, returned_objects=[], key="map_new_chat")
 
             st.session_state.messages.append({
                 "role": "assistant", "content": response, "intent": intent,
                 "ds_name": ds.get("name", ""), "geojson": map_geojson,
+                "location": _location or "",
             })
 
 # ---------------------------------------------------------------------------

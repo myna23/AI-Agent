@@ -13,10 +13,29 @@ ZAMBIA_CENTER = [-13.5, 28.5]
 ZAMBIA_ZOOM = 6
 
 
+def _polygon_bounds(geometry: dict):
+    """Return [[min_lat, min_lon], [max_lat, max_lon]] for a Polygon or MultiPolygon."""
+    coords = []
+    gtype = geometry.get("type", "")
+    if gtype == "Polygon":
+        for ring in geometry.get("coordinates", []):
+            coords.extend(ring)
+    elif gtype == "MultiPolygon":
+        for poly in geometry.get("coordinates", []):
+            for ring in poly:
+                coords.extend(ring)
+    if not coords:
+        return None
+    lons = [c[0] for c in coords]
+    lats = [c[1] for c in coords]
+    return [[min(lats), min(lons)], [max(lats), max(lons)]]
+
+
 def make_folium_map(
     geojson: dict,
     dataset_name: str = "",
     context_layers: list = None,
+    highlight_location: str = "",
 ) -> folium.Map:
     """
     Build a Folium map from a GeoJSON FeatureCollection.
@@ -26,31 +45,67 @@ def make_folium_map(
     - No geometry → plain Zambia-centered basemap
 
     context_layers: list of {"geojson": dict, "name": str, "type": "boundary"|"road"}
-      Added as background layers when the primary data is points, so users can
-      see which district/road is nearest to each facility or POI.
+      Added as background layers when the primary data is points.
+
+    highlight_location: district or province name — when set, the matching boundary
+      polygon is highlighted and the map zooms to its extent.
     """
     m = folium.Map(location=ZAMBIA_CENTER, zoom_start=ZAMBIA_ZOOM, tiles="CartoDB positron")
 
     features = geojson.get("features", [])
+    highlight_bounds = None  # bounds of the highlighted district/province polygon
 
     # Add context layers (districts, roads) before the main data so points sit on top
     if context_layers:
+        hl_lower = highlight_location.lower() if highlight_location else ""
         for ctx in context_layers:
             ctx_feats = ctx["geojson"].get("features", [])
             if not ctx_feats:
                 continue
             ctx_type = ctx.get("type", "boundary")
             if ctx_type == "boundary":
-                def _boundary_style(_feature):
-                    return {"fillColor": "transparent", "color": "#888888", "weight": 1, "fillOpacity": 0}
-                label_fields = _safe_label_fields(ctx_feats)
-                tooltip = folium.GeoJsonTooltip(fields=label_fields, aliases=label_fields, localize=True) if label_fields else None
-                folium.GeoJson(
-                    ctx["geojson"],
-                    name=ctx["name"],
-                    style_function=_boundary_style,
-                    tooltip=tooltip,
-                ).add_to(m)
+                # Separate highlighted feature from the rest so we can style it distinctly
+                if hl_lower:
+                    normal_feats, hl_feat = [], None
+                    for feat in ctx_feats:
+                        p = feat.get("properties") or {}
+                        name_val = (p.get("DISTRICT") or p.get("District") or
+                                    p.get("PROVINCE") or p.get("Province") or "").lower()
+                        if hl_lower in name_val or name_val in hl_lower:
+                            hl_feat = feat
+                            if highlight_bounds is None and feat.get("geometry"):
+                                highlight_bounds = _polygon_bounds(feat["geometry"])
+                        else:
+                            normal_feats.append(feat)
+                else:
+                    normal_feats, hl_feat = ctx_feats, None
+
+                # Regular district boundaries — thin grey outline
+                if normal_feats:
+                    def _boundary_style(_feature):
+                        return {"fillColor": "transparent", "color": "#888888", "weight": 1, "fillOpacity": 0}
+                    label_fields = _safe_label_fields(normal_feats)
+                    tooltip = folium.GeoJsonTooltip(fields=label_fields, aliases=label_fields, localize=True) if label_fields else None
+                    folium.GeoJson(
+                        {"type": "FeatureCollection", "features": normal_feats},
+                        name=ctx["name"],
+                        style_function=_boundary_style,
+                        tooltip=tooltip,
+                    ).add_to(m)
+
+                # Highlighted district — filled with accent colour + thicker border
+                if hl_feat:
+                    def _hl_style(_feature):
+                        return {"fillColor": "#457b9d", "color": "#1d3557", "weight": 2.5, "fillOpacity": 0.25}
+                    label_fields = _safe_label_fields([hl_feat])
+                    tooltip = folium.GeoJsonTooltip(fields=label_fields, aliases=label_fields, localize=True) if label_fields else None
+                    folium.GeoJson(
+                        {"type": "FeatureCollection", "features": [hl_feat]},
+                        name=f"{highlight_location} boundary",
+                        style_function=_hl_style,
+                        tooltip=tooltip,
+                    ).add_to(m)
+
             elif ctx_type == "road":
                 def _road_style(_feature):
                     return {"color": "#b5838d", "weight": 1.5, "opacity": 0.6}
@@ -92,11 +147,14 @@ def make_folium_map(
                 popup=folium.Popup(popup_html, max_width=300),
                 tooltip=props.get("Name") or props.get("NAME") or props.get("name") or props.get("DISTRICT") or props.get("District") or "Feature",
             ).add_to(m)
-        # Fit bounds to points
-        lats = [f["geometry"]["coordinates"][1] for f in features if f.get("geometry") and len(f["geometry"].get("coordinates", [])) >= 2]
-        lons = [f["geometry"]["coordinates"][0] for f in features if f.get("geometry") and len(f["geometry"].get("coordinates", [])) >= 2]
-        if lats:
-            m.fit_bounds([[min(lats), min(lons)], [max(lats), max(lons)]])
+        # Fit bounds: prefer the highlighted district polygon extent, fall back to points
+        if highlight_bounds:
+            m.fit_bounds(highlight_bounds)
+        else:
+            lats = [f["geometry"]["coordinates"][1] for f in features if f.get("geometry") and len(f["geometry"].get("coordinates", [])) >= 2]
+            lons = [f["geometry"]["coordinates"][0] for f in features if f.get("geometry") and len(f["geometry"].get("coordinates", [])) >= 2]
+            if lats:
+                m.fit_bounds([[min(lats), min(lons)], [max(lats), max(lons)]])
 
     else:
         # Polygon / LineString — use GeoJson layer

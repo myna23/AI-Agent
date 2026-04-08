@@ -172,10 +172,12 @@ class HubClient:
         "bus stop": "Bus Stop", "prison": "Prison", "mill": "Mill",
     }
 
-    def fetch_geojson(self, feature_url: str, max_features: int = MAX_FEATURES, query_hint: str = "") -> dict:
+    def fetch_geojson(self, feature_url: str, max_features: int = MAX_FEATURES, query_hint: str = "", district_filter: str = "", province_filter: str = "") -> dict:
         """Fetch features from a FeatureServer layer as GeoJSON.
 
         query_hint: original user query — used to filter POI by type when applicable.
+        district_filter: if set, adds a WHERE clause to restrict results to this district.
+        province_filter: if set, adds a WHERE clause to restrict results to this province.
 
         For line/polygon datasets, fewer features are fetched to keep response sizes
         manageable (polylines/polygons are ~10-20x larger per feature than points).
@@ -202,6 +204,16 @@ class HubClient:
         # Global datasets: restrict to Zambia to avoid worldwide results
         if "Border_Crossing" in base or "GLOBAL_Border" in base:
             where = "iso3_1='ZMB' OR iso3_2='ZMB'"
+
+        # District filter: restrict to a specific district (e.g. "Kalomo")
+        if district_filter:
+            dist_clause = f"District='{district_filter}' OR DISTRICT='{district_filter}'"
+            where = dist_clause if where == "1=1" else f"({where}) AND ({dist_clause})"
+
+        # Province filter: restrict to a specific province (e.g. "Southern")
+        if province_filter:
+            prov_clause = f"Province='{province_filter}' OR PROVINCE='{province_filter}'"
+            where = prov_clause if where == "1=1" else f"({where}) AND ({prov_clause})"
 
         params = {
             "where": where,
@@ -258,6 +270,21 @@ class HubClient:
                 poi_type = where.split("Type='")[1].rstrip("'")
             static = _load_static(feature_url, poi_type=poi_type)
             if static and static.get("features"):
+                # Apply district/province filter to static data so location queries
+                # return only the relevant records even when the live server is blocked.
+                loc_filter = district_filter or province_filter
+                loc_field = "Province" if province_filter else "District"
+                if loc_filter:
+                    filtered = [
+                        f for f in static["features"]
+                        if loc_filter.lower() in (
+                            (f.get("properties") or {}).get(loc_field, "") or
+                            (f.get("properties") or {}).get(loc_field.upper(), "") or ""
+                        ).lower()
+                    ]
+                    if filtered:
+                        static = dict(static)
+                        static["features"] = filtered
                 static["_source"] = "static_sample"
                 return static
 
