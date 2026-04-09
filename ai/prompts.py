@@ -123,9 +123,18 @@ def chatbot_user_prompt(
         for ds in all_catalog:
             catalog_overview += f"  - {ds['name']}: {ds['description'][:100]}\n"
 
-    # Cross-dataset context (flood, risk) fetched alongside the main dataset
+    # Cross-dataset context (settlements, flood, risk) fetched alongside main dataset
     cross_section = ""
     if cross_context:
+        if cross_context.get("settlement_count") is not None:
+            cross_section += (
+                f"\n⚡ EXACT SETTLEMENT COUNT for {location}: "
+                f"{cross_context['settlement_count']:,} settlements (from live spatial query). "
+                f"State this number directly when answering settlement count questions.\n"
+            )
+        if cross_context.get("settlement_sample"):
+            cross_section += "Settlement sample records:\n"
+            cross_section += json.dumps(cross_context["settlement_sample"], indent=2) + "\n"
         if cross_context.get("flood_note"):
             cross_section += f"\nFlood status: {cross_context['flood_note']}\n"
         if cross_context.get("flood"):
@@ -135,7 +144,7 @@ def chatbot_user_prompt(
             cross_section += "\nSocioeconomic / WASH risk data for this province:\n"
             cross_section += json.dumps(cross_context["risk"], indent=2) + "\n"
         if cross_section:
-            cross_section = "\nRelated datasets (flood & risk):\n" + cross_section
+            cross_section = "\nRelated datasets (settlements, flood & risk):\n" + cross_section
 
     return (
         f"Question: {question}\n\n"

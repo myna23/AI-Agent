@@ -688,7 +688,6 @@ def process_question(question: str):
                     # Risk layers — province-level aggregated data
                     _risk_ds = next((d for d in catalog if "Risk" in d["url"] and "Lusaka" not in d["url"]), None)
                     if _risk_ds:
-                        # Get province from district name if needed
                         _prov_for_risk = _location if _loc_type == "province" else next(
                             (f["properties"].get("PROVINCE") for f in _CONTEXT_LAYERS[0]["geojson"]["features"]
                              if _location.lower() in (f["properties"].get("DISTRICT") or "").lower()),
@@ -702,6 +701,47 @@ def process_question(question: str):
                         _rd = _rr.json()
                         if _rd.get("features"):
                             _cross_context["risk"] = [f["attributes"] for f in _rd["features"]]
+
+                    # Settlement count — always fetch for any district query so the AI
+                    # can give exact totals even when the main dataset isn't settlements.
+                    _settle_ds = next((d for d in catalog if "Settlement_Points" in d["url"] or
+                                      ("Settlement" in d["url"] and "Extent" not in d["url"])), None)
+                    if _settle_ds and _loc_type == "district":
+                        _dist_feat = next(
+                            (f for f in _CONTEXT_LAYERS[0]["geojson"]["features"]
+                             if _location.lower() in (f["properties"].get("DISTRICT") or "").lower()),
+                            None
+                        )
+                        if _dist_feat:
+                            from utils.geo_utils import _polygon_bounds
+                            _bnds = _polygon_bounds(_dist_feat["geometry"])
+                            if _bnds:
+                                _sbbox = f"{_bnds[0][1]},{_bnds[0][0]},{_bnds[1][1]},{_bnds[1][0]}"
+                                _settle_base = _settle_ds["url"].rstrip("/")
+                                # Exact count
+                                _scnt = _req.get(f"{_settle_base}/query",
+                                    params={"geometry": _sbbox, "geometryType": "esriGeometryEnvelope",
+                                            "spatialRel": "esriSpatialRelContains",
+                                            "returnCountOnly": "true", "f": "json"},
+                                    headers=_headers, timeout=15)
+                                _scnt_data = _scnt.json()
+                                if "count" in _scnt_data:
+                                    _cross_context["settlement_count"] = _scnt_data["count"]
+                                # Sample for map (if main dataset didn't give point features)
+                                _sresp = _req.get(f"{_settle_base}/query",
+                                    params={"geometry": _sbbox, "geometryType": "esriGeometryEnvelope",
+                                            "spatialRel": "esriSpatialRelContains",
+                                            "outFields": "*", "resultRecordCount": 30, "f": "geojson"},
+                                    headers=_headers, timeout=30)
+                                _sgjson = _sresp.json()
+                                _sfeats = _sgjson.get("features", [])
+                                if _sfeats:
+                                    _cross_context["settlement_sample"] = [
+                                        f["properties"] for f in _sfeats[:5]
+                                    ]
+                                    # Use settlement points for the map if nothing else loaded
+                                    if not map_geojson:
+                                        map_geojson = {"type": "FeatureCollection", "features": _sfeats[:50]}
                 except Exception:
                     pass
 
