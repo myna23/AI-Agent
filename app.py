@@ -735,48 +735,93 @@ def process_question(question: str):
                         if _rd.get("features"):
                             _cross_context["risk"] = [f["attributes"] for f in _rd["features"]]
 
-                    # Settlement count — always fetch for any district query so the AI
-                    # can give exact totals even when the main dataset isn't settlements.
+                    # Settlement fetch — works for both districts and provinces.
+                    # When flood data is present, fetches settlements for flood-prone
+                    # districts specifically so the AI can name actual communities at risk.
                     _settle_ds = next((d for d in catalog if "Settlement_Points" in d["url"] or
                                       ("Settlement" in d["url"] and "Extent" not in d["url"])), None)
-                    if _settle_ds and _loc_type == "district":
-                        _dist_feat = next(
-                            (f for f in _CONTEXT_LAYERS[0]["geojson"]["features"]
-                             if _location.lower() in (f["properties"].get("DISTRICT") or "").lower()),
-                            None
-                        )
-                        if _dist_feat:
-                            from utils.geo_utils import _polygon_bounds
-                            _bnds = _polygon_bounds(_dist_feat["geometry"])
-                            if _bnds:
-                                _sbbox = f"{_bnds[0][1]},{_bnds[0][0]},{_bnds[1][1]},{_bnds[1][0]}"
-                                _settle_base = _settle_ds["url"].rstrip("/")
-                                # Exact count
+                    if _settle_ds:
+                        _settle_base = _settle_ds["url"].rstrip("/")
+                        from utils.geo_utils import _polygon_bounds
+
+                        # Build list of districts to fetch settlements for:
+                        # — if flood-prone districts found, use those (most relevant)
+                        # — otherwise use the asked district/province directly
+                        _target_districts = []
+                        _flood_records = _cross_context.get("flood", [])
+                        if _flood_records and _loc_type == "province":
+                            # Flood-prone districts in this province — fetch each
+                            _target_districts = [
+                                r.get("DistName", "").title()
+                                for r in _flood_records if r.get("DistName")
+                            ]
+                        elif _loc_type == "district":
+                            _target_districts = [_location]
+
+                        _all_settle_feats = []
+                        _total_settle_count = 0
+                        for _td in _target_districts:
+                            _td_feat = next(
+                                (f for f in _CONTEXT_LAYERS[0]["geojson"]["features"]
+                                 if _td.lower() in (f["properties"].get("DISTRICT") or "").lower()),
+                                None
+                            )
+                            if not _td_feat:
+                                continue
+                            _bnds = _polygon_bounds(_td_feat["geometry"])
+                            if not _bnds:
+                                continue
+                            _sbbox = f"{_bnds[0][1]},{_bnds[0][0]},{_bnds[1][1]},{_bnds[1][0]}"
+                            # Count
+                            try:
                                 _scnt = _req.get(f"{_settle_base}/query",
                                     params={"geometry": _sbbox, "geometryType": "esriGeometryEnvelope",
                                             "spatialRel": "esriSpatialRelContains",
                                             "returnCountOnly": "true", "f": "json"},
                                     headers=_headers, timeout=15)
-                                _scnt_data = _scnt.json()
-                                if "count" in _scnt_data:
-                                    _cross_context["settlement_count"] = _scnt_data["count"]
-                                # Sample for map (if main dataset didn't give point features)
-                                _sresp = _req.get(f"{_settle_base}/query",
-                                    params={"geometry": _sbbox, "geometryType": "esriGeometryEnvelope",
-                                            "spatialRel": "esriSpatialRelContains",
-                                            "outFields": "*", "resultRecordCount": 30, "f": "geojson"},
-                                    headers=_headers, timeout=30)
-                                _sgjson = _sresp.json()
-                                _sfeats = _sgjson.get("features", [])
-                                if _sfeats:
-                                    _cross_context["settlement_sample"] = [
-                                        f["properties"] for f in _sfeats[:5]
-                                    ]
-                                    # Store for map use — applied after all fallbacks so it
-                                    # isn't overwritten by static polygon data later.
-                                    _cross_context["settlement_geojson"] = {
-                                        "type": "FeatureCollection", "features": _sfeats[:50]
-                                    }
+                                _c = _scnt.json().get("count", 0)
+                                _total_settle_count += _c
+                                _cross_context.setdefault("settlement_counts_by_district", {})[_td] = _c
+                            except Exception:
+                                pass
+                            # Sample (up to 15 per district, cap total at 50)
+                            if len(_all_settle_feats) < 50:
+                                try:
+                                    _sresp = _req.get(f"{_settle_base}/query",
+                                        params={"geometry": _sbbox, "geometryType": "esriGeometryEnvelope",
+                                                "spatialRel": "esriSpatialRelContains",
+                                                "outFields": "*", "resultRecordCount": 15, "f": "geojson"},
+                                        headers=_headers, timeout=20)
+                                    _all_settle_feats.extend(_sresp.json().get("features", []))
+                                except Exception:
+                                    pass
+
+                        # Province-level total (when no specific districts targeted)
+                        if not _target_districts and _loc_type == "province":
+                            try:
+                                _sw = f"Province='{_location}' OR PROVINCE='{_location}'"
+                                _scnt2 = _req.get(f"{_settle_base}/query",
+                                    params={"where": _sw, "returnCountOnly": "true", "f": "json"},
+                                    headers=_headers, timeout=15)
+                                _total_settle_count = _scnt2.json().get("count", 0)
+                                # Sample
+                                _sr2 = _req.get(f"{_settle_base}/query",
+                                    params={"where": _sw, "outFields": "*",
+                                            "resultRecordCount": 30, "f": "geojson"},
+                                    headers=_headers, timeout=20)
+                                _all_settle_feats = _sr2.json().get("features", [])
+                            except Exception:
+                                pass
+
+                        if _total_settle_count:
+                            _cross_context["settlement_count"] = _total_settle_count
+                        if _all_settle_feats:
+                            _cross_context["settlement_sample"] = [
+                                f["properties"] for f in _all_settle_feats[:8]
+                            ]
+                            _cross_context["settlement_geojson"] = {
+                                "type": "FeatureCollection", "features": _all_settle_feats[:50]
+                            }
                 except Exception:
                     pass
 

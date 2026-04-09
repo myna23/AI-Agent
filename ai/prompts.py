@@ -132,6 +132,10 @@ def chatbot_user_prompt(
                 f"{cross_context['settlement_count']:,} settlements (from live spatial query). "
                 f"State this number directly when answering settlement count questions.\n"
             )
+        if cross_context.get("settlement_counts_by_district"):
+            cross_section += "Settlement counts by flood-prone district:\n"
+            for dist, cnt in cross_context["settlement_counts_by_district"].items():
+                cross_section += f"  {dist}: {cnt:,} settlements\n"
         if cross_context.get("settlement_sample"):
             cross_section += "Settlement sample records:\n"
             cross_section += json.dumps(cross_context["settlement_sample"], indent=2) + "\n"
