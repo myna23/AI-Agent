@@ -256,6 +256,8 @@ if "messages" not in st.session_state:
 
 if "edit_idx" not in st.session_state:
     st.session_state.edit_idx = None
+if "stop_streaming" not in st.session_state:
+    st.session_state.stop_streaming = False
 
 
 def _persist_chat():
@@ -987,13 +989,29 @@ def process_question(question: str):
             user_p = chatbot_user_prompt(question, datasets, sample_features, all_catalog=hub.get_catalog(), total_count=_total_count, location=_location or "", cross_context=_cross_context)
             history.append({"role": "user", "content": user_p})
 
+            # Show a Stop button while the AI is streaming
+            st.session_state.stop_streaming = False
+            _stop_col, _ = st.columns([1, 8])
+            _stop_placeholder = _stop_col.empty()
+
+            def _stoppable_stream():
+                for chunk in claude.stream_with_history(chatbot_system_prompt(), history, max_tokens=1500):
+                    if st.session_state.get("stop_streaming"):
+                        break
+                    yield chunk
+
+            with _stop_placeholder:
+                if st.button("⏹ Stop", key="stop_btn", use_container_width=True):
+                    st.session_state.stop_streaming = True
+
             try:
-                response = st.write_stream(
-                    claude.stream_with_history(chatbot_system_prompt(), history, max_tokens=1500)
-                )
+                response = st.write_stream(_stoppable_stream())
             except Exception as e:
                 response = f"AI error: {e}"
                 st.error(response)
+            finally:
+                _stop_placeholder.empty()  # Remove the Stop button once done
+                st.session_state.stop_streaming = False
 
             if datasets:
                 with st.expander("Datasets used"):
