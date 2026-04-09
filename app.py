@@ -739,8 +739,13 @@ def process_question(question: str):
                                     _cross_context["settlement_sample"] = [
                                         f["properties"] for f in _sfeats[:5]
                                     ]
-                                    # Use settlement points for the map if nothing else loaded
-                                    if not map_geojson:
+                                    # Use settlement points for the map if the main dataset
+                                    # has no Point features (e.g. it returned flood polygons).
+                                    _main_has_points = map_geojson and any(
+                                        (f.get("geometry") or {}).get("type") == "Point"
+                                        for f in map_geojson.get("features", [])
+                                    )
+                                    if not _main_has_points:
                                         map_geojson = {"type": "FeatureCollection", "features": _sfeats[:50]}
                 except Exception:
                     pass
