@@ -226,12 +226,57 @@ if _ctx_url:
         }
 
 # ---------------------------------------------------------------------------
-# Session state
+# Session state + localStorage persistence
 # ---------------------------------------------------------------------------
+import json as _json_mod2
+import streamlit.components.v1 as _components
+
+# On first load of a session, try to restore messages from the URL-encoded
+# query param that localStorage writes back via JS.
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    _saved_raw = st.query_params.get("_chat", "")
+    if _saved_raw:
+        try:
+            import urllib.parse as _up
+            _loaded = _json_mod2.loads(_up.unquote(_saved_raw))
+            # Only restore text-only fields — skip bytes (docx/pdf) which can't survive URL
+            st.session_state.messages = [
+                {k: v for k, v in m.items() if not isinstance(v, (bytes, bytearray))}
+                for m in _loaded
+            ]
+        except Exception:
+            st.session_state.messages = []
+    else:
+        st.session_state.messages = []
+
 if "edit_idx" not in st.session_state:
     st.session_state.edit_idx = None
+
+def _persist_chat():
+    """Write current messages into localStorage via JS so they survive refresh."""
+    try:
+        import urllib.parse as _up
+        # Serialise text-only fields (skip bytes)
+        _serialisable = [
+            {k: v for k, v in m.items() if isinstance(v, (str, int, float, bool, list, dict, type(None)))}
+            for m in st.session_state.messages
+        ]
+        _encoded = _up.quote(_json_mod2.dumps(_serialisable))
+        _components.html(
+            f"""<script>
+            (function() {{
+                const encoded = "{_encoded}";
+                try {{
+                    const url = new URL(window.parent.location.href);
+                    url.searchParams.set('_chat', encoded);
+                    window.parent.history.replaceState(null, '', url.toString());
+                }} catch(e) {{}}
+            }})();
+            </script>""",
+            height=0,
+        )
+    except Exception:
+        pass
 
 # ---------------------------------------------------------------------------
 # Intent detection
@@ -867,6 +912,7 @@ with col_clear:
         if st.button("🗑️ Clear", use_container_width=True):
             st.session_state.messages = []
             st.session_state.edit_idx = None
+            st.query_params.clear()
             st.rerun()
 
 if question := st.chat_input("Ask a question, say 'generate a report on...', or 'summarise...'"):
@@ -876,3 +922,6 @@ if question := st.chat_input("Ask a question, say 'generate a report on...', or 
             st.markdown(question)
         process_question(question)
         st.rerun()
+
+# Persist current chat to URL after every render so refresh restores it
+_persist_chat()
