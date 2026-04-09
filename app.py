@@ -231,19 +231,24 @@ if _ctx_url:
 import json as _json_mod2
 import streamlit.components.v1 as _components
 
-# On first load of a session, try to restore messages from the URL-encoded
-# query param that localStorage writes back via JS.
+_LS_KEY = "zmb_geohub_chat"  # localStorage key
+
+# ── Chat persistence via localStorage ──────────────────────────────────────
+# On first load Streamlit sends a "chat_restore" query param set by JS below.
+# We decode it and pre-populate session_state.messages so history survives refresh.
 if "messages" not in st.session_state:
-    _saved_raw = st.query_params.get("_chat", "")
+    _saved_raw = st.query_params.get("chat_restore", "")
     if _saved_raw:
         try:
             import urllib.parse as _up
             _loaded = _json_mod2.loads(_up.unquote(_saved_raw))
-            # Only restore text-only fields — skip bytes (docx/pdf) which can't survive URL
             st.session_state.messages = [
-                {k: v for k, v in m.items() if not isinstance(v, (bytes, bytearray))}
+                {k: v for k, v in m.items()
+                 if isinstance(v, (str, int, float, bool, list, dict, type(None)))}
                 for m in _loaded
             ]
+            # Clean the param from the URL so it doesn't persist visibly
+            st.query_params.clear()
         except Exception:
             st.session_state.messages = []
     else:
@@ -252,31 +257,59 @@ if "messages" not in st.session_state:
 if "edit_idx" not in st.session_state:
     st.session_state.edit_idx = None
 
+
 def _persist_chat():
-    """Write current messages into localStorage via JS so they survive refresh."""
+    """
+    1. Save current messages to localStorage.
+    2. Attach an 'unload' listener: when the tab is about to close/refresh,
+       add ?chat_restore=<encoded> to the URL so Streamlit reads it on next load.
+    """
     try:
-        import urllib.parse as _up
-        # Serialise text-only fields (skip bytes)
         _serialisable = [
-            {k: v for k, v in m.items() if isinstance(v, (str, int, float, bool, list, dict, type(None)))}
+            {k: v for k, v in m.items()
+             if isinstance(v, (str, int, float, bool, list, dict, type(None)))}
             for m in st.session_state.messages
         ]
-        _encoded = _up.quote(_json_mod2.dumps(_serialisable))
+        _json_str = _json_mod2.dumps(_serialisable, separators=(",", ":"))
+        # Escape backticks and backslashes for safe JS embedding
+        _json_escaped = _json_str.replace("\\", "\\\\").replace("`", "\\`")
         _components.html(
             f"""<script>
             (function() {{
-                const encoded = "{_encoded}";
-                try {{
-                    const url = new URL(window.parent.location.href);
-                    url.searchParams.set('_chat', encoded);
-                    window.parent.history.replaceState(null, '', url.toString());
-                }} catch(e) {{}}
+                const LS_KEY = "{_LS_KEY}";
+                const data = `{_json_escaped}`;
+                try {{ localStorage.setItem(LS_KEY, data); }} catch(e) {{}}
+
+                // On refresh/close: write to URL so Streamlit can read on next boot
+                window.addEventListener('beforeunload', function() {{
+                    try {{
+                        const encoded = encodeURIComponent(data);
+                        const url = new URL(window.parent.location.href);
+                        url.searchParams.set('chat_restore', encoded);
+                        window.parent.history.replaceState(null, '', url.toString());
+                    }} catch(e) {{}}
+                }}, {{once: true}});
             }})();
             </script>""",
             height=0,
         )
     except Exception:
         pass
+
+
+def _clear_chat_storage():
+    """Remove chat from localStorage and URL."""
+    _components.html(
+        f"""<script>
+        try {{ localStorage.removeItem("{_LS_KEY}"); }} catch(e) {{}}
+        try {{
+            const url = new URL(window.parent.location.href);
+            url.searchParams.delete('chat_restore');
+            window.parent.history.replaceState(null, '', url.toString());
+        }} catch(e) {{}}
+        </script>""",
+        height=0,
+    )
 
 # ---------------------------------------------------------------------------
 # Intent detection
@@ -739,14 +772,11 @@ def process_question(question: str):
                                     _cross_context["settlement_sample"] = [
                                         f["properties"] for f in _sfeats[:5]
                                     ]
-                                    # Use settlement points for the map if the main dataset
-                                    # has no Point features (e.g. it returned flood polygons).
-                                    _main_has_points = map_geojson and any(
-                                        (f.get("geometry") or {}).get("type") == "Point"
-                                        for f in map_geojson.get("features", [])
-                                    )
-                                    if not _main_has_points:
-                                        map_geojson = {"type": "FeatureCollection", "features": _sfeats[:50]}
+                                    # Store for map use — applied after all fallbacks so it
+                                    # isn't overwritten by static polygon data later.
+                                    _cross_context["settlement_geojson"] = {
+                                        "type": "FeatureCollection", "features": _sfeats[:50]
+                                    }
                 except Exception:
                     pass
 
@@ -802,6 +832,16 @@ def process_question(question: str):
                 if _static_candidate:
                     datasets = [_static_candidate] + [d for d in datasets if d != _static_candidate]
                 st.info("📦 Using pre-loaded sample data (live server temporarily unavailable).")
+
+    # If cross-context has settlement points and the current map has no Point features,
+    # override with settlement points so the map always shows something useful.
+    if _cross_context.get("settlement_geojson"):
+        _has_points = map_geojson and any(
+            (f.get("geometry") or {}).get("type") == "Point"
+            for f in map_geojson.get("features", [])
+        )
+        if not _has_points:
+            map_geojson = _cross_context["settlement_geojson"]
 
     ds = datasets[0] if datasets else {}
 
@@ -958,7 +998,7 @@ with col_clear:
         if st.button("🗑️ Clear", use_container_width=True):
             st.session_state.messages = []
             st.session_state.edit_idx = None
-            st.query_params.clear()
+            _clear_chat_storage()
             st.rerun()
 
 if question := st.chat_input("Ask a question, say 'generate a report on...', or 'summarise...'"):
