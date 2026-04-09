@@ -510,12 +510,16 @@ def process_question(question: str):
                         _headers = {"Referer": "https://zmb-geowb.hub.arcgis.com",
                                     "Origin": "https://zmb-geowb.hub.arcgis.com"}
 
+                        # Initialise so we never hit NameError if a branch doesn't set these
+                        live_feats = []
+                        _gjson = {}
+
                         # Settlements dataset has no District field — use bounding box of
                         # the district polygon from our local districts.json instead.
                         _is_settlement = "Settlement" in _live_candidate.get("url", "")
                         if _is_settlement and _loc_type == "district":
                             _dist_feat = next(
-                                (f for f in _load_context_layers()[0]["geojson"]["features"]
+                                (f for f in _CONTEXT_LAYERS[0]["geojson"]["features"]
                                  if _location.lower() in (f["properties"].get("DISTRICT") or "").lower()),
                                 None
                             )
@@ -579,9 +583,10 @@ def process_question(question: str):
                     except Exception as _e:
                         _live_error = str(_e)
 
-            # 1b. Cross-dataset context — when location is mentioned, also fetch flood/risk
-            # data for that district/province so the AI can answer cross-cutting questions
-            # (e.g. "settlements in flood-prone areas of Kalomo").
+            # 1b. Cross-dataset context — flood and risk fetched alongside main dataset.
+            # Flood DistName field is stored in ALL CAPS so we use UPPER() for matching.
+            # If the specific district isn't flood-prone, we fetch its province neighbours
+            # so the AI can say "Mongu isn't listed but 4 neighbouring districts are."
             _cross_context = {}
             if _location and sample_features:
                 try:
@@ -590,22 +595,60 @@ def process_question(question: str):
                                 "Origin": "https://zmb-geowb.hub.arcgis.com"}
                     catalog = hub.get_catalog()
 
-                    # Flood-prone districts
+                    # Flood-prone districts — DistName stored as UPPER CASE
                     _flood_ds = next((d for d in catalog if "Flood" in d["url"]), None)
                     if _flood_ds:
-                        _flood_where = f"DistName='{_location}'" if _loc_type == "district" else f"PovName='{_location}'"
-                        _fr = _req.get(f"{_flood_ds['url'].rstrip('/')}/query",
-                            params={"where": _flood_where, "outFields": "*",
-                                    "resultRecordCount": 5, "f": "json"},
+                        _flood_base = _flood_ds["url"].rstrip("/")
+                        # Try exact district first (case-insensitive via UPPER())
+                        if _loc_type == "district":
+                            _flood_where = f"UPPER(DistName)='{_location.upper()}'"
+                        else:
+                            _flood_where = f"UPPER(PovName)='{_location.upper()}'"
+                        _fr = _req.get(f"{_flood_base}/query",
+                            params={"where": _flood_where, "outFields": "DistName,PovName",
+                                    "resultRecordCount": 20, "f": "json"},
                             headers=_headers, timeout=10)
                         _fd = _fr.json()
                         if _fd.get("features"):
                             _cross_context["flood"] = [f["attributes"] for f in _fd["features"]]
+                            _cross_context["flood_note"] = f"{_location} IS listed as flood-prone."
+                        elif _loc_type == "district":
+                            # District not flood-prone — fetch province neighbours for context
+                            _prov = next(
+                                (f["properties"].get("PROVINCE") for f in _CONTEXT_LAYERS[0]["geojson"]["features"]
+                                 if _location.lower() in (f["properties"].get("DISTRICT") or "").lower()),
+                                None
+                            )
+                            if _prov:
+                                _prov_where = f"UPPER(PovName)='{_prov.upper()}'"
+                                _fr2 = _req.get(f"{_flood_base}/query",
+                                    params={"where": _prov_where, "outFields": "DistName,PovName",
+                                            "resultRecordCount": 20, "f": "json"},
+                                    headers=_headers, timeout=10)
+                                _fd2 = _fr2.json()
+                                if _fd2.get("features"):
+                                    _cross_context["flood"] = [f["attributes"] for f in _fd2["features"]]
+                                    _cross_context["flood_note"] = (
+                                        f"{_location} district itself is NOT listed as flood-prone in the dataset. "
+                                        f"However, these districts in {_prov} Province are: "
+                                        f"{', '.join(f['attributes'].get('DistName','') for f in _fd2['features'])}."
+                                    )
+                                else:
+                                    _cross_context["flood_note"] = (
+                                        f"Neither {_location} nor any district in {_prov} Province "
+                                        f"appears in the flood-prone districts dataset."
+                                    )
 
-                    # Risk layers
+                    # Risk layers — province-level aggregated data
                     _risk_ds = next((d for d in catalog if "Risk" in d["url"] and "Lusaka" not in d["url"]), None)
                     if _risk_ds:
-                        _risk_where = f"PovName='{_location}'" if _loc_type == "province" else "1=1"
+                        # Get province from district name if needed
+                        _prov_for_risk = _location if _loc_type == "province" else next(
+                            (f["properties"].get("PROVINCE") for f in _CONTEXT_LAYERS[0]["geojson"]["features"]
+                             if _location.lower() in (f["properties"].get("DISTRICT") or "").lower()),
+                            None
+                        )
+                        _risk_where = f"UPPER(PovName)='{_prov_for_risk.upper()}'" if _prov_for_risk else "1=1"
                         _rr = _req.get(f"{_risk_ds['url'].rstrip('/')}/query",
                             params={"where": _risk_where, "outFields": "*",
                                     "resultRecordCount": 5, "f": "json"},

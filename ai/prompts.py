@@ -126,11 +126,13 @@ def chatbot_user_prompt(
     # Cross-dataset context (flood, risk) fetched alongside the main dataset
     cross_section = ""
     if cross_context:
+        if cross_context.get("flood_note"):
+            cross_section += f"\nFlood status: {cross_context['flood_note']}\n"
         if cross_context.get("flood"):
-            cross_section += "\nFlood risk data for this location:\n"
+            cross_section += "Flood-prone district records:\n"
             cross_section += json.dumps(cross_context["flood"], indent=2) + "\n"
         if cross_context.get("risk"):
-            cross_section += "\nSocioeconomic / WASH risk data for this location:\n"
+            cross_section += "\nSocioeconomic / WASH risk data for this province:\n"
             cross_section += json.dumps(cross_context["risk"], indent=2) + "\n"
         if cross_section:
             cross_section = "\nRelated datasets (flood & risk):\n" + cross_section
