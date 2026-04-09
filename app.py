@@ -457,7 +457,8 @@ def process_question(question: str):
     geojson = None
     map_geojson = None   # lightweight copy for map rendering (≤50 features)
     sample_features = []
-    _total_count = None  # exact count from live API, set when location query succeeds
+    _total_count = None   # exact count from live API, set when location query succeeds
+    _cross_context = {}   # flood + risk data fetched alongside main query
 
     # Detect location once, at the top — used in both context mode and free search mode
     _location, _loc_type = _extract_location(question)
@@ -633,7 +634,7 @@ def process_question(question: str):
             # If the specific district isn't flood-prone, we fetch its province neighbours
             # so the AI can say "Mongu isn't listed but 4 neighbouring districts are."
             _cross_context = {}
-            if _location and sample_features:
+            if _location:
                 try:
                     import requests as _req
                     _headers = {"Referer": "https://zmb-geowb.hub.arcgis.com",
@@ -853,7 +854,7 @@ def process_question(question: str):
                 if m["role"] in ("user", "assistant") and m.get("content"):
                     history.append({"role": m["role"], "content": m["content"]})
             # Add current user prompt (with dataset context) as the final user turn
-            user_p = chatbot_user_prompt(question, datasets, sample_features, all_catalog=hub.get_catalog(), total_count=_total_count, location=_location or "", cross_context=_cross_context if "_cross_context" in dir() else {})
+            user_p = chatbot_user_prompt(question, datasets, sample_features, all_catalog=hub.get_catalog(), total_count=_total_count, location=_location or "", cross_context=_cross_context)
             history.append({"role": "user", "content": user_p})
 
             try:
