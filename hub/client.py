@@ -80,11 +80,15 @@ _SUBJECT_BOOST_MODULE = {
     "flood": "Zambia_Flood_Prone_Districts", "flooding": "Zambia_Flood_Prone_Districts",
     "biodiversity": "Zambia_Biodiversity_Data", "wildlife": "Zambia_Biodiversity_Data",
     "park": "Zambia_Biodiversity_Data", "conservation": "Zambia_Biodiversity_Data",
-    "settlement": "GRID3_Zambia_Operational_Settlement", "village": "GRID3_Zambia_Operational_Settlement",
-    "town": "GRID3_Zambia_Operational_Settlement",
+    "settlement": "GRID3_Zambia_Operational_Settlement", "settlements": "GRID3_Zambia_Operational_Settlement",
+    "village": "GRID3_Zambia_Operational_Settlement", "hamlet": "GRID3_Zambia_Operational_Settlement",
+    "town": "GRID3_Zambia_Operational_Settlement", "community": "GRID3_Zambia_Operational_Settlement",
+    "populated": "GRID3_Zambia_Operational_Settlement", "locality": "GRID3_Zambia_Operational_Settlement",
     "health": "GRID3_ZMB_HealthFac", "hospital": "GRID3_ZMB_HealthFac",
     "clinic": "GRID3_ZMB_HealthFac", "facility": "GRID3_ZMB_HealthFac",
     "facilities": "GRID3_ZMB_HealthFac",
+    "flood": "Zambia_Flood_Prone_Districts", "flooding": "Zambia_Flood_Prone_Districts",
+    "flood prone": "Zambia_Flood_Prone_Districts", "risk": "Zambia_Risk_Layers_Aggregated",
 }
 
 

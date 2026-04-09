@@ -496,10 +496,10 @@ def process_question(question: str):
             _static_data, _static_candidate = _find_static(question.lower())
             _live_candidate = _static_candidate or (datasets[0] if datasets else None)
 
-            # 1. Direct district-filtered fetch — implemented here in app.py using requests
-            # so it always picks up code changes without requiring hub/client.py reload.
+            # 1. Direct location-filtered fetch — handles both district-field datasets
+            # (schools, health, POI) and spatial datasets (settlements, which have no
+            # District field and need a bounding-box query against the district polygon).
             _live_error = ""
-            _total_count = None  # exact total from count-only query
             if _live_candidate:
                 with st.spinner(f"Querying live data for {_location}..."):
                     try:
@@ -507,43 +507,70 @@ def process_question(question: str):
                         _base_url = _live_candidate["url"].rstrip("/")
                         if _base_url.endswith("/query"):
                             _base_url = _base_url[:-6]
-                        _where = (
-                            f"District='{_location}' OR DISTRICT='{_location}'"
-                            if _loc_type == "district"
-                            else f"Province='{_location}' OR PROVINCE='{_location}'"
-                        )
                         _headers = {"Referer": "https://zmb-geowb.hub.arcgis.com",
                                     "Origin": "https://zmb-geowb.hub.arcgis.com"}
 
-                        # Count-only query — gets the exact total without transferring all records
-                        try:
-                            _cnt_resp = _req.get(
-                                f"{_base_url}/query",
-                                params={"where": _where, "returnCountOnly": "true", "f": "json"},
-                                headers=_headers, timeout=15,
+                        # Settlements dataset has no District field — use bounding box of
+                        # the district polygon from our local districts.json instead.
+                        _is_settlement = "Settlement" in _live_candidate.get("url", "")
+                        if _is_settlement and _loc_type == "district":
+                            _dist_feat = next(
+                                (f for f in _load_context_layers()[0]["geojson"]["features"]
+                                 if _location.lower() in (f["properties"].get("DISTRICT") or "").lower()),
+                                None
                             )
-                            _cnt_data = _cnt_resp.json()
-                            if "count" in _cnt_data:
-                                _total_count = _cnt_data["count"]
-                        except Exception:
-                            pass
+                            if _dist_feat:
+                                from utils.geo_utils import _polygon_bounds
+                                _bnds = _polygon_bounds(_dist_feat["geometry"])
+                                if _bnds:
+                                    _bbox_str = f"{_bnds[0][1]},{_bnds[0][0]},{_bnds[1][1]},{_bnds[1][0]}"
+                                    _cnt_resp = _req.get(f"{_base_url}/query",
+                                        params={"geometry": _bbox_str,
+                                                "geometryType": "esriGeometryEnvelope",
+                                                "spatialRel": "esriSpatialRelContains",
+                                                "returnCountOnly": "true", "f": "json"},
+                                        headers=_headers, timeout=15)
+                                    _cnt_data = _cnt_resp.json()
+                                    if "count" in _cnt_data:
+                                        _total_count = _cnt_data["count"]
+                                    _resp = _req.get(f"{_base_url}/query",
+                                        params={"geometry": _bbox_str,
+                                                "geometryType": "esriGeometryEnvelope",
+                                                "spatialRel": "esriSpatialRelContains",
+                                                "outFields": "*", "resultRecordCount": 30,
+                                                "f": "geojson"},
+                                        headers=_headers, timeout=30)
+                                    _resp.raise_for_status()
+                                    _gjson = _resp.json()
+                                    live_feats = _gjson.get("features", [])
+                        else:
+                            # Standard district/province field filter
+                            _where = (
+                                f"District='{_location}' OR DISTRICT='{_location}'"
+                                if _loc_type == "district"
+                                else f"Province='{_location}' OR PROVINCE='{_location}'"
+                            )
+                            # Count-only query for exact total
+                            try:
+                                _cnt_resp = _req.get(f"{_base_url}/query",
+                                    params={"where": _where, "returnCountOnly": "true", "f": "json"},
+                                    headers=_headers, timeout=15)
+                                _cnt_data = _cnt_resp.json()
+                                if "count" in _cnt_data:
+                                    _total_count = _cnt_data["count"]
+                            except Exception:
+                                pass
+                            # Sample fetch — 30 records for AI analysis and map
+                            _resp = _req.get(f"{_base_url}/query",
+                                params={"where": _where, "outFields": "*",
+                                        "resultRecordCount": 30, "f": "geojson"},
+                                headers=_headers, timeout=30)
+                            _resp.raise_for_status()
+                            _gjson = _resp.json()
+                            live_feats = _gjson.get("features", [])
 
-                        # Sample fetch — 30 records for AI analysis and map
-                        _resp = _req.get(
-                            f"{_base_url}/query",
-                            params={"where": _where, "outFields": "*",
-                                    "resultRecordCount": 30, "f": "geojson"},
-                            headers=_headers,
-                            timeout=30,
-                        )
-                        _resp.raise_for_status()
-                        _gjson = _resp.json()
-                        live_feats = _gjson.get("features", [])
                         if live_feats and "error" not in _gjson:
                             geojson = _gjson
-                            # Inject total count into geojson properties so the AI prompt includes it
-                            if _total_count is not None:
-                                geojson["_total_count"] = _total_count
                             sample_features = geojson_to_sample_rows(geojson, n=len(live_feats))
                             map_geojson = {"type": "FeatureCollection", "features": live_feats[:50]}
                             datasets = [_live_candidate] + [d for d in datasets if d != _live_candidate]
@@ -551,6 +578,43 @@ def process_question(question: str):
                             st.info(f"🌐 Showing {len(live_feats)} live records for {_location}{_count_label}.")
                     except Exception as _e:
                         _live_error = str(_e)
+
+            # 1b. Cross-dataset context — when location is mentioned, also fetch flood/risk
+            # data for that district/province so the AI can answer cross-cutting questions
+            # (e.g. "settlements in flood-prone areas of Kalomo").
+            _cross_context = {}
+            if _location and sample_features:
+                try:
+                    import requests as _req
+                    _headers = {"Referer": "https://zmb-geowb.hub.arcgis.com",
+                                "Origin": "https://zmb-geowb.hub.arcgis.com"}
+                    catalog = hub.get_catalog()
+
+                    # Flood-prone districts
+                    _flood_ds = next((d for d in catalog if "Flood" in d["url"]), None)
+                    if _flood_ds:
+                        _flood_where = f"DistName='{_location}'" if _loc_type == "district" else f"PovName='{_location}'"
+                        _fr = _req.get(f"{_flood_ds['url'].rstrip('/')}/query",
+                            params={"where": _flood_where, "outFields": "*",
+                                    "resultRecordCount": 5, "f": "json"},
+                            headers=_headers, timeout=10)
+                        _fd = _fr.json()
+                        if _fd.get("features"):
+                            _cross_context["flood"] = [f["attributes"] for f in _fd["features"]]
+
+                    # Risk layers
+                    _risk_ds = next((d for d in catalog if "Risk" in d["url"] and "Lusaka" not in d["url"]), None)
+                    if _risk_ds:
+                        _risk_where = f"PovName='{_location}'" if _loc_type == "province" else "1=1"
+                        _rr = _req.get(f"{_risk_ds['url'].rstrip('/')}/query",
+                            params={"where": _risk_where, "outFields": "*",
+                                    "resultRecordCount": 5, "f": "json"},
+                            headers=_headers, timeout=10)
+                        _rd = _rr.json()
+                        if _rd.get("features"):
+                            _cross_context["risk"] = [f["attributes"] for f in _rd["features"]]
+                except Exception:
+                    pass
 
             # 2. Live failed or was blocked — filter static data by location
             if not sample_features and _static_data and _static_data.get("features"):
@@ -701,7 +765,7 @@ def process_question(question: str):
                 if m["role"] in ("user", "assistant") and m.get("content"):
                     history.append({"role": m["role"], "content": m["content"]})
             # Add current user prompt (with dataset context) as the final user turn
-            user_p = chatbot_user_prompt(question, datasets, sample_features, all_catalog=hub.get_catalog(), total_count=_total_count, location=_location or "")
+            user_p = chatbot_user_prompt(question, datasets, sample_features, all_catalog=hub.get_catalog(), total_count=_total_count, location=_location or "", cross_context=_cross_context if "_cross_context" in dir() else {})
             history.append({"role": "user", "content": user_p})
 
             try:

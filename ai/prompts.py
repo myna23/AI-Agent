@@ -56,6 +56,7 @@ def chatbot_user_prompt(
     all_catalog: list[dict] = None,
     total_count: int = None,
     location: str = "",
+    cross_context: dict = None,
 ) -> str:
     """
     Build the user-turn prompt for the chatbot.
@@ -122,15 +123,29 @@ def chatbot_user_prompt(
         for ds in all_catalog:
             catalog_overview += f"  - {ds['name']}: {ds['description'][:100]}\n"
 
+    # Cross-dataset context (flood, risk) fetched alongside the main dataset
+    cross_section = ""
+    if cross_context:
+        if cross_context.get("flood"):
+            cross_section += "\nFlood risk data for this location:\n"
+            cross_section += json.dumps(cross_context["flood"], indent=2) + "\n"
+        if cross_context.get("risk"):
+            cross_section += "\nSocioeconomic / WASH risk data for this location:\n"
+            cross_section += json.dumps(cross_context["risk"], indent=2) + "\n"
+        if cross_section:
+            cross_section = "\nRelated datasets (flood & risk):\n" + cross_section
+
     return (
         f"Question: {question}\n\n"
         f"Matched datasets from the Zambia GeoHub:\n{dataset_context}\n"
         f"{total_count_note}"
         f"{sample_section}"
+        f"{cross_section}"
         f"{catalog_overview}\n"
         "Answer the question using the information above. "
         "If an EXACT TOTAL COUNT is provided above, state it confidently as the definitive answer. "
         "Use the aggregated counts and sample records for breakdowns by type, subtype, or other fields. "
+        "If flood or risk data is provided, use it to answer questions about flood exposure or vulnerability. "
         "Note when breakdowns are based on a sample of the full dataset."
     )
 
