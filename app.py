@@ -412,6 +412,7 @@ def process_question(question: str):
     geojson = None
     map_geojson = None   # lightweight copy for map rendering (≤50 features)
     sample_features = []
+    _total_count = None  # exact count from live API, set when location query succeeds
 
     # Detect location once, at the top — used in both context mode and free search mode
     _location, _loc_type = _extract_location(question)
@@ -498,6 +499,7 @@ def process_question(question: str):
             # 1. Direct district-filtered fetch — implemented here in app.py using requests
             # so it always picks up code changes without requiring hub/client.py reload.
             _live_error = ""
+            _total_count = None  # exact total from count-only query
             if _live_candidate:
                 with st.spinner(f"Querying live data for {_location}..."):
                     try:
@@ -510,12 +512,28 @@ def process_question(question: str):
                             if _loc_type == "district"
                             else f"Province='{_location}' OR PROVINCE='{_location}'"
                         )
+                        _headers = {"Referer": "https://zmb-geowb.hub.arcgis.com",
+                                    "Origin": "https://zmb-geowb.hub.arcgis.com"}
+
+                        # Count-only query — gets the exact total without transferring all records
+                        try:
+                            _cnt_resp = _req.get(
+                                f"{_base_url}/query",
+                                params={"where": _where, "returnCountOnly": "true", "f": "json"},
+                                headers=_headers, timeout=15,
+                            )
+                            _cnt_data = _cnt_resp.json()
+                            if "count" in _cnt_data:
+                                _total_count = _cnt_data["count"]
+                        except Exception:
+                            pass
+
+                        # Sample fetch — 30 records for AI analysis and map
                         _resp = _req.get(
                             f"{_base_url}/query",
                             params={"where": _where, "outFields": "*",
                                     "resultRecordCount": 30, "f": "geojson"},
-                            headers={"Referer": "https://zmb-geowb.hub.arcgis.com",
-                                     "Origin": "https://zmb-geowb.hub.arcgis.com"},
+                            headers=_headers,
                             timeout=30,
                         )
                         _resp.raise_for_status()
@@ -523,10 +541,14 @@ def process_question(question: str):
                         live_feats = _gjson.get("features", [])
                         if live_feats and "error" not in _gjson:
                             geojson = _gjson
+                            # Inject total count into geojson properties so the AI prompt includes it
+                            if _total_count is not None:
+                                geojson["_total_count"] = _total_count
                             sample_features = geojson_to_sample_rows(geojson, n=len(live_feats))
                             map_geojson = {"type": "FeatureCollection", "features": live_feats[:50]}
                             datasets = [_live_candidate] + [d for d in datasets if d != _live_candidate]
-                            st.info(f"🌐 Showing {len(live_feats)} live records for {_location}.")
+                            _count_label = f" (total in full dataset: {_total_count:,})" if _total_count is not None else ""
+                            st.info(f"🌐 Showing {len(live_feats)} live records for {_location}{_count_label}.")
                     except Exception as _e:
                         _live_error = str(_e)
 
@@ -679,7 +701,7 @@ def process_question(question: str):
                 if m["role"] in ("user", "assistant") and m.get("content"):
                     history.append({"role": m["role"], "content": m["content"]})
             # Add current user prompt (with dataset context) as the final user turn
-            user_p = chatbot_user_prompt(question, datasets, sample_features, all_catalog=hub.get_catalog())
+            user_p = chatbot_user_prompt(question, datasets, sample_features, all_catalog=hub.get_catalog(), total_count=_total_count, location=_location or "")
             history.append({"role": "user", "content": user_p})
 
             try:

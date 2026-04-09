@@ -54,6 +54,8 @@ def chatbot_user_prompt(
     datasets: list[dict],
     sample_features: list[dict],
     all_catalog: list[dict] = None,
+    total_count: int = None,
+    location: str = "",
 ) -> str:
     """
     Build the user-turn prompt for the chatbot.
@@ -75,6 +77,19 @@ def chatbot_user_prompt(
 
     if not dataset_context:
         dataset_context = "No matching datasets found for this query.\n"
+
+    # Total count banner — shown when we have an exact figure from a count-only API query
+    total_count_note = ""
+    if total_count is not None and location:
+        total_count_note = (
+            f"\n⚡ EXACT TOTAL COUNT (from live API, not a sample): "
+            f"There are {total_count:,} records in {location} in this dataset. "
+            f"Use this number directly when answering 'how many' questions — do not hedge or say it is a sample.\n"
+        )
+    elif total_count is not None:
+        total_count_note = (
+            f"\n⚡ EXACT TOTAL COUNT (from live API): {total_count:,} total records in this dataset.\n"
+        )
 
     # Sample records + pre-aggregated counts
     if sample_features:
@@ -110,11 +125,13 @@ def chatbot_user_prompt(
     return (
         f"Question: {question}\n\n"
         f"Matched datasets from the Zambia GeoHub:\n{dataset_context}\n"
+        f"{total_count_note}"
         f"{sample_section}"
         f"{catalog_overview}\n"
         "Answer the question using the information above. "
-        "Use the aggregated counts and sample records for specific answers about distribution, counts, or rankings. "
-        "Note when counts are based on a sample of the full dataset."
+        "If an EXACT TOTAL COUNT is provided above, state it confidently as the definitive answer. "
+        "Use the aggregated counts and sample records for breakdowns by type, subtype, or other fields. "
+        "Note when breakdowns are based on a sample of the full dataset."
     )
 
 
