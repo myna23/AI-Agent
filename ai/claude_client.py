@@ -13,6 +13,7 @@ Usage:
 """
 
 import os
+import time
 from typing import Optional
 import anthropic
 from dotenv import load_dotenv
@@ -61,15 +62,25 @@ class ClaudeClient:
     ) -> str:
         """
         Send a single-turn message and return the full response text.
-        Suitable for report generation and dataset summarisation.
+        Retries up to 3 times on overload/rate-limit errors.
         """
-        message = self.client.messages.create(
-            model=self.model,
-            max_tokens=max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-        )
-        return message.content[0].text
+        last_err = None
+        for attempt in range(3):
+            try:
+                message = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    system=system,
+                    messages=[{"role": "user", "content": user}],
+                )
+                return message.content[0].text
+            except anthropic.APIStatusError as e:
+                last_err = e
+                if e.status_code in (429, 529) and attempt < 2:
+                    time.sleep(3 * (attempt + 1))
+                    continue
+                raise
+        raise last_err
 
     def stream(
         self,
@@ -103,15 +114,23 @@ class ClaudeClient:
         max_tokens: int = 2048,
     ):
         """
-        Multi-turn streaming chat.
-        messages: [{"role": "user"|"assistant", "content": "..."}]
+        Multi-turn streaming chat with automatic retry on overload.
+        Retries up to 3 times (non-streaming fallback on retry).
         Compatible with st.write_stream().
         """
-        with self.client.messages.stream(
-            model=self.model,
-            max_tokens=max_tokens,
-            system=system,
-            messages=messages,
-        ) as stream:
-            for text in stream.text_stream:
-                yield text
+        for attempt in range(3):
+            try:
+                with self.client.messages.stream(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    system=system,
+                    messages=messages,
+                ) as stream:
+                    for text in stream.text_stream:
+                        yield text
+                return
+            except anthropic.APIStatusError as e:
+                if e.status_code in (429, 529) and attempt < 2:
+                    time.sleep(3 * (attempt + 1))
+                    continue
+                raise
