@@ -276,9 +276,17 @@ import streamlit.components.v1 as _components
 
 _LS_KEY = "zmb_geohub_chat"  # localStorage key
 
-# ── Chat persistence via localStorage ──────────────────────────────────────
-# On first load Streamlit sends a "chat_restore" query param set by JS below.
-# We decode it and pre-populate session_state.messages so history survives refresh.
+# ── Chat persistence via localStorage + query param ─────────────────────────
+# Strategy:
+# 1. Every render: write messages to localStorage (JS, immediate).
+# 2. On refresh: browser reloads page. Streamlit starts fresh session.
+#    JS reads localStorage and appends ?chat_restore=<encoded> to the URL,
+#    then reloads once more so Streamlit sees the param.
+# 3. Python reads ?chat_restore on first load and restores messages.
+#
+# This two-step reload (JS reads LS → sets URL param → Streamlit reads param)
+# is the only reliable way to bridge localStorage → Python in Streamlit.
+
 if "messages" not in st.session_state:
     _saved_raw = st.query_params.get("chat_restore", "")
     if _saved_raw:
@@ -290,7 +298,6 @@ if "messages" not in st.session_state:
                  if isinstance(v, (str, int, float, bool, list, dict, type(None)))}
                 for m in _loaded
             ]
-            # Clean the param from the URL so it doesn't persist visibly
             st.query_params.clear()
         except Exception:
             st.session_state.messages = []
@@ -301,14 +308,15 @@ if "edit_idx" not in st.session_state:
     st.session_state.edit_idx = None
 if "stop_streaming" not in st.session_state:
     st.session_state.stop_streaming = False
+if "_chat_restored" not in st.session_state:
+    st.session_state._chat_restored = bool(st.session_state.messages)
 
 
 def _persist_chat():
-    """
-    1. Save current messages to localStorage.
-    2. Attach an 'unload' listener: when the tab is about to close/refresh,
-       add ?chat_restore=<encoded> to the URL so Streamlit reads it on next load.
-    """
+    """Write messages to localStorage every render AND inject a one-time
+    bootstrap script that runs on a fresh page load (no query param yet)
+    to read localStorage and redirect with ?chat_restore= so Python can
+    restore the session."""
     try:
         _serialisable = [
             {k: v for k, v in m.items()
@@ -316,24 +324,33 @@ def _persist_chat():
             for m in st.session_state.messages
         ]
         _json_str = _json_mod2.dumps(_serialisable, separators=(",", ":"))
-        # Escape backticks and backslashes for safe JS embedding
-        _json_escaped = _json_str.replace("\\", "\\\\").replace("`", "\\`")
+        _json_escaped = _json_str.replace("\\", "\\\\").replace("`", "\\`").replace("</", "<\\/")
         _components.html(
             f"""<script>
             (function() {{
                 const LS_KEY = "{_LS_KEY}";
                 const data = `{_json_escaped}`;
+
+                // Always keep localStorage up to date
                 try {{ localStorage.setItem(LS_KEY, data); }} catch(e) {{}}
 
-                // On refresh/close: write to URL so Streamlit can read on next boot
-                window.addEventListener('beforeunload', function() {{
+                // Bootstrap: if Python has no messages yet and no chat_restore param,
+                // read localStorage and redirect once so Streamlit picks up the history.
+                // The flag __zmb_restored__ prevents redirect loops.
+                const params = new URLSearchParams(window.parent.location.search);
+                const alreadyRestored = window.parent.__zmb_restored__;
+                if (!params.has('chat_restore') && !alreadyRestored && {str(len(st.session_state.messages))} === 0) {{
+                    window.parent.__zmb_restored__ = true;
                     try {{
-                        const encoded = encodeURIComponent(data);
-                        const url = new URL(window.parent.location.href);
-                        url.searchParams.set('chat_restore', encoded);
-                        window.parent.history.replaceState(null, '', url.toString());
+                        const saved = localStorage.getItem(LS_KEY);
+                        if (saved && saved.length > 10) {{
+                            const encoded = encodeURIComponent(saved);
+                            const url = new URL(window.parent.location.href);
+                            url.searchParams.set('chat_restore', encoded);
+                            window.parent.location.replace(url.toString());
+                        }}
                     }} catch(e) {{}}
-                }}, {{once: true}});
+                }}
             }})();
             </script>""",
             height=0,
