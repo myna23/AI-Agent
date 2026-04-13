@@ -269,36 +269,66 @@ if _ctx_url:
         }
 
 # ---------------------------------------------------------------------------
-# Session state + localStorage persistence
+# Session state — chat persistence via URL query param (pure Python, no JS)
+# ---------------------------------------------------------------------------
+# Strategy: after every message pair, serialize messages → compress → base64
+# → store in st.query_params["c"]. On refresh Streamlit reads the same URL
+# so the param is still there and messages are restored.
+# Geojson / sample_features are stripped before encoding to keep URL short.
 # ---------------------------------------------------------------------------
 import json as _json_mod2
-import streamlit.components.v1 as _components
+import zlib as _zlib
+import base64 as _b64
 
-_LS_KEY = "zmb_geohub_chat"  # localStorage key
+_CHAT_PARAM = "c"
+_MAX_CHAT_MESSAGES = 20  # keep last N messages to avoid URL length limits
 
-# ── Chat persistence via localStorage + query param ─────────────────────────
-# Strategy:
-# 1. Every render: write messages to localStorage (JS, immediate).
-# 2. On refresh: browser reloads page. Streamlit starts fresh session.
-#    JS reads localStorage and appends ?chat_restore=<encoded> to the URL,
-#    then reloads once more so Streamlit sees the param.
-# 3. Python reads ?chat_restore on first load and restores messages.
-#
-# This two-step reload (JS reads LS → sets URL param → Streamlit reads param)
-# is the only reliable way to bridge localStorage → Python in Streamlit.
 
+def _encode_chat(messages: list) -> str:
+    """Serialize messages to a compact URL-safe string."""
+    # Strip large binary fields that don't need to survive refresh
+    slim = []
+    for m in messages[-_MAX_CHAT_MESSAGES:]:
+        slim.append({k: v for k, v in m.items()
+                     if k not in ("geojson", "sample_features", "docx_bytes", "pdf_bytes")
+                     and isinstance(v, (str, int, float, bool, list, dict, type(None)))})
+    raw = _json_mod2.dumps(slim, separators=(",", ":"))
+    compressed = _zlib.compress(raw.encode("utf-8"), level=6)
+    return _b64.urlsafe_b64encode(compressed).decode("ascii")
+
+
+def _decode_chat(encoded: str) -> list:
+    """Restore messages from URL param string."""
+    compressed = _b64.urlsafe_b64decode(encoded)
+    raw = _zlib.decompress(compressed).decode("utf-8")
+    return _json_mod2.loads(raw)
+
+
+def _persist_chat():
+    """Write current messages into the URL query param."""
+    try:
+        if st.session_state.messages:
+            st.query_params[_CHAT_PARAM] = _encode_chat(st.session_state.messages)
+        else:
+            st.query_params.pop(_CHAT_PARAM, None)
+    except Exception:
+        pass
+
+
+def _clear_chat_storage():
+    """Remove chat from URL."""
+    try:
+        st.query_params.pop(_CHAT_PARAM, None)
+    except Exception:
+        pass
+
+
+# Restore messages from URL on first load
 if "messages" not in st.session_state:
-    _saved_raw = st.query_params.get("chat_restore", "")
-    if _saved_raw:
+    _encoded = st.query_params.get(_CHAT_PARAM, "")
+    if _encoded:
         try:
-            import urllib.parse as _up
-            _loaded = _json_mod2.loads(_up.unquote(_saved_raw))
-            st.session_state.messages = [
-                {k: v for k, v in m.items()
-                 if isinstance(v, (str, int, float, bool, list, dict, type(None)))}
-                for m in _loaded
-            ]
-            st.query_params.clear()
+            st.session_state.messages = _decode_chat(_encoded)
         except Exception:
             st.session_state.messages = []
     else:
@@ -308,70 +338,6 @@ if "edit_idx" not in st.session_state:
     st.session_state.edit_idx = None
 if "stop_streaming" not in st.session_state:
     st.session_state.stop_streaming = False
-if "_chat_restored" not in st.session_state:
-    st.session_state._chat_restored = bool(st.session_state.messages)
-
-
-def _persist_chat():
-    """Write messages to localStorage every render AND inject a one-time
-    bootstrap script that runs on a fresh page load (no query param yet)
-    to read localStorage and redirect with ?chat_restore= so Python can
-    restore the session."""
-    try:
-        _serialisable = [
-            {k: v for k, v in m.items()
-             if isinstance(v, (str, int, float, bool, list, dict, type(None)))}
-            for m in st.session_state.messages
-        ]
-        _json_str = _json_mod2.dumps(_serialisable, separators=(",", ":"))
-        _json_escaped = _json_str.replace("\\", "\\\\").replace("`", "\\`").replace("</", "<\\/")
-        _components.html(
-            f"""<script>
-            (function() {{
-                const LS_KEY = "{_LS_KEY}";
-                const data = `{_json_escaped}`;
-
-                // Always keep localStorage up to date
-                try {{ localStorage.setItem(LS_KEY, data); }} catch(e) {{}}
-
-                // Bootstrap: if Python has no messages yet and no chat_restore param,
-                // read localStorage and redirect once so Streamlit picks up the history.
-                // The flag __zmb_restored__ prevents redirect loops.
-                const params = new URLSearchParams(window.parent.location.search);
-                const alreadyRestored = window.parent.__zmb_restored__;
-                if (!params.has('chat_restore') && !alreadyRestored && {str(len(st.session_state.messages))} === 0) {{
-                    window.parent.__zmb_restored__ = true;
-                    try {{
-                        const saved = localStorage.getItem(LS_KEY);
-                        if (saved && saved.length > 10) {{
-                            const encoded = encodeURIComponent(saved);
-                            const url = new URL(window.parent.location.href);
-                            url.searchParams.set('chat_restore', encoded);
-                            window.parent.location.replace(url.toString());
-                        }}
-                    }} catch(e) {{}}
-                }}
-            }})();
-            </script>""",
-            height=0,
-        )
-    except Exception:
-        pass
-
-
-def _clear_chat_storage():
-    """Remove chat from localStorage and URL."""
-    _components.html(
-        f"""<script>
-        try {{ localStorage.removeItem("{_LS_KEY}"); }} catch(e) {{}}
-        try {{
-            const url = new URL(window.parent.location.href);
-            url.searchParams.delete('chat_restore');
-            window.parent.history.replaceState(null, '', url.toString());
-        }} catch(e) {{}}
-        </script>""",
-        height=0,
-    )
 
 # ---------------------------------------------------------------------------
 # Intent detection
