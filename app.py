@@ -55,6 +55,49 @@ def _map(geojson: dict, name: str, with_context: bool = False, highlight_locatio
     return make_folium_map(geojson, name, context_layers=ctx, highlight_location=highlight_location)
 
 
+def _render_data_tables(sample_features: list, ds_name: str, key_prefix: str = ""):
+    """
+    Render an expandable data table + bar charts for sample feature records.
+    - Shows all sample rows as a scrollable dataframe
+    - For categorical fields (District, Province, Type, etc.) shows a bar chart
+    """
+    import pandas as _pd
+
+    if not sample_features:
+        return
+    # Filter out internal placeholder notes
+    rows = [r for r in sample_features if "_note" not in r]
+    if not rows:
+        return
+
+    df = _pd.DataFrame(rows)
+
+    # Drop geometry columns if any snuck in
+    geo_cols = [c for c in df.columns if c.lower() in ("geometry", "shape", "shape_area", "shape_length", "objectid", "fid", "globalid")]
+    df = df.drop(columns=[c for c in geo_cols if c in df.columns])
+
+    with st.expander(f"Data table — {ds_name} ({len(rows)} records)", expanded=True):
+        st.dataframe(df, use_container_width=True, height=260)
+
+        # Bar charts for categorical fields that have variety
+        cat_fields = ["District", "DISTRICT", "Province", "PROVINCE", "Type", "TYPE",
+                      "SubType", "Facility_T", "fclass", "surface", "Status", "STATUS",
+                      "Classifica", "S_CLASS", "DOMINANT"]
+        shown = 0
+        for field in cat_fields:
+            if field not in df.columns:
+                continue
+            counts = df[field].dropna().astype(str)
+            counts = counts[counts != "None"].value_counts().head(15)
+            if len(counts) < 2 or shown >= 2:
+                continue
+            chart_df = counts.reset_index()
+            chart_df.columns = [field, "Count"]
+            st.markdown(f"**By {field}**")
+            st.bar_chart(chart_df.set_index(field)["Count"])
+            shown += 1
+
+
 def _is_point_geojson(geojson: dict) -> bool:
     feats = geojson.get("features", [])
     if not feats:
@@ -453,6 +496,10 @@ for i, msg in enumerate(st.session_state.messages):
                 m = _map(hist_geojson, msg["ds_name"], with_context=_is_point_geojson(hist_geojson), highlight_location=msg.get("location", ""))
                 st_folium(m, width=720, height=340, returned_objects=[], key=f"map_{i}")
 
+            # Data table (chat answers only)
+            if msg.get("intent", "chat") == "chat" and msg.get("sample_features") and msg.get("ds_name"):
+                _render_data_tables(msg["sample_features"], msg["ds_name"], key_prefix=f"hist_{i}")
+
             # Edit prompt button
             col_e, col_blank = st.columns([1, 6])
             with col_e:
@@ -516,7 +563,7 @@ def process_question(question: str):
                 _resp = _req.get(
                     f"{_base_url}/query",
                     params={"where": _where, "outFields": "*",
-                            "resultRecordCount": 30, "f": "geojson"},
+                            "resultRecordCount": 200, "f": "geojson"},
                     headers={"Referer": "https://zmb-geowb.hub.arcgis.com",
                              "Origin": "https://zmb-geowb.hub.arcgis.com"},
                     timeout=30,
@@ -527,7 +574,7 @@ def process_question(question: str):
                 if live_feats and _location:
                     st.info(f"🌐 Showing {len(live_feats)} live records for {_location}.")
                 sample_features = geojson_to_sample_rows(geojson, n=len(live_feats))
-                map_geojson = {"type": "FeatureCollection", "features": live_feats[:50]}
+                map_geojson = {"type": "FeatureCollection", "features": live_feats[:200]}
             except Exception as _ctx_e:
                 st.warning(f"⚠️ Could not load data for {_location or 'this dataset'}: {_ctx_e}")
     else:
@@ -645,10 +692,10 @@ def process_question(question: str):
                                     _total_count = _cnt_data["count"]
                             except Exception:
                                 pass
-                            # Sample fetch — 30 records for AI analysis and map
+                            # Sample fetch — up to 200 records for table + AI analysis
                             _resp = _req.get(f"{_base_url}/query",
                                 params={"where": _where, "outFields": "*",
-                                        "resultRecordCount": 30, "f": "geojson"},
+                                        "resultRecordCount": 200, "f": "geojson"},
                                 headers=_headers, timeout=30)
                             _resp.raise_for_status()
                             _gjson = _resp.json()
@@ -657,7 +704,7 @@ def process_question(question: str):
                         if live_feats and "error" not in _gjson:
                             geojson = _gjson
                             sample_features = geojson_to_sample_rows(geojson, n=len(live_feats))
-                            map_geojson = {"type": "FeatureCollection", "features": live_feats[:50]}
+                            map_geojson = {"type": "FeatureCollection", "features": live_feats[:200]}
                             datasets = [_live_candidate] + [d for d in datasets if d != _live_candidate]
                             _count_label = f" (total in full dataset: {_total_count:,})" if _total_count is not None else ""
                             st.info(f"🌐 Showing {len(live_feats)} live records for {_location}{_count_label}.")
@@ -824,6 +871,92 @@ def process_question(question: str):
                             _cross_context["settlement_geojson"] = {
                                 "type": "FeatureCollection", "features": _all_settle_feats[:50]
                             }
+
+                    # Roads fetch — spatial bbox query (no District field), LineString geometry.
+                    # Fetches road names, numbers, surface, and functional class for the queried
+                    # district or province.
+                    _road_base = "https://services3.arcgis.com/t6lYS2Pmd8iVx1fy/arcgis/rest/services/glc_ZMB_trs_roads_major_b_view/FeatureServer/0"
+                    _road_target_districts = (
+                        [_location] if _loc_type == "district"
+                        else [r.get("DistName", "").title() for r in _cross_context.get("flood", []) if r.get("DistName")]
+                        if _loc_type == "province" and _cross_context.get("flood")
+                        else []
+                    )
+                    _all_road_feats = []
+                    _total_road_count = 0
+                    try:
+                        if _road_target_districts:
+                            for _rd_dist in _road_target_districts:
+                                _rd_feat = next(
+                                    (f for f in _CONTEXT_LAYERS[0]["geojson"]["features"]
+                                     if _rd_dist.lower() in (f["properties"].get("DISTRICT") or "").lower()),
+                                    None
+                                )
+                                if not _rd_feat:
+                                    continue
+                                _rd_bnds = _polygon_bounds(_rd_feat["geometry"])
+                                if not _rd_bnds:
+                                    continue
+                                _rd_bbox = f"{_rd_bnds[0][1]},{_rd_bnds[0][0]},{_rd_bnds[1][1]},{_rd_bnds[1][0]}"
+                                # Count
+                                _rcnt = _req.get(f"{_road_base}/query",
+                                    params={"geometry": _rd_bbox, "geometryType": "esriGeometryEnvelope",
+                                            "spatialRel": "esriSpatialRelIntersects",
+                                            "returnCountOnly": "true", "f": "json"},
+                                    headers=_headers, timeout=15)
+                                _total_road_count += _rcnt.json().get("count", 0)
+                                # Sample (up to 20 roads per district)
+                                if len(_all_road_feats) < 60:
+                                    _rresp = _req.get(f"{_road_base}/query",
+                                        params={"geometry": _rd_bbox, "geometryType": "esriGeometryEnvelope",
+                                                "spatialRel": "esriSpatialRelIntersects",
+                                                "outFields": "name,roadnoloc,roadno,fclass,surface,numlanes,speedlimitkmh",
+                                                "resultRecordCount": 20, "f": "geojson"},
+                                        headers=_headers, timeout=20)
+                                    _all_road_feats.extend(_rresp.json().get("features", []))
+                        elif _loc_type == "province":
+                            # Province-level: use a province bbox from context layers
+                            # Find any district in province to get rough bbox
+                            _prov_feats = [
+                                f for f in _CONTEXT_LAYERS[0]["geojson"]["features"]
+                                if _location.lower() in (f["properties"].get("PROVINCE") or "").lower()
+                            ]
+                            if _prov_feats:
+                                # Merge all district bounds into province bbox
+                                all_lats, all_lons = [], []
+                                for _pf in _prov_feats:
+                                    _pb = _polygon_bounds(_pf["geometry"])
+                                    if _pb:
+                                        all_lats += [_pb[0][0], _pb[1][0]]
+                                        all_lons += [_pb[0][1], _pb[1][1]]
+                                if all_lats:
+                                    _prov_bbox = f"{min(all_lons)},{min(all_lats)},{max(all_lons)},{max(all_lats)}"
+                                    _rcnt2 = _req.get(f"{_road_base}/query",
+                                        params={"geometry": _prov_bbox, "geometryType": "esriGeometryEnvelope",
+                                                "spatialRel": "esriSpatialRelIntersects",
+                                                "returnCountOnly": "true", "f": "json"},
+                                        headers=_headers, timeout=15)
+                                    _total_road_count = _rcnt2.json().get("count", 0)
+                                    _rresp2 = _req.get(f"{_road_base}/query",
+                                        params={"geometry": _prov_bbox, "geometryType": "esriGeometryEnvelope",
+                                                "spatialRel": "esriSpatialRelIntersects",
+                                                "outFields": "name,roadnoloc,roadno,fclass,surface,numlanes,speedlimitkmh",
+                                                "resultRecordCount": 40, "f": "geojson"},
+                                        headers=_headers, timeout=20)
+                                    _all_road_feats = _rresp2.json().get("features", [])
+                    except Exception:
+                        pass
+
+                    if _total_road_count:
+                        _cross_context["road_count"] = _total_road_count
+                    if _all_road_feats:
+                        _cross_context["road_sample"] = [
+                            {k: v for k, v in (f.get("properties") or {}).items() if v is not None}
+                            for f in _all_road_feats[:10]
+                        ]
+                        _cross_context["road_geojson"] = {
+                            "type": "FeatureCollection", "features": _all_road_feats[:60]
+                        }
                 except Exception:
                     pass
 
@@ -889,6 +1022,13 @@ def process_question(question: str):
         )
         if not _has_points:
             map_geojson = _cross_context["settlement_geojson"]
+
+    # If cross-context has road lines, inject them as a context layer so they appear on the map.
+    _ctx_layers = list(_CONTEXT_LAYERS)
+    if _cross_context.get("road_geojson"):
+        _ctx_layers = _ctx_layers + [
+            {"geojson": _cross_context["road_geojson"], "name": "Roads", "type": "road"}
+        ]
 
     ds = datasets[0] if datasets else {}
 
@@ -960,6 +1100,8 @@ def process_question(question: str):
                 c2.metric("Geometry", s["geometry_type"].replace("esriGeometry", ""))
                 c3.metric("Fields", len(s["fields"]))
 
+            _render_data_tables(sample_features, ds["name"], key_prefix="new_sum")
+
             st.markdown(f"**Summary: {ds['name']}**")
             st.markdown(summary)
             st.download_button("⬇️ Download Summary (.txt)", summary,
@@ -972,6 +1114,7 @@ def process_question(question: str):
             st.session_state.messages.append({
                 "role": "assistant", "content": summary, "intent": intent,
                 "summary_txt": summary, "ds_name": ds["name"], "geojson": map_geojson,
+                "sample_features": sample_features,
             })
 
     # --- CHAT (default) ---
@@ -1018,13 +1161,16 @@ def process_question(question: str):
                     for d in datasets:
                         st.markdown(f"- **{d['name']}** — {d['description'][:120]}")
 
+            _render_data_tables(sample_features, ds.get("name", "Zambia GeoHub"), key_prefix="new_chat")
+
             display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
-            st_folium(_map(display_geojson, ds.get("name", ""), with_context=_is_point_geojson(display_geojson), highlight_location=_location or ""), width=720, height=340, returned_objects=[], key="map_new_chat")
+            st_folium(make_folium_map(display_geojson, ds.get("name", ""), context_layers=_ctx_layers if _is_point_geojson(display_geojson) or _cross_context.get("road_geojson") else None, highlight_location=_location or ""), width=720, height=340, returned_objects=[], key="map_new_chat")
 
             st.session_state.messages.append({
                 "role": "assistant", "content": response, "intent": intent,
                 "ds_name": ds.get("name", ""), "geojson": map_geojson,
                 "location": _location or "",
+                "sample_features": sample_features,
             })
 
 # ---------------------------------------------------------------------------

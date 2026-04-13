@@ -31,8 +31,13 @@ def chatbot_system_prompt() -> str:
         "sample records by District field and report the top districts from the sample, "
         "noting it is based on the loaded sample.\n"
         "- If the question asks what data is available, list the datasets provided to you.\n"
-        "- NEVER invent statistics or facts not present in the data.\n"
+        "- NEVER invent statistics, field names, or facts not present in the data.\n"
+        "- NEVER make up or guess a dataset name. Only reference datasets that appear in "
+        "'Matched datasets' or 'All datasets currently available' sections below.\n"
         "- Do NOT answer from general world knowledge — only from what is given to you.\n"
+        "- If no matching datasets are found AND no sample records are provided, say: "
+        "'This data is not currently available on the Zambia GeoHub.' Do NOT describe "
+        "what the dataset might contain or invent field names.\n"
         "- Always cite the dataset name you used.\n"
         "- Be concise and helpful — use bullet points or short paragraphs.\n"
         "- Only say data is unavailable if NO sample records and NO relevant dataset "
@@ -77,7 +82,11 @@ def chatbot_user_prompt(
             dataset_context += f"  Fields: {fields_str}\n"
 
     if not dataset_context:
-        dataset_context = "No matching datasets found for this query.\n"
+        dataset_context = (
+            "⚠️ NO MATCHING DATASETS FOUND for this query on the Zambia GeoHub.\n"
+            "You MUST respond: 'This data is not currently available on the Zambia GeoHub.' "
+            "Do NOT describe fields, invent dataset names, or answer from general knowledge.\n"
+        )
 
     # Total count banner — shown when we have an exact figure from a count-only API query
     total_count_note = ""
@@ -147,8 +156,16 @@ def chatbot_user_prompt(
         if cross_context.get("risk"):
             cross_section += "\nSocioeconomic / WASH risk data for this province:\n"
             cross_section += json.dumps(cross_context["risk"], indent=2) + "\n"
+        if cross_context.get("road_count") is not None:
+            cross_section += (
+                f"\n⚡ ROAD COUNT for {location}: "
+                f"{cross_context['road_count']:,} road segments in this area (from live spatial query).\n"
+            )
+        if cross_context.get("road_sample"):
+            cross_section += "Road sample records (name, number, surface, class):\n"
+            cross_section += json.dumps(cross_context["road_sample"], indent=2) + "\n"
         if cross_section:
-            cross_section = "\nRelated datasets (settlements, flood & risk):\n" + cross_section
+            cross_section = "\nRelated datasets (settlements, flood, risk & roads):\n" + cross_section
 
     return (
         f"Question: {question}\n\n"
