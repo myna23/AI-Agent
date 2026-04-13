@@ -55,6 +55,43 @@ def _map(geojson: dict, name: str, with_context: bool = False, highlight_locatio
     return make_folium_map(geojson, name, context_layers=ctx, highlight_location=highlight_location)
 
 
+def _suggestion_chips(question: str, has_location: bool, has_data: bool, ds_name: str, key_prefix: str = ""):
+    """Show clickable follow-up suggestion buttons after an answer."""
+    suggestions = []
+
+    q = question.lower()
+    # Map suggestion — if answer didn't already show one meaningfully
+    if has_location and has_data:
+        suggestions.append(f"Show me a map of {question.split('in')[-1].strip() if ' in ' in q else 'this area'}")
+    # Table suggestion
+    if has_data and "table" not in q and "summarise" not in q and "summary" not in q:
+        suggestions.append(f"Show me this data as a table")
+    # Report suggestion
+    if has_data and "report" not in q:
+        suggestions.append(f"Generate a report on {ds_name}")
+    # Summary suggestion
+    if has_data and "summar" not in q and "report" not in q:
+        suggestions.append(f"Summarise {ds_name}")
+    # Flood/risk follow-up
+    if has_location and "flood" not in q and "risk" not in q:
+        suggestions.append(f"What is the flood risk in this area?")
+    # Settlement follow-up
+    if has_location and "settlement" not in q and "village" not in q:
+        suggestions.append(f"How many settlements are in this area?")
+
+    if not suggestions:
+        return
+
+    st.markdown("<div style='margin-top:6px;margin-bottom:2px;font-size:12px;color:#666'>💡 Follow-up suggestions:</div>", unsafe_allow_html=True)
+    cols = st.columns(min(len(suggestions), 3))
+    for j, sug in enumerate(suggestions[:3]):
+        with cols[j]:
+            if st.button(sug, key=f"{key_prefix}_sug_{j}", use_container_width=True):
+                st.session_state.messages.append({"role": "user", "content": sug})
+                st.session_state._pending_question = sug
+                st.rerun()
+
+
 def _render_data_tables(sample_features: list, ds_name: str, key_prefix: str = ""):
     """
     Render an expandable data table + bar charts for sample feature records.
@@ -487,12 +524,34 @@ for i, msg in enumerate(st.session_state.messages):
             if msg.get("intent", "chat") == "chat" and msg.get("sample_features") and msg.get("ds_name"):
                 _render_data_tables(msg["sample_features"], msg["ds_name"], key_prefix=f"hist_{i}")
 
-            # Edit prompt button
-            col_e, col_blank = st.columns([1, 6])
-            with col_e:
-                if st.button("✏️ Edit prompt", key=f"edit_{i}"):
+            # Compact action toolbar — edit / regenerate / copy
+            st.markdown(
+                """<style>
+                div[data-testid="stHorizontalBlock"] button[kind="secondary"] {
+                    padding: 2px 8px; font-size: 13px; min-height: 0;
+                }
+                </style>""", unsafe_allow_html=True
+            )
+            _ta, _tb, _tc, _td = st.columns([1, 1, 1, 10])
+            with _ta:
+                if st.button("✏️", key=f"edit_{i}", help="Edit question"):
                     st.session_state.edit_idx = i - 1
                     st.rerun()
+            with _tb:
+                if st.button("🔄", key=f"regen_{i}", help="Regenerate answer"):
+                    # Replay the preceding user message
+                    _prev_user = next(
+                        (m["content"] for m in reversed(st.session_state.messages[:i])
+                         if m["role"] == "user"), None
+                    )
+                    if _prev_user:
+                        st.session_state.messages = st.session_state.messages[:i - 1]
+                        st.session_state._pending_question = _prev_user
+                        st.rerun()
+            with _tc:
+                _copy_text = msg.get("content", "")
+                st.download_button("📋", _copy_text, file_name="answer.txt",
+                                   mime="text/plain", key=f"copy_{i}", help="Download answer as text")
 
 # ---------------------------------------------------------------------------
 # Edit prompt UI
@@ -1147,6 +1206,9 @@ def process_question(question: str):
                 with st.expander("Datasets used"):
                     for d in datasets:
                         st.markdown(f"- **{d['name']}** — {d['description'][:120]}")
+
+            _suggestion_chips(question, has_location=bool(_location), has_data=bool(sample_features),
+                              ds_name=ds.get("name", "this dataset"), key_prefix="new_chat")
 
             _render_data_tables(sample_features, ds.get("name", "Zambia GeoHub"), key_prefix="new_chat")
 
