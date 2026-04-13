@@ -286,12 +286,18 @@ _MAX_CHAT_MESSAGES = 20  # keep last N messages to avoid URL length limits
 
 def _encode_chat(messages: list) -> str:
     """Serialize messages to a compact URL-safe string."""
-    # Strip large binary fields that don't need to survive refresh
     slim = []
     for m in messages[-_MAX_CHAT_MESSAGES:]:
-        slim.append({k: v for k, v in m.items()
-                     if k not in ("geojson", "sample_features", "docx_bytes", "pdf_bytes")
-                     and isinstance(v, (str, int, float, bool, list, dict, type(None)))})
+        entry = {k: v for k, v in m.items()
+                 if k not in ("geojson", "sample_features", "docx_bytes", "pdf_bytes")
+                 and isinstance(v, (str, int, float, bool, list, dict, type(None)))}
+        # Include geojson capped at 25 features so maps restore after refresh
+        if m.get("geojson") and m["geojson"].get("features"):
+            entry["geojson"] = {
+                "type": "FeatureCollection",
+                "features": m["geojson"]["features"][:25]
+            }
+        slim.append(entry)
     raw = _json_mod2.dumps(slim, separators=(",", ":"))
     compressed = _zlib.compress(raw.encode("utf-8"), level=6)
     return _b64.urlsafe_b64encode(compressed).decode("ascii")
