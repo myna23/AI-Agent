@@ -1193,33 +1193,45 @@ def process_question(question: str):
                 if st.button("⏹ Stop", key="stop_btn", use_container_width=True):
                     st.session_state.stop_streaming = True
 
+            _ai_error = False
             try:
                 response = st.write_stream(_stoppable_stream())
             except Exception as e:
-                response = f"AI error: {e}"
-                st.error(response)
+                _ai_error = True
+                _stop_placeholder.empty()
+                st.session_state.stop_streaming = False
+                _err_str = str(e)
+                if "overloaded" in _err_str.lower():
+                    response = "⚠️ The AI is temporarily overloaded. Please try again in a few seconds."
+                elif "rate_limit" in _err_str.lower():
+                    response = "⚠️ Rate limit reached. Please wait a moment and try again."
+                else:
+                    response = "⚠️ Something went wrong with the AI response. Please try again."
+                st.warning(response)
             finally:
-                _stop_placeholder.empty()  # Remove the Stop button once done
+                _stop_placeholder.empty()
                 st.session_state.stop_streaming = False
 
-            if datasets:
-                with st.expander("Datasets used"):
-                    for d in datasets:
-                        st.markdown(f"- **{d['name']}** — {d['description'][:120]}")
+            # Only show data, suggestions and map when AI answered successfully
+            if not _ai_error:
+                if datasets:
+                    with st.expander("Datasets used"):
+                        for d in datasets:
+                            st.markdown(f"- **{d['name']}** — {d['description'][:120]}")
 
-            _suggestion_chips(question, has_location=bool(_location), has_data=bool(sample_features),
-                              ds_name=ds.get("name", "this dataset"), key_prefix="new_chat")
+                _suggestion_chips(question, has_location=bool(_location), has_data=bool(sample_features),
+                                  ds_name=ds.get("name", "this dataset"), key_prefix="new_chat")
 
-            _render_data_tables(sample_features, ds.get("name", "Zambia GeoHub"), key_prefix="new_chat")
+                _render_data_tables(sample_features, ds.get("name", "Zambia GeoHub"), key_prefix="new_chat")
 
-            display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
-            st_folium(make_folium_map(display_geojson, ds.get("name", ""), context_layers=_ctx_layers if _is_point_geojson(display_geojson) or _cross_context.get("road_geojson") else None, highlight_location=_location or ""), width=720, height=340, returned_objects=[], key="map_new_chat")
+                display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
+                st_folium(make_folium_map(display_geojson, ds.get("name", ""), context_layers=_ctx_layers if _is_point_geojson(display_geojson) or _cross_context.get("road_geojson") else None, highlight_location=_location or ""), width=720, height=340, returned_objects=[], key="map_new_chat")
 
             st.session_state.messages.append({
                 "role": "assistant", "content": response, "intent": intent,
-                "ds_name": ds.get("name", ""), "geojson": map_geojson,
+                "ds_name": ds.get("name", ""), "geojson": map_geojson if not _ai_error else None,
                 "location": _location or "",
-                "sample_features": sample_features,
+                "sample_features": sample_features if not _ai_error else [],
             })
 
 # ---------------------------------------------------------------------------
