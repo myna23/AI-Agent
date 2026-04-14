@@ -55,38 +55,34 @@ def _map(geojson: dict, name: str, with_context: bool = False, highlight_locatio
     return make_folium_map(geojson, name, context_layers=ctx, highlight_location=highlight_location)
 
 
-def _suggestion_chips(question: str, has_location: bool, has_data: bool, ds_name: str, key_prefix: str = ""):
-    """Show clickable follow-up suggestion buttons after an answer."""
+def _build_suggestions(question: str, has_location: bool, has_data: bool, ds_name: str) -> list:
+    """Return up to 3 context-aware follow-up suggestion strings."""
     suggestions = []
-
     q = question.lower()
-    # Map suggestion — if answer didn't already show one meaningfully
     if has_location and has_data:
         suggestions.append(f"Show me a map of {question.split('in')[-1].strip() if ' in ' in q else 'this area'}")
-    # Table suggestion
-    if has_data and "table" not in q and "summarise" not in q and "summary" not in q:
-        suggestions.append(f"Show me this data as a table")
-    # Report suggestion
+    if has_data and "table" not in q and "summar" not in q:
+        suggestions.append("Show me this data as a table")
     if has_data and "report" not in q:
         suggestions.append(f"Generate a report on {ds_name}")
-    # Summary suggestion
     if has_data and "summar" not in q and "report" not in q:
         suggestions.append(f"Summarise {ds_name}")
-    # Flood/risk follow-up
     if has_location and "flood" not in q and "risk" not in q:
-        suggestions.append(f"What is the flood risk in this area?")
-    # Settlement follow-up
+        suggestions.append("What is the flood risk in this area?")
     if has_location and "settlement" not in q and "village" not in q:
-        suggestions.append(f"How many settlements are in this area?")
+        suggestions.append("How many settlements are in this area?")
+    return suggestions[:3]
 
+
+def _suggestion_chips(question: str, has_location: bool, has_data: bool, ds_name: str, key_prefix: str = ""):
+    """Inline suggestion chips shown after new answers (same row style as toolbar)."""
+    suggestions = _build_suggestions(question, has_location, has_data, ds_name)
     if not suggestions:
         return
-
-    st.markdown("<div style='margin-top:6px;margin-bottom:2px;font-size:12px;color:#666'>💡 Follow-up suggestions:</div>", unsafe_allow_html=True)
-    cols = st.columns(min(len(suggestions), 3))
-    for j, sug in enumerate(suggestions[:3]):
-        with cols[j]:
-            if st.button(sug, key=f"{key_prefix}_sug_{j}", use_container_width=True):
+    cols = st.columns([2.2] * len(suggestions))
+    for j, (col, sug) in enumerate(zip(cols, suggestions)):
+        with col:
+            if st.button(sug, key=f"{key_prefix}_sug_{j}", use_container_width=True, help=sug):
                 st.session_state.messages.append({"role": "user", "content": sug})
                 st.session_state._pending_question = sug
                 st.rerun()
@@ -570,16 +566,17 @@ for i, msg in enumerate(st.session_state.messages):
             if msg.get("intent", "chat") == "chat" and msg.get("ds_name"):
                 _render_ondemand_panel(i, msg)
 
-            # Suggestion chips for chat answers (history)
-            if msg.get("intent", "chat") == "chat" and msg.get("ds_name") and msg.get("sample_features"):
-                _prev_q = next((m["content"] for m in reversed(st.session_state.messages[:i]) if m["role"] == "user"), "")
-                if _prev_q:
-                    _suggestion_chips(_prev_q, has_location=bool(msg.get("location")),
-                                      has_data=True, ds_name=msg.get("ds_name", ""),
-                                      key_prefix=f"hist_sug_{i}")
+            # Toolbar + inline suggestion chips on same row
+            # Icons take fixed small columns; chips fill the right side
+            _prev_q_hist = next((m["content"] for m in reversed(st.session_state.messages[:i]) if m["role"] == "user"), "")
+            _hist_sugs = _build_suggestions(_prev_q_hist, bool(msg.get("location")), bool(msg.get("sample_features")), msg.get("ds_name", "")) if _prev_q_hist and msg.get("intent", "chat") == "chat" else []
 
-            # Compact action toolbar — edit / regenerate / copy / save / clear
-            _ta, _tb, _tc, _td, _te, _tf = st.columns([1, 1, 1, 1, 1, 10])
+            # Build column layout: 5 icon cols + up to 3 suggestion cols
+            _n_sugs = min(len(_hist_sugs), 3)
+            _col_weights = [0.6, 0.6, 0.6, 0.6, 0.6] + [2.2] * _n_sugs + ([99] if _n_sugs == 0 else [])
+            _all_cols = st.columns(_col_weights)
+            _ta, _tb, _tc, _td, _te = _all_cols[:5]
+            _sug_cols = _all_cols[5:5 + _n_sugs]
             with _ta:
                 if st.button("✏️", key=f"edit_{i}", help="Edit question"):
                     st.session_state.edit_idx = i - 1
@@ -606,10 +603,16 @@ for i, msg in enumerate(st.session_state.messages):
                                    mime="text/plain", key=f"save_{i}", help="Save answer")
             with _te:
                 if st.button("🗑️", key=f"clear_{i}", help="Delete this answer"):
-                    # Remove this assistant message and its preceding user message
                     _start = max(0, i - 1)
                     st.session_state.messages = st.session_state.messages[:_start] + st.session_state.messages[i + 1:]
                     st.rerun()
+            # Suggestion chips inline to the right of toolbar icons
+            for _si, (_scol, _stxt) in enumerate(zip(_sug_cols, _hist_sugs[:3])):
+                with _scol:
+                    if st.button(_stxt, key=f"hsug_{i}_{_si}", use_container_width=True, help=_stxt):
+                        st.session_state.messages.append({"role": "user", "content": _stxt})
+                        st.session_state._pending_question = _stxt
+                        st.rerun()
 
 # ---------------------------------------------------------------------------
 # Edit prompt UI
