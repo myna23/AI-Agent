@@ -75,14 +75,15 @@ def _build_suggestions(question: str, has_location: bool, has_data: bool, ds_nam
 
 
 def _suggestion_chips(question: str, has_location: bool, has_data: bool, ds_name: str, key_prefix: str = ""):
-    """Inline suggestion chips shown after new answers (same row style as toolbar)."""
+    """Follow-up suggestions — right-aligned, stacked vertically below the answer."""
     suggestions = _build_suggestions(question, has_location, has_data, ds_name)
     if not suggestions:
         return
-    cols = st.columns([2.2] * len(suggestions))
-    for j, (col, sug) in enumerate(zip(cols, suggestions)):
-        with col:
-            if st.button(sug, key=f"{key_prefix}_sug_{j}", use_container_width=True, help=sug):
+    st.markdown("<div style='margin-top:6px'></div>", unsafe_allow_html=True)
+    _spacer, _sug_col = st.columns([3, 7])
+    with _sug_col:
+        for j, sug in enumerate(suggestions):
+            if st.button(sug, key=f"{key_prefix}_sug_{j}", use_container_width=True):
                 st.session_state.messages.append({"role": "user", "content": sug})
                 st.session_state._pending_question = sug
                 st.rerun()
@@ -566,17 +567,9 @@ for i, msg in enumerate(st.session_state.messages):
             if msg.get("intent", "chat") == "chat" and msg.get("ds_name"):
                 _render_ondemand_panel(i, msg)
 
-            # Toolbar + inline suggestion chips on same row
-            # Icons take fixed small columns; chips fill the right side
+            # Row 1: compact icon toolbar (left-aligned)
             _prev_q_hist = next((m["content"] for m in reversed(st.session_state.messages[:i]) if m["role"] == "user"), "")
-            _hist_sugs = _build_suggestions(_prev_q_hist, bool(msg.get("location")), bool(msg.get("sample_features")), msg.get("ds_name", "")) if _prev_q_hist and msg.get("intent", "chat") == "chat" else []
-
-            # Build column layout: 5 icon cols + up to 3 suggestion cols
-            _n_sugs = min(len(_hist_sugs), 3)
-            _col_weights = [0.6, 0.6, 0.6, 0.6, 0.6] + [2.2] * _n_sugs + ([99] if _n_sugs == 0 else [])
-            _all_cols = st.columns(_col_weights)
-            _ta, _tb, _tc, _td, _te = _all_cols[:5]
-            _sug_cols = _all_cols[5:5 + _n_sugs]
+            _ta, _tb, _tc, _td, _te, _ = st.columns([0.6, 0.6, 0.6, 0.6, 0.6, 10])
             with _ta:
                 if st.button("✏️", key=f"edit_{i}", help="Edit question"):
                     st.session_state.edit_idx = i - 1
@@ -596,7 +589,6 @@ for i, msg in enumerate(st.session_state.messages):
                 st.download_button("📋", _copy_text, file_name="answer.txt",
                                    mime="text/plain", key=f"copy_{i}", help="Copy answer")
             with _td:
-                # Save this answer as a text file with question + answer
                 _prev_q_save = next((m["content"] for m in reversed(st.session_state.messages[:i]) if m["role"] == "user"), "Question")
                 _save_text = f"Question:\n{_prev_q_save}\n\nAnswer:\n{msg.get('content','')}"
                 st.download_button("💾", _save_text, file_name="saved_answer.txt",
@@ -606,13 +598,19 @@ for i, msg in enumerate(st.session_state.messages):
                     _start = max(0, i - 1)
                     st.session_state.messages = st.session_state.messages[:_start] + st.session_state.messages[i + 1:]
                     st.rerun()
-            # Suggestion chips inline to the right of toolbar icons
-            for _si, (_scol, _stxt) in enumerate(zip(_sug_cols, _hist_sugs[:3])):
-                with _scol:
-                    if st.button(_stxt, key=f"hsug_{i}_{_si}", use_container_width=True, help=_stxt):
-                        st.session_state.messages.append({"role": "user", "content": _stxt})
-                        st.session_state._pending_question = _stxt
-                        st.rerun()
+
+            # Row 2: follow-up suggestions — right-aligned, stacked vertically
+            if msg.get("intent", "chat") == "chat" and _prev_q_hist:
+                _hist_sugs = _build_suggestions(_prev_q_hist, bool(msg.get("location")), bool(msg.get("sample_features")), msg.get("ds_name", ""))
+                if _hist_sugs:
+                    st.markdown("<div style='margin-top:6px'></div>", unsafe_allow_html=True)
+                    _spacer, _sug_col = st.columns([3, 7])
+                    with _sug_col:
+                        for _si, _stxt in enumerate(_hist_sugs[:3]):
+                            if st.button(_stxt, key=f"hsug_{i}_{_si}", use_container_width=True):
+                                st.session_state.messages.append({"role": "user", "content": _stxt})
+                                st.session_state._pending_question = _stxt
+                                st.rerun()
 
 # ---------------------------------------------------------------------------
 # Edit prompt UI
