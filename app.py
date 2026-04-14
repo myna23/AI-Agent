@@ -92,6 +92,76 @@ def _suggestion_chips(question: str, has_location: bool, has_data: bool, ds_name
                 st.rerun()
 
 
+def _render_ondemand_panel(msg_idx: int, msg: dict, ctx_layers: list = None):
+    """
+    Show Map / Table / Chart buttons after an answer.
+    Only renders the component when the user explicitly clicks the button.
+    State is stored in the message dict so it survives reruns.
+    """
+    has_geojson = bool(msg.get("geojson") and msg["geojson"].get("features"))
+    has_data = bool(msg.get("sample_features"))
+    if not has_geojson and not has_data:
+        return
+
+    # Button row
+    _ba, _bb, _bc, _bz = st.columns([1.2, 1.2, 1.2, 8])
+    with _ba:
+        if has_geojson and not msg.get("map_shown"):
+            if st.button("🗺️ Map", key=f"mapbtn_{msg_idx}", use_container_width=True):
+                msg["map_shown"] = True
+                st.rerun()
+    with _bb:
+        if has_data and not msg.get("table_shown"):
+            if st.button("📊 Table", key=f"tblbtn_{msg_idx}", use_container_width=True):
+                msg["table_shown"] = True
+                st.rerun()
+    with _bc:
+        if has_data and not msg.get("chart_shown"):
+            if st.button("📈 Chart", key=f"chtbtn_{msg_idx}", use_container_width=True):
+                msg["chart_shown"] = True
+                st.rerun()
+
+    # Render requested components
+    if msg.get("map_shown") and has_geojson:
+        gjson = msg["geojson"]
+        layers = ctx_layers if ctx_layers else _CONTEXT_LAYERS
+        st_folium(
+            make_folium_map(gjson, msg.get("ds_name", ""), context_layers=layers if _is_point_geojson(gjson) else None, highlight_location=msg.get("location", "")),
+            width=720, height=340, returned_objects=[], key=f"map_{msg_idx}"
+        )
+
+    if msg.get("table_shown") and has_data:
+        _render_data_tables(msg["sample_features"], msg.get("ds_name", "Data"), key_prefix=f"tbl_{msg_idx}")
+
+    if msg.get("chart_shown") and has_data:
+        _render_charts_only(msg["sample_features"], msg.get("ds_name", "Data"), key_prefix=f"cht_{msg_idx}")
+
+
+def _render_charts_only(sample_features: list, ds_name: str, key_prefix: str = ""):
+    """Bar charts only — no dataframe."""
+    import pandas as _pd
+    rows = [r for r in sample_features if "_note" not in r]
+    if not rows:
+        return
+    df = _pd.DataFrame(rows)
+    cat_fields = ["District", "DISTRICT", "Province", "PROVINCE", "Type", "TYPE",
+                  "SubType", "Facility_T", "fclass", "surface", "Status", "STATUS",
+                  "Classifica", "S_CLASS"]
+    shown = 0
+    for field in cat_fields:
+        if field not in df.columns or shown >= 2:
+            continue
+        counts = df[field].dropna().astype(str)
+        counts = counts[counts != "None"].value_counts().head(15)
+        if len(counts) < 2:
+            continue
+        chart_df = counts.reset_index()
+        chart_df.columns = [field, "Count"]
+        st.markdown(f"**{ds_name} — by {field}**")
+        st.bar_chart(chart_df.set_index(field)["Count"])
+        shown += 1
+
+
 def _render_data_tables(sample_features: list, ds_name: str, key_prefix: str = ""):
     """
     Render an expandable data table + bar charts for sample feature records.
@@ -115,24 +185,6 @@ def _render_data_tables(sample_features: list, ds_name: str, key_prefix: str = "
 
     with st.expander(f"Data table — {ds_name} ({len(rows)} records)", expanded=True):
         st.dataframe(df, use_container_width=True, height=260)
-
-        # Bar charts for categorical fields that have variety
-        cat_fields = ["District", "DISTRICT", "Province", "PROVINCE", "Type", "TYPE",
-                      "SubType", "Facility_T", "fclass", "surface", "Status", "STATUS",
-                      "Classifica", "S_CLASS", "DOMINANT"]
-        shown = 0
-        for field in cat_fields:
-            if field not in df.columns:
-                continue
-            counts = df[field].dropna().astype(str)
-            counts = counts[counts != "None"].value_counts().head(15)
-            if len(counts) < 2 or shown >= 2:
-                continue
-            chart_df = counts.reset_index()
-            chart_df.columns = [field, "Count"]
-            st.markdown(f"**By {field}**")
-            st.bar_chart(chart_df.set_index(field)["Count"])
-            shown += 1
 
 
 def _is_point_geojson(geojson: dict) -> bool:
@@ -514,15 +566,9 @@ for i, msg in enumerate(st.session_state.messages):
                     key=f"sum_{i}",
                 )
 
-            # Map — always show (empty basemap if no data loaded)
-            if msg.get("ds_name"):
-                hist_geojson = msg.get("geojson") or {"type": "FeatureCollection", "features": []}
-                m = _map(hist_geojson, msg["ds_name"], with_context=_is_point_geojson(hist_geojson), highlight_location=msg.get("location", ""))
-                st_folium(m, width=720, height=340, returned_objects=[], key=f"map_{i}")
-
-            # Data table (chat answers only)
-            if msg.get("intent", "chat") == "chat" and msg.get("sample_features") and msg.get("ds_name"):
-                _render_data_tables(msg["sample_features"], msg["ds_name"], key_prefix=f"hist_{i}")
+            # On-demand panel — map / table / chart buttons for chat answers
+            if msg.get("intent", "chat") == "chat" and msg.get("ds_name"):
+                _render_ondemand_panel(i, msg)
 
             # Compact action toolbar — edit / regenerate / copy
             st.markdown(
@@ -1212,7 +1258,6 @@ def process_question(question: str):
                 _stop_placeholder.empty()
                 st.session_state.stop_streaming = False
 
-            # Only show data, suggestions and map when AI answered successfully
             if not _ai_error:
                 if datasets:
                     with st.expander("Datasets used"):
@@ -1222,17 +1267,18 @@ def process_question(question: str):
                 _suggestion_chips(question, has_location=bool(_location), has_data=bool(sample_features),
                                   ds_name=ds.get("name", "this dataset"), key_prefix="new_chat")
 
-                _render_data_tables(sample_features, ds.get("name", "Zambia GeoHub"), key_prefix="new_chat")
-
-                display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
-                st_folium(make_folium_map(display_geojson, ds.get("name", ""), context_layers=_ctx_layers if _is_point_geojson(display_geojson) or _cross_context.get("road_geojson") else None, highlight_location=_location or ""), width=720, height=340, returned_objects=[], key="map_new_chat")
-
-            st.session_state.messages.append({
+            # Append message first, then show on-demand panel using the stored message
+            _new_msg = {
                 "role": "assistant", "content": response, "intent": intent,
                 "ds_name": ds.get("name", ""), "geojson": map_geojson if not _ai_error else None,
                 "location": _location or "",
                 "sample_features": sample_features if not _ai_error else [],
-            })
+            }
+            st.session_state.messages.append(_new_msg)
+
+            # Show map/table/chart buttons for this fresh answer
+            if not _ai_error:
+                _render_ondemand_panel(len(st.session_state.messages) - 1, _new_msg, ctx_layers=_ctx_layers)
 
 # ---------------------------------------------------------------------------
 # Handle pending edited question
