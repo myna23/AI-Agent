@@ -100,22 +100,25 @@ def _render_ondemand_panel(msg_idx: int, msg: dict, ctx_layers: list = None):
     if not has_geojson and not has_data:
         return
 
-    # Button row
-    _ba, _bb, _bc, _bz = st.columns([1.2, 1.2, 1.2, 8])
+    # Toggle buttons — label changes to hide when already shown
+    _ba, _bb, _bc, _bz = st.columns([1.4, 1.4, 1.4, 8])
     with _ba:
-        if has_geojson and not msg.get("map_shown"):
-            if st.button("🗺️ Map", key=f"mapbtn_{msg_idx}", use_container_width=True):
-                msg["map_shown"] = True
+        if has_geojson:
+            _map_label = "🗺️ Hide Map" if msg.get("map_shown") else "🗺️ Map"
+            if st.button(_map_label, key=f"mapbtn_{msg_idx}", use_container_width=True):
+                msg["map_shown"] = not msg.get("map_shown", False)
                 st.rerun()
     with _bb:
-        if has_data and not msg.get("table_shown"):
-            if st.button("📊 Table", key=f"tblbtn_{msg_idx}", use_container_width=True):
-                msg["table_shown"] = True
+        if has_data:
+            _tbl_label = "📊 Hide Table" if msg.get("table_shown") else "📊 Table"
+            if st.button(_tbl_label, key=f"tblbtn_{msg_idx}", use_container_width=True):
+                msg["table_shown"] = not msg.get("table_shown", False)
                 st.rerun()
     with _bc:
-        if has_data and not msg.get("chart_shown"):
-            if st.button("📈 Chart", key=f"chtbtn_{msg_idx}", use_container_width=True):
-                msg["chart_shown"] = True
+        if has_data:
+            _cht_label = "📈 Hide Chart" if msg.get("chart_shown") else "📈 Chart"
+            if st.button(_cht_label, key=f"chtbtn_{msg_idx}", use_container_width=True):
+                msg["chart_shown"] = not msg.get("chart_shown", False)
                 st.rerun()
 
     # Render requested components
@@ -135,16 +138,22 @@ def _render_ondemand_panel(msg_idx: int, msg: dict, ctx_layers: list = None):
 
 
 def _render_charts_only(sample_features: list, ds_name: str, key_prefix: str = ""):
-    """Bar charts only — no dataframe."""
+    """Bar charts for categorical fields; line/bar chart for numeric fields as fallback."""
     import pandas as _pd
     rows = [r for r in sample_features if "_note" not in r]
     if not rows:
+        st.info("No data available for chart.")
         return
     df = _pd.DataFrame(rows)
+    # Drop non-useful columns
+    drop_cols = [c for c in df.columns if c.lower() in ("objectid", "fid", "globalid", "geometry", "shape_area", "shape_length")]
+    df = df.drop(columns=[c for c in drop_cols if c in df.columns])
+
+    shown = 0
+    # 1. Categorical bar charts
     cat_fields = ["District", "DISTRICT", "Province", "PROVINCE", "Type", "TYPE",
                   "SubType", "Facility_T", "fclass", "surface", "Status", "STATUS",
-                  "Classifica", "S_CLASS"]
-    shown = 0
+                  "Classifica", "S_CLASS", "DOMINANT"]
     for field in cat_fields:
         if field not in df.columns or shown >= 2:
             continue
@@ -157,6 +166,26 @@ def _render_charts_only(sample_features: list, ds_name: str, key_prefix: str = "
         st.markdown(f"**{ds_name} — by {field}**")
         st.bar_chart(chart_df.set_index(field)["Count"])
         shown += 1
+
+    # 2. Numeric bar charts as fallback if no categoricals found
+    if shown == 0:
+        skip = {"lat", "long", "lat_", "long_", "x", "y", "objectid", "fid"}
+        num_cols = [c for c in df.select_dtypes(include="number").columns if c.lower() not in skip][:3]
+        for col in num_cols:
+            series = df[col].dropna()
+            if len(series) < 2:
+                continue
+            # Use index label if available, else row number
+            label_col = next((c for c in ["Name", "NAME", "District", "DISTRICT", "Province"] if c in df.columns), None)
+            chart_df = df[[label_col, col]].dropna() if label_col else series.reset_index()
+            if label_col:
+                chart_df = chart_df.set_index(label_col)
+            st.markdown(f"**{ds_name} — {col}**")
+            st.bar_chart(chart_df[col] if label_col else chart_df)
+            shown += 1
+
+    if shown == 0:
+        st.info("No suitable fields found for a chart with this dataset.")
 
 
 def _render_data_tables(sample_features: list, ds_name: str, key_prefix: str = ""):
