@@ -570,22 +570,22 @@ for i, msg in enumerate(st.session_state.messages):
             if msg.get("intent", "chat") == "chat" and msg.get("ds_name"):
                 _render_ondemand_panel(i, msg)
 
-            # Compact action toolbar — edit / regenerate / copy
-            st.markdown(
-                """<style>
-                div[data-testid="stHorizontalBlock"] button[kind="secondary"] {
-                    padding: 2px 8px; font-size: 13px; min-height: 0;
-                }
-                </style>""", unsafe_allow_html=True
-            )
-            _ta, _tb, _tc, _td = st.columns([1, 1, 1, 10])
+            # Suggestion chips for chat answers (history)
+            if msg.get("intent", "chat") == "chat" and msg.get("ds_name") and msg.get("sample_features"):
+                _prev_q = next((m["content"] for m in reversed(st.session_state.messages[:i]) if m["role"] == "user"), "")
+                if _prev_q:
+                    _suggestion_chips(_prev_q, has_location=bool(msg.get("location")),
+                                      has_data=True, ds_name=msg.get("ds_name", ""),
+                                      key_prefix=f"hist_sug_{i}")
+
+            # Compact action toolbar — edit / regenerate / copy / save / clear
+            _ta, _tb, _tc, _td, _te, _tf = st.columns([1, 1, 1, 1, 1, 10])
             with _ta:
                 if st.button("✏️", key=f"edit_{i}", help="Edit question"):
                     st.session_state.edit_idx = i - 1
                     st.rerun()
             with _tb:
                 if st.button("🔄", key=f"regen_{i}", help="Regenerate answer"):
-                    # Replay the preceding user message
                     _prev_user = next(
                         (m["content"] for m in reversed(st.session_state.messages[:i])
                          if m["role"] == "user"), None
@@ -597,7 +597,19 @@ for i, msg in enumerate(st.session_state.messages):
             with _tc:
                 _copy_text = msg.get("content", "")
                 st.download_button("📋", _copy_text, file_name="answer.txt",
-                                   mime="text/plain", key=f"copy_{i}", help="Download answer as text")
+                                   mime="text/plain", key=f"copy_{i}", help="Copy answer")
+            with _td:
+                # Save this answer as a text file with question + answer
+                _prev_q_save = next((m["content"] for m in reversed(st.session_state.messages[:i]) if m["role"] == "user"), "Question")
+                _save_text = f"Question:\n{_prev_q_save}\n\nAnswer:\n{msg.get('content','')}"
+                st.download_button("💾", _save_text, file_name="saved_answer.txt",
+                                   mime="text/plain", key=f"save_{i}", help="Save answer")
+            with _te:
+                if st.button("🗑️", key=f"clear_{i}", help="Delete this answer"):
+                    # Remove this assistant message and its preceding user message
+                    _start = max(0, i - 1)
+                    st.session_state.messages = st.session_state.messages[:_start] + st.session_state.messages[i + 1:]
+                    st.rerun()
 
 # ---------------------------------------------------------------------------
 # Edit prompt UI
