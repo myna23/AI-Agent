@@ -183,6 +183,31 @@ def _render_data_tables(sample_features: list, ds_name: str, key_prefix: str = "
     with st.expander(f"Data table — {ds_name} ({len(rows)} records)", expanded=True):
         st.dataframe(df, use_container_width=True, height=260)
 
+        # Auto summary stats for numeric columns
+        num_cols = df.select_dtypes(include="number").columns.tolist()
+        num_cols = [c for c in num_cols if c.upper() not in ("OBJECTID", "FID", "LAT", "LONG", "LAT_", "LONG_", "X", "Y")]
+        if num_cols:
+            st.markdown("**Summary statistics**")
+            st.dataframe(df[num_cols].describe().round(2), use_container_width=True)
+
+        # Value counts for key categorical columns
+        cat_priority = ["District", "DISTRICT", "Province", "PROVINCE", "Type", "TYPE",
+                        "SubType", "Facility_T", "fclass", "surface", "Status", "STATUS"]
+        shown_cat = 0
+        for field in cat_priority:
+            if field not in df.columns or shown_cat >= 2:
+                continue
+            counts = df[field].dropna().astype(str)
+            counts = counts[counts != "None"].value_counts().head(10)
+            if len(counts) < 2:
+                continue
+            st.markdown(f"**Breakdown by {field}**")
+            count_df = counts.reset_index()
+            count_df.columns = [field, "Count"]
+            count_df["% of total"] = (count_df["Count"] / count_df["Count"].sum() * 100).round(1).astype(str) + "%"
+            st.dataframe(count_df, use_container_width=True, hide_index=True)
+            shown_cat += 1
+
 
 def _is_point_geojson(geojson: dict) -> bool:
     feats = geojson.get("features", [])
