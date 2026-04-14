@@ -104,20 +104,17 @@ def _render_ondemand_panel(msg_idx: int, msg: dict, ctx_layers: list = None):
     _ba, _bb, _bc, _bz = st.columns([1.4, 1.4, 1.4, 8])
     with _ba:
         if has_geojson:
-            _map_label = "🗺️ Hide Map" if msg.get("map_shown") else "🗺️ Map"
-            if st.button(_map_label, key=f"mapbtn_{msg_idx}", use_container_width=True):
+            if st.button("🗺️ Map", key=f"mapbtn_{msg_idx}", use_container_width=True):
                 msg["map_shown"] = not msg.get("map_shown", False)
                 st.rerun()
     with _bb:
         if has_data:
-            _tbl_label = "📊 Hide Table" if msg.get("table_shown") else "📊 Table"
-            if st.button(_tbl_label, key=f"tblbtn_{msg_idx}", use_container_width=True):
+            if st.button("📊 Table", key=f"tblbtn_{msg_idx}", use_container_width=True):
                 msg["table_shown"] = not msg.get("table_shown", False)
                 st.rerun()
     with _bc:
         if has_data:
-            _cht_label = "📈 Hide Chart" if msg.get("chart_shown") else "📈 Chart"
-            if st.button(_cht_label, key=f"chtbtn_{msg_idx}", use_container_width=True):
+            if st.button("📈 Chart", key=f"chtbtn_{msg_idx}", use_container_width=True):
                 msg["chart_shown"] = not msg.get("chart_shown", False)
                 st.rerun()
 
