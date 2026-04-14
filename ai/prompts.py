@@ -42,9 +42,8 @@ def chatbot_system_prompt() -> str:
         "- Be concise and helpful — use bullet points or short paragraphs.\n"
         "- Only say data is unavailable if NO sample records and NO relevant dataset "
         "description exists. If records are present, answer from them.\n"
-        "- After answering, end with a single short line starting with '💡 ' suggesting "
-        "one relevant follow-up (e.g. '💡 Want a table breakdown by district?' or "
-        "'💡 Need a flood risk analysis for this area?'). Keep it to one line only."
+        "- Do NOT add follow-up suggestions or '💡' lines at the end of your answer. "
+        "The UI handles follow-up suggestions automatically."
     )
 
 

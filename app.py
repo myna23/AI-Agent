@@ -522,6 +522,12 @@ st.markdown("---")
 # ---------------------------------------------------------------------------
 # Render chat history
 # ---------------------------------------------------------------------------
+# Index of the last assistant message — only show suggestions there
+_last_assistant_idx = max(
+    (i for i, m in enumerate(st.session_state.messages) if m["role"] == "assistant"),
+    default=-1
+)
+
 for i, msg in enumerate(st.session_state.messages):
     if msg["role"] == "user":
         with st.chat_message("user"):
@@ -599,8 +605,8 @@ for i, msg in enumerate(st.session_state.messages):
                     st.session_state.messages = st.session_state.messages[:_start] + st.session_state.messages[i + 1:]
                     st.rerun()
 
-            # Row 2: follow-up suggestions — right-aligned, stacked vertically
-            if msg.get("intent", "chat") == "chat" and _prev_q_hist:
+            # Row 2: follow-up suggestions — only on the most recent answer
+            if i == _last_assistant_idx and msg.get("intent", "chat") == "chat" and _prev_q_hist:
                 _hist_sugs = _build_suggestions(_prev_q_hist, bool(msg.get("location")), bool(msg.get("sample_features")), msg.get("ds_name", ""))
                 if _hist_sugs:
                     st.markdown("<div style='margin-top:6px'></div>", unsafe_allow_html=True)
@@ -1276,9 +1282,6 @@ def process_question(question: str):
                     with st.expander("Datasets used"):
                         for d in datasets:
                             st.markdown(f"- **{d['name']}** — {d['description'][:120]}")
-
-                _suggestion_chips(question, has_location=bool(_location), has_data=bool(sample_features),
-                                  ds_name=ds.get("name", "this dataset"), key_prefix="new_chat")
 
             # Append message first, then show on-demand panel using the stored message
             _new_msg = {
