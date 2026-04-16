@@ -354,16 +354,23 @@ def make_folium_map(
         all_lats, all_lons = [], []
         for feat in features:
             geom = feat.get("geometry") or {}
-            b = _polygon_bounds(geom)
-            if b:
-                all_lats += [b[0][0], b[1][0]]
-                all_lons += [b[0][1], b[1][1]]
-            elif geom.get("type") in ("LineString", "MultiLineString"):
-                coords = geom.get("coordinates", [])
-                if geom["type"] == "LineString":
-                    coords = [coords]
+            gtype = geom.get("type", "")
+            coords = geom.get("coordinates", [])
+            if gtype in ("Polygon", "MultiPolygon"):
+                b = _polygon_bounds(geom)
+                if b:
+                    all_lats += [b[0][0], b[1][0]]
+                    all_lons += [b[0][1], b[1][1]]
+            elif gtype == "LineString":
+                # coords = [[lon,lat], [lon,lat], ...]
+                for pt in coords:
+                    if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                        all_lons.append(pt[0])
+                        all_lats.append(pt[1])
+            elif gtype == "MultiLineString":
+                # coords = [[[lon,lat],...], [[lon,lat],...], ...]
                 for line in coords:
-                    for pt in (line if isinstance(line[0], (int, float)) else [c for seg in line for c in seg]):
+                    for pt in line:
                         if isinstance(pt, (list, tuple)) and len(pt) >= 2:
                             all_lons.append(pt[0])
                             all_lats.append(pt[1])
