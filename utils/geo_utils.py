@@ -118,6 +118,75 @@ def polygon_centroid(geometry: dict):
     return (sum(lats) / len(lats), sum(lons) / len(lons))
 
 
+def _point_in_polygon(lat: float, lon: float, polygon_coords: list) -> bool:
+    """Ray-casting algorithm — returns True if (lat, lon) is inside the polygon ring."""
+    x, y = lon, lat
+    inside = False
+    n = len(polygon_coords)
+    j = n - 1
+    for i in range(n):
+        xi, yi = polygon_coords[i][0], polygon_coords[i][1]
+        xj, yj = polygon_coords[j][0], polygon_coords[j][1]
+        if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi + 1e-12) + xi):
+            inside = not inside
+        j = i
+    return inside
+
+
+def _geom_representative_point(geometry: dict):
+    """Return a (lat, lon) representative point for any geometry type."""
+    gtype = geometry.get("type", "")
+    coords = geometry.get("coordinates", [])
+    if gtype == "Point":
+        return (coords[1], coords[0]) if len(coords) >= 2 else None
+    if gtype == "LineString" and coords:
+        mid = coords[len(coords) // 2]
+        return (mid[1], mid[0]) if len(mid) >= 2 else None
+    if gtype == "MultiLineString" and coords:
+        line = coords[len(coords) // 2]
+        mid = line[len(line) // 2] if line else None
+        return (mid[1], mid[0]) if mid and len(mid) >= 2 else None
+    return polygon_centroid(geometry)
+
+
+def assign_districts(features: list, district_geojson: dict) -> list:
+    """
+    Spatially assign a 'district' and 'province' property to each feature
+    by checking which district polygon contains the feature's representative point.
+    Returns the same list with properties mutated in place.
+    Only assigns if the feature doesn't already have a District field.
+    """
+    dist_features = district_geojson.get("features", [])
+    for feat in features:
+        props = feat.get("properties") or {}
+        # Skip if already has a district value
+        if props.get("District") or props.get("DISTRICT"):
+            continue
+        geom = feat.get("geometry") or {}
+        pt = _geom_representative_point(geom)
+        if not pt:
+            continue
+        lat, lon = pt
+        for df in dist_features:
+            dp = df.get("properties") or {}
+            dgeom = df.get("geometry") or {}
+            dcoords = dgeom.get("coordinates", [])
+            # Handle both Polygon and MultiPolygon
+            rings = []
+            if dgeom.get("type") == "Polygon":
+                rings = [dcoords[0]] if dcoords else []
+            elif dgeom.get("type") == "MultiPolygon":
+                rings = [poly[0] for poly in dcoords if poly]
+            for ring in rings:
+                if _point_in_polygon(lat, lon, ring):
+                    props["district"] = dp.get("DISTRICT") or dp.get("District", "")
+                    props["province"] = dp.get("PROVINCE") or dp.get("Province", "")
+                    break
+            if props.get("district"):
+                break
+    return features
+
+
 def features_within_km(features: list, center_lat: float, center_lon: float, radius_km: float) -> list:
     """
     Filter a list of GeoJSON Point features to those within radius_km of a center point.

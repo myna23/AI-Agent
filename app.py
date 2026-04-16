@@ -28,7 +28,7 @@ from ai.prompts import (
 from reports.builder import ReportBuilder
 from utils.geo_utils import (
     make_folium_map, summarize_geojson, geojson_to_sample_rows,
-    haversine_km, features_within_km, polygon_centroid,
+    haversine_km, features_within_km, polygon_centroid, assign_districts,
 )
 import json as _json_mod
 import os as _os_mod
@@ -1106,6 +1106,9 @@ def process_question(question: str):
 
                         if live_feats and "error" not in _gjson:
                             geojson = _gjson
+                            # Spatially assign district/province to features that lack them
+                            if _CONTEXT_LAYERS:
+                                assign_districts(live_feats, _CONTEXT_LAYERS[0]["geojson"])
                             sample_features = geojson_to_sample_rows(geojson, n=len(live_feats))
                             map_geojson = {"type": "FeatureCollection", "features": live_feats[:200]}
                             datasets = [_live_candidate] + [d for d in datasets if d != _live_candidate]
