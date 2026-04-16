@@ -1766,9 +1766,19 @@ def process_question(question: str):
 
             if not _ai_error:
                 if datasets:
-                    with st.expander("Datasets used"):
+                    with st.expander("📂 Data sources"):
                         for d in datasets:
-                            st.markdown(f"- **{d['name']}** — {d['description'][:120]}")
+                            _raw_id = d.get("id", "")
+                            _item_id = (
+                                _raw_id.rsplit("_", 1)[0]
+                                if "_" in _raw_id and _raw_id.rsplit("_", 1)[1].isdigit()
+                                else _raw_id
+                            )
+                            _link = (
+                                f" — [View on GeoHub ↗](https://zmb-geowb.hub.arcgis.com/datasets/{_item_id})"
+                                if _item_id else ""
+                            )
+                            st.markdown(f"- **{d['name']}**{_link}  \n  {d['description'][:180]}")
 
             # Append message first, then show on-demand panel using the stored message
             _new_msg = {

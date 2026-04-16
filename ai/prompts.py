@@ -48,7 +48,10 @@ def chatbot_system_prompt() -> str:
         "- If no matching datasets are found AND no sample records are provided, say: "
         "'This data is not currently available on the Zambia GeoHub.' Do NOT describe "
         "what the dataset might contain or invent field names.\n"
-        "- Always cite the dataset name you used.\n"
+        "- Always cite the dataset name you used. If a 'Source URL' is provided for that dataset, "
+        "include a markdown hyperlink at the end of your answer like this: "
+        "[View dataset on Zambia GeoHub](URL). Only include the link if the URL was given to you — "
+        "never invent or guess URLs.\n"
         "- Be concise and analytical — use bullet points with specific numbers and names.\n"
         "- Only say data is unavailable if NO sample records and NO relevant dataset "
         "description exists. If records are present, answer from them.\n"
@@ -86,10 +89,16 @@ def chatbot_user_prompt(
     dataset_context = ""
     for i, ds in enumerate(datasets[:5], 1):
         fields_str = ", ".join(f["name"] for f in ds.get("fields", [])[:15])
+        # Build Hub dataset page URL from item id (strip layer suffix like "_2")
+        _raw_id = ds.get("id", "")
+        _item_id = _raw_id.rsplit("_", 1)[0] if "_" in _raw_id and _raw_id.rsplit("_", 1)[1].isdigit() else _raw_id
+        _hub_link = f"https://zmb-geowb.hub.arcgis.com/datasets/{_item_id}" if _item_id else ""
         dataset_context += (
             f"\nDataset {i}: {ds['name']}\n"
             f"  Description: {ds['description'][:300]}\n"
         )
+        if _hub_link:
+            dataset_context += f"  Source URL: {_hub_link}\n"
         if fields_str:
             dataset_context += f"  Fields: {fields_str}\n"
 
