@@ -1452,10 +1452,17 @@ def process_question(question: str):
             _within = features_within_km(map_geojson["features"], _center[0], _center[1], _radius_km)
 
             if _within:
-                # Annotate each feature with its distance_km property
+                # Annotate each feature with distance_km and coordinates
                 for feat, dist_km in _within:
                     if feat.get("properties") is not None:
                         feat["properties"]["distance_km"] = dist_km
+                        # Add lat/lon from geometry so coordinates appear in table/popup
+                        geom = feat.get("geometry") or {}
+                        if geom.get("type") == "Point":
+                            coords = geom.get("coordinates", [])
+                            if len(coords) >= 2:
+                                feat["properties"]["longitude"] = round(coords[0], 6)
+                                feat["properties"]["latitude"] = round(coords[1], 6)
                 map_geojson = {"type": "FeatureCollection", "features": [f for f, _ in _within]}
                 # Rebuild sample_features from the filtered + annotated set
                 sample_features = geojson_to_sample_rows(map_geojson, n=len(_within))
