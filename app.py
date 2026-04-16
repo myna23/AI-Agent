@@ -943,6 +943,19 @@ def process_question(question: str):
     _radius_km = _extract_radius_km(question)      # e.g. 5.0 for "within 5km"
     _buffer_center = None                           # (lat, lon) set later if radius detected
 
+    # Drawn bounding box from the draw tool — overrides location filter when set
+    _draw_bbox = st.session_state.get("draw_bbox")
+    if _draw_bbox:
+        _bbox_str_draw = (
+            f"{_draw_bbox['min_lon']},{_draw_bbox['min_lat']},"
+            f"{_draw_bbox['max_lon']},{_draw_bbox['max_lat']}"
+        )
+        st.info(
+            f"Querying within your drawn area: "
+            f"lat {_draw_bbox['min_lat']:.3f}–{_draw_bbox['max_lat']:.3f}, "
+            f"lon {_draw_bbox['min_lon']:.3f}–{_draw_bbox['max_lon']:.3f}"
+        )
+
     if context_dataset:
         # Hub context mode — direct request so no hub/client.py reload needed
         datasets = [context_dataset]
@@ -1448,7 +1461,33 @@ def process_question(question: str):
             for candidate in datasets:
                 with st.spinner(f"Loading data from '{candidate['name']}'..."):
                     try:
-                        geojson = hub.fetch_geojson(candidate["url"], query_hint=question)
+                        if _draw_bbox:
+                            # Use drawn bounding box as spatial filter
+                            import requests as _req
+                            _base_url = candidate["url"].rstrip("/")
+                            _query_url = f"{_base_url}/query"
+                            _tok = _hub_client_module._ARCGIS_TOKEN
+                            _draw_params = {
+                                "geometry": _bbox_str_draw,
+                                "geometryType": "esriGeometryEnvelope",
+                                "spatialRel": "esriSpatialRelIntersects",
+                                "outFields": "*",
+                                "resultRecordCount": 200,
+                                "f": "geojson",
+                            }
+                            if _tok:
+                                _draw_params["token"] = _tok
+                            _draw_headers = {"Referer": "https://zmb-geowb.hub.arcgis.com",
+                                             "User-Agent": "Mozilla/5.0"}
+                            _draw_resp = _req.get(_query_url, params=_draw_params,
+                                                  headers=_draw_headers, timeout=30)
+                            _draw_resp.raise_for_status()
+                            geojson = _draw_resp.json()
+                            if "error" in geojson:
+                                _err = geojson["error"]
+                                raise RuntimeError(f"API error {_err.get('code')}: {_err.get('message')}")
+                        else:
+                            geojson = hub.fetch_geojson(candidate["url"], query_hint=question)
                         sample_features = geojson_to_sample_rows(geojson, n=200)
                         if sample_features:
                             map_geojson = {"type": "FeatureCollection", "features": geojson.get("features", [])[:50]}
@@ -1730,6 +1769,76 @@ if hasattr(st.session_state, "_pending_question") and st.session_state._pending_
         st.markdown(q)
     process_question(q)
     st.rerun()
+
+# ---------------------------------------------------------------------------
+# Bounding-box / area draw tool
+# ---------------------------------------------------------------------------
+with st.expander("🗺️ Draw an area to query", expanded=False):
+    st.caption(
+        "Draw a rectangle or polygon on the map below, then type your question. "
+        "The AI will query GeoHub data only within your drawn area."
+    )
+    from folium.plugins import Draw as _FoliumDraw
+
+    _draw_map = folium.Map(location=[-13.5, 28.5], zoom_start=6, tiles="CartoDB positron")
+    _FoliumDraw(
+        export=False,
+        draw_options={
+            "rectangle": {"shapeOptions": {"color": "#e63946"}},
+            "polygon": {"shapeOptions": {"color": "#e63946"}},
+            "circle": False,
+            "marker": False,
+            "circlemarker": False,
+            "polyline": False,
+        },
+        edit_options={"edit": True, "remove": True},
+    ).add_to(_draw_map)
+
+    _draw_result = st_folium(
+        _draw_map,
+        width=720,
+        height=340,
+        returned_objects=["last_active_drawing"],
+        key="draw_tool_map",
+    )
+
+    _drawn = (_draw_result or {}).get("last_active_drawing")
+    if _drawn:
+        _drawn_geom = _drawn.get("geometry", {})
+        _drawn_type = _drawn_geom.get("type", "")
+        _drawn_coords = _drawn_geom.get("coordinates", [])
+        # Flatten to a list of [lon, lat] points
+        _flat_pts = []
+        if _drawn_type == "Polygon" and _drawn_coords:
+            _flat_pts = _drawn_coords[0]
+        elif _drawn_type == "Rectangle" and _drawn_coords:
+            _flat_pts = _drawn_coords[0]
+
+        if _flat_pts:
+            _lons = [p[0] for p in _flat_pts]
+            _lats = [p[1] for p in _flat_pts]
+            _bbox = {
+                "min_lon": min(_lons), "max_lon": max(_lons),
+                "min_lat": min(_lats), "max_lat": max(_lats),
+            }
+            st.session_state["draw_bbox"] = _bbox
+            st.success(
+                f"Area selected: lat {_bbox['min_lat']:.3f}–{_bbox['max_lat']:.3f}, "
+                f"lon {_bbox['min_lon']:.3f}–{_bbox['max_lon']:.3f}. "
+                "Now type your question below."
+            )
+        else:
+            st.info("Draw a rectangle or polygon on the map above.")
+    else:
+        if st.session_state.get("draw_bbox"):
+            _b = st.session_state["draw_bbox"]
+            st.info(
+                f"Active area: lat {_b['min_lat']:.3f}–{_b['max_lat']:.3f}, "
+                f"lon {_b['min_lon']:.3f}–{_b['max_lon']:.3f}"
+            )
+            if st.button("Clear drawn area", key="clear_bbox"):
+                st.session_state.pop("draw_bbox", None)
+                st.rerun()
 
 # ---------------------------------------------------------------------------
 # Chat input
