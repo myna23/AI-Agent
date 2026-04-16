@@ -33,6 +33,10 @@ from utils.geo_utils import (
 import json as _json_mod
 import os as _os_mod
 
+# Module-level buffer for capturing partial streamed responses across reruns.
+# Keyed by a session identifier derived from session_state id.
+_STREAM_BUFFERS: dict = {}
+
 # Pre-load context layers once (district boundaries + roads) for map background.
 # These are shown underneath point datasets so users can see which district/road
 # is nearest to each church, market, health facility, school, etc.
@@ -666,6 +670,27 @@ if "edit_idx" not in st.session_state:
     st.session_state.edit_idx = None
 if "stop_streaming" not in st.session_state:
     st.session_state.stop_streaming = False
+if "is_generating" not in st.session_state:
+    st.session_state.is_generating = False
+
+# ---------------------------------------------------------------------------
+# Fixed-bottom stop button — shown while AI is generating (matches Claude UI)
+# ---------------------------------------------------------------------------
+if st.session_state.get("is_generating"):
+    # Dim the chat input so users know not to type while generating
+    st.markdown(
+        """<style>
+        [data-testid="stChatInput"] textarea { opacity: 0.4; }
+        [data-testid="stChatInput"] button[data-testid="stChatInputSubmitButton"] { opacity: 0; pointer-events: none; }
+        </style>""",
+        unsafe_allow_html=True,
+    )
+    # Stop button rendered in the sidebar-like area above the chat input
+    _stop_top_col, _ = st.columns([1, 5])
+    with _stop_top_col:
+        if st.button("⏹ Stop generating", key="global_stop_btn", type="primary", use_container_width=True):
+            st.session_state.stop_streaming = True
+            st.session_state.is_generating = False
 
 # ---------------------------------------------------------------------------
 # Intent detection
@@ -1703,39 +1728,41 @@ def process_question(question: str):
             user_p = chatbot_user_prompt(question + _compare_note + _doc_ctx, datasets, sample_features, all_catalog=hub.get_catalog(), total_count=_total_count, location=_location or "", cross_context=_cross_context)
             history.append({"role": "user", "content": user_p})
 
-            # Show a Stop button while the AI is streaming
+            # --- Streaming with stop button ---
             st.session_state.stop_streaming = False
-            _stop_col, _ = st.columns([1, 8])
-            _stop_placeholder = _stop_col.empty()
+            st.session_state.is_generating = True
+
+            # Per-session buffer key (stable within a session)
+            _sess_buf_key = id(st.session_state)
+            _STREAM_BUFFERS[_sess_buf_key] = ""
 
             def _stoppable_stream():
                 for chunk in claude.stream_with_history(chatbot_system_prompt(), history, max_tokens=1500):
                     if st.session_state.get("stop_streaming"):
                         break
+                    _STREAM_BUFFERS[_sess_buf_key] = _STREAM_BUFFERS.get(_sess_buf_key, "") + chunk
                     yield chunk
-
-            with _stop_placeholder:
-                if st.button("⏹ Stop", key="stop_btn", use_container_width=True):
-                    st.session_state.stop_streaming = True
 
             _ai_error = False
             try:
                 response = st.write_stream(_stoppable_stream())
             except Exception as e:
-                _ai_error = True
-                _stop_placeholder.empty()
-                st.session_state.stop_streaming = False
+                # Recover any partial text already streamed
+                response = _STREAM_BUFFERS.get(_sess_buf_key, "")
                 _err_str = str(e)
-                if "overloaded" in _err_str.lower():
-                    response = "⚠️ The AI is temporarily overloaded. Please try again in a few seconds."
-                elif "rate_limit" in _err_str.lower():
-                    response = "⚠️ Rate limit reached. Please wait a moment and try again."
-                else:
-                    response = "⚠️ Something went wrong with the AI response. Please try again."
-                st.warning(response)
+                if not response:
+                    if "overloaded" in _err_str.lower():
+                        response = "⚠️ The AI is temporarily overloaded. Please try again in a few seconds."
+                    elif "rate_limit" in _err_str.lower():
+                        response = "⚠️ Rate limit reached. Please wait a moment and try again."
+                    else:
+                        response = "⚠️ Something went wrong with the AI response. Please try again."
+                    _ai_error = True
+                    st.warning(response)
             finally:
-                _stop_placeholder.empty()
+                st.session_state.is_generating = False
                 st.session_state.stop_streaming = False
+                _STREAM_BUFFERS.pop(_sess_buf_key, None)
 
             if not _ai_error:
                 if datasets:
