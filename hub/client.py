@@ -15,10 +15,70 @@ import os
 import requests
 from dotenv import load_dotenv
 
+# ArcGIS API for Python — optional parallel fetch path
+try:
+    from hub import arcgis_client as _agis
+    _ARCGIS_AVAILABLE = _agis.is_available()
+except Exception:
+    _agis = None  # type: ignore
+    _ARCGIS_AVAILABLE = False
+
 load_dotenv()
 
 MAX_FEATURES = int(os.getenv("MAX_FEATURES", "200"))
 REQUEST_TIMEOUT = 30
+
+# ArcGIS token — unlocks private datasets in the Zambia GeoHub org.
+# Set via ARCGIS_TOKEN in .env (run get_token.py to obtain).
+_ARCGIS_TOKEN = os.getenv("ARCGIS_TOKEN", "")
+
+# Org IDs whose services require the token
+_TOKEN_ORGS = {"iQ1dY19aHwbSDYIF", "P3ePLMYs2RVChkJx"}
+
+# Set to True when a 499 Token Required error is detected — signals app.py to show refresh UI
+token_expired: bool = False
+
+
+def set_token(new_token: str):
+    """
+    Update the active token at runtime (called from app.py when user pastes a new token).
+    Also persists it to .env so it survives restarts.
+    """
+    global _ARCGIS_TOKEN, token_expired
+    _ARCGIS_TOKEN = new_token.strip()
+    token_expired = False
+    # Persist to .env
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+    try:
+        try:
+            with open(env_path) as f:
+                content = f.read()
+        except FileNotFoundError:
+            content = ""
+        if "ARCGIS_TOKEN=" in content:
+            lines = [
+                f"ARCGIS_TOKEN={_ARCGIS_TOKEN}" if l.startswith("ARCGIS_TOKEN=") else l
+                for l in content.splitlines()
+            ]
+            content = "\n".join(lines) + "\n"
+        else:
+            content = content.rstrip() + f"\nARCGIS_TOKEN={_ARCGIS_TOKEN}\n"
+        with open(env_path, "w") as f:
+            f.write(content)
+    except Exception:
+        pass  # Non-fatal — token is still active in memory
+
+
+def _needs_token(url: str) -> bool:
+    """Return True if this URL belongs to a private org that requires the token."""
+    return any(org in url for org in _TOKEN_ORGS)
+
+
+def _token_params(url: str) -> dict:
+    """Return {"token": ...} if needed, else {}."""
+    if _ARCGIS_TOKEN and _needs_token(url):
+        return {"token": _ARCGIS_TOKEN}
+    return {}
 
 # ---------------------------------------------------------------------------
 # Static sample data — used as fallback when the live FeatureServer is
@@ -95,6 +155,22 @@ _SUBJECT_BOOST_MODULE = {
     "facilities": "GRID3_ZMB_HealthFac",
     "flood": "Zambia_Flood_Prone_Districts", "flooding": "Zambia_Flood_Prone_Districts",
     "flood prone": "Zambia_Flood_Prone_Districts", "risk": "Zambia_Risk_Layers_Aggregated",
+    # New datasets
+    "population": "Zambia_Population_2025_WP", "people": "Zambia_Population_2025_WP",
+    "mine": "zmb_mines_osm_20251009py", "mines": "zmb_mines_osm_20251009py",
+    "mining": "zmb_mines_osm_20251009py", "copper": "AGO_COD_ZMB_Mines_pt",
+    "power": "Zambia_Power_Infrastructure", "electricity": "Zambia_Power_Infrastructure",
+    "microgrid": "Existing_Microgrids", "microgrids": "Existing_Microgrids",
+    "electrification": "zambia_dre_settlement_points",
+    "renewable": "zmb_DRE_Atlas", "solar": "zmb_DRE_Atlas",
+    "wealth": "Zambia_Relative_Wealth_Index",
+    "poverty": "zmb_ADM3_const_Poverty", "poor": "zmb_ADM3_const_Poverty",
+    "marketplace": "Zambia_Marketplaces", "marketplaces": "Zambia_Marketplaces",
+    "dam": "zmb_dams_20251009", "dams": "zmb_dams_20251009",
+    "aquifer": "main_Zambia_aquifers_polygons", "groundwater": "main_Zambia_aquifers_polygons",
+    "railway": "LC_MergedRailways", "rail": "LC_MergedRailways", "lobito": "LC_MergedRailways",
+    "migration": "Zambia_Net_Migration_2000_to_2019",
+    "building": "Zambia_Building_Footprints", "buildings": "Zambia_Building_Footprints",
 }
 
 
@@ -154,6 +230,10 @@ class HubClient:
             "Origin": "https://zmb-geowb.hub.arcgis.com",
         })
         self._catalog: list = []  # cached on first use
+
+        # ArcGIS API for Python client — used as primary fetch path when available.
+        # Falls back to the requests path below if it raises any exception.
+        self._agis = _agis.get_client() if _ARCGIS_AVAILABLE and _agis else None
 
     # ------------------------------------------------------------------
     # Public API
@@ -225,11 +305,28 @@ class HubClient:
             prov_clause = f"Province='{province_filter}' OR PROVINCE='{province_filter}'"
             where = prov_clause if where == "1=1" else f"({where}) AND ({prov_clause})"
 
+        # ---- Primary path: ArcGIS API for Python ----
+        # Uses the official Esri SDK which sends headers accepted by more ArcGIS servers,
+        # especially from cloud datacenter IPs that the raw requests path can't reach.
+        if self._agis:
+            try:
+                geojson = self._agis.query_features(
+                    feature_url=base,
+                    where=where,
+                    max_features=geom_limit,
+                )
+                if geojson.get("features"):
+                    return geojson
+            except Exception:
+                pass  # Fall through to requests path
+
+        # ---- Fallback path: raw requests ----
         params = {
             "where": where,
             "outFields": "*",
             "resultRecordCount": geom_limit,
             "f": "geojson",
+            **_token_params(base),
         }
         try:
             resp = self.session.get(f"{base}/query", params=params, timeout=REQUEST_TIMEOUT)
@@ -243,6 +340,10 @@ class HubClient:
             raise ValueError(f"Response is not GeoJSON — keys={list(geojson.keys())} snippet={snippet}")
 
         if "error" in geojson:
+            err = geojson["error"]
+            if err.get("code") in (499, 498):
+                global token_expired
+                token_expired = True
             raise ValueError(f"ArcGIS error: {geojson['error']}")
 
         # If GeoJSON came back empty, retry without geometry (attributes only via JSON).
@@ -254,6 +355,7 @@ class HubClient:
                 "resultRecordCount": geom_limit,
                 "returnGeometry": "false",
                 "f": "json",
+                **_token_params(base),
             }
             try:
                 resp2 = self.session.get(f"{base}/query", params=params_json, timeout=REQUEST_TIMEOUT)
@@ -326,6 +428,7 @@ class HubClient:
         seen_urls: set = set()
 
         # ---- Source 1: tags:zmb on ArcGIS Online ----
+        _token_arg = {"token": _ARCGIS_TOKEN} if _ARCGIS_TOKEN else {}
         try:
             resp = self.session.get(
                 "https://www.arcgis.com/sharing/rest/search",
@@ -333,6 +436,7 @@ class HubClient:
                     "q": 'tags:zmb type:"Feature Service"',
                     "f": "json",
                     "num": 100,
+                    **_token_arg,
                 },
                 timeout=REQUEST_TIMEOUT,
             )
@@ -349,6 +453,7 @@ class HubClient:
                     "q": 'orgid:iQ1dY19aHwbSDYIF type:"Feature Service"',
                     "f": "json",
                     "num": 100,
+                    **_token_arg,
                 },
                 timeout=REQUEST_TIMEOUT,
             )
@@ -481,6 +586,48 @@ class HubClient:
         "school": "GRID3_ZMB_School",
         "schools": "GRID3_ZMB_School",
         "education": "GRID3_ZMB_School",
+        # New datasets
+        "population": "Zambia_Population_2025_WP",
+        "people": "Zambia_Population_2025_WP",
+        "demographics": "Zambia_Population_2025_WP",
+        "mine": "zmb_mines_osm",
+        "mines": "zmb_mines_osm",
+        "mining": "zmb_mines_osm",
+        "copper": "AGO_COD_ZMB_Mines_pt",
+        "cobalt": "AGO_COD_ZMB_Mines_pt",
+        "mineral": "AGO_COD_ZMB_Mines_pt",
+        "power": "Zambia_Power_Infrastructure",
+        "electricity": "Zambia_Power_Infrastructure",
+        "substation": "Zambia_Power_Infrastructure",
+        "power line": "Zambia_Power_Infrastructure",
+        "microgrid": "Existing_Microgrids",
+        "microgrids": "Existing_Microgrids",
+        "off-grid": "Existing_Microgrids",
+        "electrification": "zambia_dre_settlement_points",
+        "energy access": "zambia_dre_settlement_points",
+        "renewable": "zmb_DRE_Atlas",
+        "solar": "zmb_DRE_Atlas",
+        "wealth": "Zambia_Relative_Wealth_Index",
+        "poverty": "zmb_ADM3_const_Poverty",
+        "poor": "zmb_ADM3_const_Poverty",
+        "income": "zmb_ADM3_const_Poverty",
+        "consumption": "zmb_ADM3_const_Poverty",
+        "marketplace": "Zambia_Marketplaces",
+        "marketplaces": "Zambia_Marketplaces",
+        "dam": "zmb_dams_20251009",
+        "dams": "zmb_dams_20251009",
+        "reservoir": "zmb_dams_20251009",
+        "aquifer": "main_Zambia_aquifers_polygons",
+        "groundwater": "main_Zambia_aquifers_polygons",
+        "borehole": "main_Zambia_aquifers_polygons",
+        "railway": "LC_MergedRailways",
+        "rail": "LC_MergedRailways",
+        "train": "LC_MergedRailways",
+        "lobito": "LC_MergedRailways",
+        "migration": "Zambia_Net_Migration_2000_to_2019",
+        "building": "Zambia_Building_Footprints",
+        "buildings": "Zambia_Building_Footprints",
+        "urban density": "Zambia_Building_Footprints",
         "road": "glc_ZMB_trs_roads",
         "roads": "glc_ZMB_trs_roads",
         "highway": "glc_ZMB_trs_roads",
@@ -524,19 +671,23 @@ class HubClient:
         query_lower = query.lower()
         words = [w for w in query_lower.split() if len(w) > 2 and w not in self._STOP_WORDS]
 
-        # Build boosted URL sets: POI + subject-specific
+        # Build boosted URL sets: subject-specific first, POI only as fallback
         boost_urls: dict = {}  # url → extra score
-        for keyword in self._POI_TYPE_MAP:
+        # Keywords that already have a dedicated dataset — POI should NOT also get boosted
+        subject_matched = set()
+        for keyword, frag in self._SUBJECT_BOOST.items():
             if keyword in query_lower:
+                subject_matched.add(keyword)
+                for ds in catalog:
+                    if frag in ds["url"]:
+                        boost_urls[ds["url"]] = boost_urls.get(ds["url"], 0) + 30
+        # Boost POI only for keywords that don't already have a dedicated dataset
+        for keyword in self._POI_TYPE_MAP:
+            if keyword in query_lower and keyword not in subject_matched:
                 for ds in catalog:
                     if "Points_of_Interest" in ds["url"] or "POI" in ds["url"]:
                         boost_urls[ds["url"]] = boost_urls.get(ds["url"], 0) + 20
                 break
-        for keyword, frag in self._SUBJECT_BOOST.items():
-            if keyword in query_lower:
-                for ds in catalog:
-                    if frag in ds["url"]:
-                        boost_urls[ds["url"]] = boost_urls.get(ds["url"], 0) + 25
 
         scored = []
         for ds in catalog:
@@ -717,4 +868,137 @@ _SEED_CATALOG = [
      "description": "Soil type and landscape classification zones across Zambia. Fields: Type (soil class), S_CLASS, LSCAPE (landscape), DOMINANT (dominant soil), DOM_DESC, S_DESC (description). Useful for agriculture and land use planning.",
      "url": "https://services3.arcgis.com/t6lYS2Pmd8iVx1fy/ArcGIS/rest/services/ZMB_Soil_Type_Classification/FeatureServer/0",
      "tags": ["soil", "land use", "agriculture", "geology", "classification", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    # ---- New authenticated datasets (iQ1dY19aHwbSDYIF org) ----
+    {"id": "zmb_settlement_extents", "name": "Zambia Settlement Extents (GRID3 v3.0)",
+     "description": "Settlement boundary polygons and centroids across Zambia at 3-arc-second resolution. Fields: building_count, iso3, country. Source: GRID3.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/GRID3_ZMB_Settlement_Extents_v3_0/FeatureServer/0",
+     "tags": ["settlements", "settlement extents", "buildings", "population", "grid3", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    {"id": "zmb_power_lines", "name": "Zambia Power Lines",
+     "description": "Electrical power transmission and distribution lines across Zambia. Source: Overture Maps Foundation. Fields: name, feature_type, voltage, cables.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_Power_Infrastructure/FeatureServer/0",
+     "tags": ["power", "electricity", "power lines", "transmission", "energy", "infrastructure", "utilities", "zambia", "zmb"], "fields": [], "geometry_type": "LineString", "extent": {}, "modified": ""},
+    {"id": "zmb_power_stations", "name": "Zambia Power Stations and Substations",
+     "description": "Electrical power stations, substations, and generation facilities across Zambia. Source: Overture Maps Foundation. Fields: name, feature_type.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_Power_Infrastructure/FeatureServer/1",
+     "tags": ["power", "electricity", "substation", "power station", "generation", "energy", "infrastructure", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
+    {"id": "zmb_power_polygons", "name": "Zambia Power Infrastructure Areas",
+     "description": "Polygon areas for power infrastructure including generation sites across Zambia. Source: Overture Maps Foundation.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_Power_Infrastructure/FeatureServer/2",
+     "tags": ["power", "electricity", "energy", "infrastructure", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    {"id": "zmb_marketplaces_poly", "name": "Zambia Marketplaces (Building Footprints)",
+     "description": "Marketplace building footprint polygons across Zambia. Fields: name, building_class, category_primary. Source: Overture Maps Foundation.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_Marketplaces/FeatureServer/0",
+     "tags": ["marketplace", "market", "markets", "trade", "commercial", "buildings", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    {"id": "zmb_marketplaces_pt", "name": "Zambia Marketplaces (Points)",
+     "description": "Marketplace point locations across Zambia. Fields: name, category_primary, category_alt. Source: Overture Maps Foundation.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_Marketplaces/FeatureServer/1",
+     "tags": ["marketplace", "market", "markets", "trade", "commercial", "shops", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
+    {"id": "zmb_poi_overture", "name": "Zambia Points of Interest (Overture)",
+     "description": "Points of interest across Zambia from Overture Maps. Fields: name, category_primary, category_alt. Includes shops, services, amenities.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_Points_of_Interest/FeatureServer/0",
+     "tags": ["points of interest", "poi", "amenities", "shops", "services", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
+    {"id": "zmb_road_network", "name": "Zambia Road Network (Overture)",
+     "description": "Full road network across Zambia from Overture Maps. Fields: name, road_class, surface, speed_limit. More detailed than the major roads layer.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_Road_Network/FeatureServer/0",
+     "tags": ["roads", "road network", "transport", "highway", "streets", "infrastructure", "zambia", "zmb"], "fields": [], "geometry_type": "LineString", "extent": {}, "modified": ""},
+    {"id": "zmb_education_poly", "name": "Zambia Education Facilities (Building Footprints)",
+     "description": "School and education facility building footprint polygons across Zambia. Source: Overture Maps Foundation.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_Education_Facilities/FeatureServer/0",
+     "tags": ["schools", "education", "learning", "buildings", "facilities", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    {"id": "zmb_education_pt", "name": "Zambia Education Facilities (Points)",
+     "description": "School and education facility point locations across Zambia. Fields: name, category_primary. Source: Overture Maps Foundation.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_Education_Facilities/FeatureServer/1",
+     "tags": ["schools", "education", "learning", "college", "university", "facilities", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
+    {"id": "zmb_health_poly", "name": "Zambia Health Facilities (Building Footprints)",
+     "description": "Hospital and health facility building footprint polygons across Zambia. Source: Overture Maps Foundation.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_Health_Facilities/FeatureServer/0",
+     "tags": ["health", "hospitals", "clinics", "facilities", "buildings", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    {"id": "zmb_health_pt_overture", "name": "Zambia Health Facilities (Points, Overture)",
+     "description": "Hospital and health facility point locations across Zambia from Overture Maps. Fields: name, category_primary.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_Health_Facilities/FeatureServer/1",
+     "tags": ["health", "hospitals", "clinics", "medical", "facilities", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
+    {"id": "zmb_building_footprints", "name": "Zambia Building Footprints",
+     "description": "Building footprint polygons across Zambia. Fields: name, building_class, category_primary. Source: Overture Maps Foundation. Useful for urban density analysis.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_Building_Footprints/FeatureServer/0",
+     "tags": ["buildings", "building footprints", "urban", "structures", "density", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    {"id": "zmb_relative_wealth", "name": "Zambia Relative Wealth Index",
+     "description": "Relative Wealth Index (RWI) score by grid cell across Zambia. Fields: rwi (wealth score), latitude, longitude. Higher values = wealthier areas. Source: Meta/Facebook AI Research.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_Relative_Wealth_Index/FeatureServer/0",
+     "tags": ["wealth", "poverty", "relative wealth index", "rwi", "socioeconomic", "inequality", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
+    {"id": "zmb_lobito_stations", "name": "Lobito Corridor Railway Stations",
+     "description": "Railway station locations along the Lobito Corridor in Zambia. Fields: fclass, name, osm_id. Relevant for trade and transport planning.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/LobitoCorridor_Stations/FeatureServer/3",
+     "tags": ["railway", "stations", "lobito", "corridor", "transport", "trade", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
+    {"id": "zmb_railways", "name": "Zambia Railway Network (Lobito Corridor)",
+     "description": "Railway lines across Zambia including the Lobito Corridor. Fields: fclass, name, osm_id. Source: merged OSM railways.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/LC_MergedRailways/FeatureServer/4",
+     "tags": ["railway", "rail", "train", "lobito", "corridor", "transport", "infrastructure", "zambia", "zmb"], "fields": [], "geometry_type": "LineString", "extent": {}, "modified": ""},
+    {"id": "zmb_population_2025", "name": "Zambia Population 2025 (WorldPop)",
+     "description": "Estimated population by grid cell for Zambia in 2025. Fields: Population. Source: WorldPop. Use for population counts, density analysis, and service coverage planning.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_Population_2025_WP/FeatureServer/0",
+     "tags": ["population", "census", "demographics", "people", "density", "worldpop", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
+    {"id": "zmb_districts_2022", "name": "Zambia Administrative District Boundaries 2022",
+     "description": "Updated district administrative boundaries for Zambia (2022). Fields: PROVINCE, DISTRICT. Most current official boundary dataset.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia___Administrative_District_Boundaries_2022/FeatureServer/0",
+     "tags": ["districts", "boundaries", "administrative", "2022", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    {"id": "zmb_nsdi_schools", "name": "Zambia NSDI Operational Schools",
+     "description": "Official NSDI school locations across Zambia from the Ministry of General Education. Fields: X, Y coordinates and facility attributes.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/zmb_Operational_schools_NSDI/FeatureServer/0",
+     "tags": ["schools", "education", "nsdi", "ministry", "official", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
+    {"id": "zmb_dams", "name": "Zambia Dams",
+     "description": "Dam locations across Zambia from OpenStreetMap. Useful for water resource management, hydropower, and irrigation planning.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/zmb_dams_20251009/FeatureServer/0",
+     "tags": ["dams", "water", "hydropower", "irrigation", "reservoir", "infrastructure", "zambia", "zmb"], "fields": [], "geometry_type": "MultiLineString", "extent": {}, "modified": ""},
+    {"id": "zmb_dre_atlas", "name": "Zambia Decentralised Renewable Energy Atlas",
+     "description": "Renewable energy potential by grid cell across Zambia. Fields: geohash, lat, lon. Covers solar, wind, and off-grid energy potential. Source: DRE Atlas.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/zmb_DRE_Atlas/FeatureServer/8",
+     "tags": ["renewable energy", "solar", "energy", "off-grid", "dre", "electricity", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    {"id": "zmb_dre_settlement_poly", "name": "Zambia DRE Settlement Polygons (Energy Access)",
+     "description": "Settlement polygons with decentralised renewable energy access data. Fields: geohash, lat, lon. Shows settlements by energy access status.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_DRE_Settlement_Polygons/FeatureServer/0",
+     "tags": ["energy access", "electrification", "settlements", "off-grid", "renewable", "dre", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    {"id": "zmb_dre_settlement_pt", "name": "Zambia DRE Settlement Points (Energy Access)",
+     "description": "Settlement point locations with decentralised renewable energy access data across Zambia.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/zambia_dre_settlement_points/FeatureServer/0",
+     "tags": ["energy access", "electrification", "settlements", "off-grid", "renewable", "dre", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
+    {"id": "zmb_osr_local_authority", "name": "Zambia Own Source Revenue by Local Authority 2024",
+     "description": "Own-source revenue data consolidated by local authority for Zambia 2024. Fields: PROVINCE, DISTRICT. Useful for fiscal and governance analysis.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_OSR_LA_Consolidated_2024/FeatureServer/9",
+     "tags": ["revenue", "local authority", "governance", "fiscal", "finance", "districts", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    {"id": "zmb_nsdi_health", "name": "Zambia NSDI Operational Health Facilities",
+     "description": "Official NSDI health facility locations across Zambia from the Ministry of Health. Fields: MFL_Code, DHIS2_UID, Hims_code and facility attributes.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/zmb_Operational_healthfac_NSDI/FeatureServer/0",
+     "tags": ["health", "hospitals", "clinics", "nsdi", "ministry", "official", "mfl", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
+    {"id": "zmb_microgrids", "name": "Zambia Existing Microgrids",
+     "description": "Existing microgrid electricity installations across Zambia. Fields: Village_Na (village name), District. Useful for off-grid electrification planning.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Existing_Microgrids/FeatureServer/10",
+     "tags": ["microgrids", "electricity", "electrification", "off-grid", "energy", "villages", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
+    {"id": "zmb_mines_osm", "name": "Zambia Mines (OSM)",
+     "description": "Mining area polygons across Zambia from OpenStreetMap. Fields: industrial, landuse. Shows active and historical mining areas.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/zmb_mines_osm_20251009py/FeatureServer/12",
+     "tags": ["mining", "mines", "minerals", "extraction", "industry", "copper", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    {"id": "zmb_mines_cod", "name": "Zambia Mines (COD Points)",
+     "description": "Mining point locations across Zambia from the COD (Common Operational Dataset). Fields: landuse, type. Shows mine site locations.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/AGO_COD_ZMB_Mines_pt/FeatureServer/2",
+     "tags": ["mining", "mines", "minerals", "extraction", "copper", "cobalt", "industry", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
+    {"id": "zmb_constituency_poverty", "name": "Zambia Constituency Poverty Index",
+     "description": "Poverty headcount and consumption estimates by constituency across Zambia. Fields: constituency_code, Mean_consump_adult_ZMW, pt_est_pov_headcount. Critical for targeting social programs.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/zmb_ADM3_const_Poverty/FeatureServer/50",
+     "tags": ["poverty", "consumption", "socioeconomic", "constituencies", "welfare", "inequality", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    {"id": "zmb_health_2025", "name": "Zambia Health Facilities 2025 (MFL)",
+     "description": "Health facilities across Zambia from the 2025 Master Facility List. Fields: MFL_Code, DHIS2_UID, Hims_code. Most current official health facility dataset.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_HF_20251112/FeatureServer/36",
+     "tags": ["health", "hospitals", "clinics", "mfl", "master facility list", "official", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
+    {"id": "zmb_aquifers", "name": "Zambia Aquifers",
+     "description": "Aquifer polygon areas across Zambia showing groundwater resources. Fields: aqtyp (aquifer type), Shape__Area. Useful for water resource planning and borehole siting.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/main_Zambia_aquifers_polygons/FeatureServer/0",
+     "tags": ["aquifers", "groundwater", "water", "borehole", "geology", "environment", "zambia", "zmb"], "fields": [], "geometry_type": "MultiPolygon", "extent": {}, "modified": ""},
+    {"id": "zmb_net_migration", "name": "Zambia Net Migration by District 2000-2019",
+     "description": "Net migration rates by district for Zambia from 2000 to 2019. Fields: DISTRICT, PROVINCE, DIST_CODE. Shows population movement trends.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_Net_Migration_2000_to_2019/FeatureServer/0",
+     "tags": ["migration", "population movement", "demographics", "districts", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    {"id": "zmb_boundaries_2023", "name": "Zambia Administrative Boundaries 2023",
+     "description": "Administrative boundaries for Zambia 2023 with population data. Fields: NAME, TOTPOP_CY (total population current year). Source: Esri.",
+     "url": "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/ZMB_Boundaries_2023/FeatureServer/0",
+     "tags": ["boundaries", "administrative", "population", "2023", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
 ]

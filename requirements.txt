@@ -9,3 +9,4 @@ reportlab>=4.2.0
 pandas>=2.0.0
 jupyter>=1.0.0
 ipykernel>=6.0.0
+arcgis>=2.3.0

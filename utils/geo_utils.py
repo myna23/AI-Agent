@@ -5,12 +5,138 @@ Geospatial utility helpers:
 - geojson_to_sample_rows : extract sample feature properties
 """
 
+import math
 import folium
+from folium.plugins import MarkerCluster
 
 
 # Zambia center coordinates and default zoom
 ZAMBIA_CENTER = [-13.5, 28.5]
 ZAMBIA_ZOOM = 6
+
+# Color palette for point features by dataset/type keyword
+_TYPE_COLORS = {
+    # Health
+    "hospital": "#e63946", "clinic": "#e63946", "health": "#e63946",
+    "dispensary": "#e63946", "medical": "#e63946",
+    # Education
+    "school": "#457b9d", "education": "#457b9d", "college": "#457b9d", "university": "#457b9d",
+    # Commercial / Markets
+    "commercial": "#2d6a4f", "market": "#2d6a4f", "shop": "#2d6a4f", "business": "#2d6a4f",
+    # Religion
+    "religion": "#7b2d8b", "church": "#7b2d8b", "mosque": "#7b2d8b",
+    # Agriculture / Farm
+    "farm": "#90be6d", "agriculture": "#90be6d", "cooperative": "#90be6d",
+    # Water
+    "well": "#48cae4", "borehole": "#48cae4", "water": "#48cae4",
+    # Infrastructure
+    "bridge": "#f4a261", "dam": "#f4a261", "airport": "#023e8a",
+    "railway": "#6c757d", "bus stop": "#6c757d",
+    # Finance / Admin
+    "bank": "#d4a017", "police": "#1d3557", "post office": "#ff6b35",
+    "administration": "#1d3557", "prison": "#343a40",
+    # Natural resources
+    "mining": "#495057", "fisheries": "#0077b6", "forest": "#2d6a4f",
+    # Settlement
+    "settlement": "#f4a261", "village": "#f4a261",
+    # Default
+    "default": "#e63946",
+}
+
+# Point-of-Interest type values → color
+_POI_TYPE_COLORS = {
+    "Commercial": "#2d6a4f",
+    "Religion": "#7b2d8b",
+    "Farm": "#90be6d",
+    "Well": "#48cae4",
+    "Borehole": "#48cae4",
+    "Bridge": "#f4a261",
+    "Dam": "#f4a261",
+    "Airport": "#023e8a",
+    "Bank": "#d4a017",
+    "Police": "#1d3557",
+    "Post Office": "#ff6b35",
+    "Mining": "#495057",
+    "Fisheries": "#0077b6",
+    "Cooperative": "#90be6d",
+    "Pharmacy": "#e63946",
+    "Cemetery": "#6c757d",
+    "Railway": "#6c757d",
+    "Bus Stop": "#adb5bd",
+    "Mill": "#f4a261",
+    "Recreation": "#48cae4",
+    "Administration": "#1d3557",
+}
+
+
+def _point_color(props: dict, dataset_name: str = "") -> str:
+    """Determine marker color from feature properties or dataset name."""
+    # Check POI Type field first (most specific)
+    poi_type = props.get("Type") or props.get("TYPE") or props.get("type") or ""
+    if poi_type in _POI_TYPE_COLORS:
+        return _POI_TYPE_COLORS[poi_type]
+
+    # Check Facility_Type field (health facilities)
+    fac_type = (props.get("Facility_T") or props.get("Facility_Type") or "").lower()
+    if fac_type:
+        for kw, color in _TYPE_COLORS.items():
+            if kw in fac_type:
+                return color
+
+    # Fall back to dataset name
+    ds_lower = dataset_name.lower()
+    for kw, color in _TYPE_COLORS.items():
+        if kw in ds_lower:
+            return color
+
+    return _TYPE_COLORS["default"]
+
+
+def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Return the great-circle distance in kilometres between two lat/lon points."""
+    R = 6371.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlam = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def polygon_centroid(geometry: dict):
+    """Return (lat, lon) centroid of a Polygon or MultiPolygon, or None."""
+    coords = []
+    gtype = geometry.get("type", "")
+    if gtype == "Polygon":
+        coords = geometry.get("coordinates", [[]])[0]
+    elif gtype == "MultiPolygon":
+        for poly in geometry.get("coordinates", []):
+            coords.extend(poly[0] if poly else [])
+    if not coords:
+        return None
+    lons = [c[0] for c in coords]
+    lats = [c[1] for c in coords]
+    return (sum(lats) / len(lats), sum(lons) / len(lons))
+
+
+def features_within_km(features: list, center_lat: float, center_lon: float, radius_km: float) -> list:
+    """
+    Filter a list of GeoJSON Point features to those within radius_km of a center point.
+    Returns (filtered_features, distances) where distances is a list of (feature, km) tuples.
+    """
+    results = []
+    for feat in features:
+        geom = feat.get("geometry") or {}
+        if geom.get("type") != "Point":
+            continue
+        coords = geom.get("coordinates", [])
+        if len(coords) < 2:
+            continue
+        lon, lat = coords[0], coords[1]
+        dist = haversine_km(center_lat, center_lon, lat, lon)
+        if dist <= radius_km:
+            results.append((feat, round(dist, 2)))
+    results.sort(key=lambda x: x[1])
+    return results
 
 
 def _polygon_bounds(geometry: dict):
@@ -36,6 +162,9 @@ def make_folium_map(
     dataset_name: str = "",
     context_layers: list = None,
     highlight_location: str = "",
+    buffer_center: tuple = None,
+    buffer_radius_km: float = None,
+    buffer_label: str = "",
 ) -> folium.Map:
     """
     Build a Folium map from a GeoJSON FeatureCollection.
@@ -49,6 +178,10 @@ def make_folium_map(
 
     highlight_location: district or province name — when set, the matching boundary
       polygon is highlighted and the map zooms to its extent.
+
+    buffer_center: (lat, lon) — center point for a buffer circle.
+    buffer_radius_km: radius in kilometres — draws a dashed circle on the map.
+    buffer_label: label shown in the circle tooltip.
     """
     m = folium.Map(location=ZAMBIA_CENTER, zoom_start=ZAMBIA_ZOOM, tiles="CartoDB positron")
 
@@ -118,6 +251,18 @@ def make_folium_map(
                     tooltip=tooltip,
                 ).add_to(m)
 
+            elif ctx_type == "water":
+                def _water_style(_feature):
+                    return {"fillColor": "#90e0ef", "color": "#0096c7", "weight": 1, "fillOpacity": 0.55}
+                label_fields = _safe_label_fields(ctx_feats)
+                tooltip = folium.GeoJsonTooltip(fields=label_fields, aliases=label_fields, localize=True) if label_fields else None
+                folium.GeoJson(
+                    ctx["geojson"],
+                    name=ctx["name"],
+                    style_function=_water_style,
+                    tooltip=tooltip,
+                ).add_to(m)
+
     if not features:
         return m
 
@@ -129,6 +274,10 @@ def make_folium_map(
     geom_type = first_geom.get("type", "")
 
     if geom_type == "Point":
+        # Use marker clustering for dense datasets (>30 points)
+        use_cluster = len(features) > 30
+        cluster = MarkerCluster(name=dataset_name or "Points").add_to(m) if use_cluster else None
+
         for feat in features:
             geom = feat.get("geometry") or {}
             coords = geom.get("coordinates", [])
@@ -136,17 +285,20 @@ def make_folium_map(
                 continue
             lon, lat = coords[0], coords[1]
             props = feat.get("properties") or {}
+            color = _point_color(props, dataset_name)
             popup_html = _props_to_html(props)
-            folium.CircleMarker(
+            marker = folium.CircleMarker(
                 location=[lat, lon],
                 radius=5,
-                color="#e63946",
+                color=color,
                 fill=True,
-                fill_color="#e63946",
-                fill_opacity=0.7,
+                fill_color=color,
+                fill_opacity=0.8,
                 popup=folium.Popup(popup_html, max_width=300),
                 tooltip=props.get("Name") or props.get("NAME") or props.get("name") or props.get("DISTRICT") or props.get("District") or "Feature",
-            ).add_to(m)
+            )
+            marker.add_to(cluster if use_cluster else m)
+
         # Fit bounds: prefer the highlighted district polygon extent, fall back to points
         if highlight_bounds:
             m.fit_bounds(highlight_bounds)
@@ -158,32 +310,82 @@ def make_folium_map(
 
     else:
         # Polygon / LineString — use GeoJson layer
-        def style_fn(feature):
+        # Pick colors based on dataset type
+        ds_lower = dataset_name.lower()
+        if "dam" in ds_lower or "reservoir" in ds_lower:
+            fill_color, line_color = "#0077b6", "#023e8a"
+        elif "wetland" in ds_lower or "lake" in ds_lower or "water" in ds_lower:
+            fill_color, line_color = "#48cae4", "#0077b6"
+        elif "aquifer" in ds_lower or "groundwater" in ds_lower:
+            fill_color, line_color = "#90e0ef", "#0096c7"
+        elif "forest" in ds_lower or "woodland" in ds_lower or "reserve" in ds_lower:
+            fill_color, line_color = "#2d6a4f", "#1b4332"
+        elif "mine" in ds_lower or "mining" in ds_lower:
+            fill_color, line_color = "#495057", "#212529"
+        elif "flood" in ds_lower:
+            fill_color, line_color = "#4cc9f0", "#4361ee"
+        elif "road" in ds_lower or "highway" in ds_lower or "railway" in ds_lower:
+            fill_color, line_color = "#adb5bd", "#6c757d"
+        else:
+            fill_color, line_color = "#457b9d", "#1d3557"
+
+        def style_fn(feature, _fc=fill_color, _lc=line_color):
             return {
-                "fillColor": "#457b9d",
-                "color": "#1d3557",
-                "weight": 1.5,
-                "fillOpacity": 0.4,
+                "fillColor": _fc,
+                "color": _lc,
+                "weight": 2,
+                "fillOpacity": 0.45,
             }
 
         def highlight_fn(feature):
-            return {"weight": 3, "color": "#e63946", "fillOpacity": 0.6}
+            return {"weight": 3.5, "color": "#e63946", "fillOpacity": 0.65}
 
+        label_fields = _pick_label_fields(features)
+        tooltip = folium.GeoJsonTooltip(fields=label_fields, aliases=label_fields, localize=True) if label_fields else None
         folium.GeoJson(
             geojson,
             name=dataset_name,
             style_function=style_fn,
             highlight_function=highlight_fn,
-            tooltip=folium.GeoJsonTooltip(
-                fields=_pick_label_fields(features),
-                aliases=_pick_label_fields(features),
-                localize=True,
-            ),
+            tooltip=tooltip,
         ).add_to(m)
         try:
             m.fit_bounds(m.get_bounds())
         except Exception:
             pass
+
+    # Buffer circle — drawn on top of all other layers
+    if buffer_center and buffer_radius_km and buffer_radius_km > 0:
+        blat, blon = buffer_center
+        radius_m = buffer_radius_km * 1000
+        tooltip_text = buffer_label or f"{buffer_radius_km} km buffer"
+        folium.Circle(
+            location=[blat, blon],
+            radius=radius_m,
+            color="#e63946",
+            weight=2,
+            dash_array="8 4",
+            fill=True,
+            fill_color="#e63946",
+            fill_opacity=0.08,
+            tooltip=tooltip_text,
+        ).add_to(m)
+        # Pin at the center
+        folium.CircleMarker(
+            location=[blat, blon],
+            radius=5,
+            color="#e63946",
+            fill=True,
+            fill_color="#e63946",
+            fill_opacity=1.0,
+            tooltip=f"Buffer center — {tooltip_text}",
+        ).add_to(m)
+        # Zoom to fit the buffer
+        offset_deg = buffer_radius_km / 111.0
+        m.fit_bounds([
+            [blat - offset_deg, blon - offset_deg],
+            [blat + offset_deg, blon + offset_deg],
+        ])
 
     return m
 

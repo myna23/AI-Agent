@@ -15,6 +15,7 @@ import streamlit as st
 from streamlit_folium import st_folium
 
 from hub.client import HubClient
+import hub.client as _hub_client_module
 from ai.claude_client import ClaudeClient
 from ai.prompts import (
     chatbot_system_prompt,
@@ -25,7 +26,10 @@ from ai.prompts import (
     report_prompt,
 )
 from reports.builder import ReportBuilder
-from utils.geo_utils import make_folium_map, summarize_geojson, geojson_to_sample_rows
+from utils.geo_utils import (
+    make_folium_map, summarize_geojson, geojson_to_sample_rows,
+    haversine_km, features_within_km, polygon_centroid,
+)
 import json as _json_mod
 import os as _os_mod
 
@@ -46,7 +50,18 @@ def _load_context_layers():
             layers.append({"geojson": _json_mod.load(f), "name": "Major Roads", "type": "road"})
     return layers
 
+@st.cache_resource(show_spinner=False)
+def _load_water_layer():
+    """Load wetlands/lakes polygon layer for use as water-body context."""
+    data_dir = _os_mod.path.join(_os_mod.path.dirname(__file__), "data")
+    path = _os_mod.path.join(data_dir, "wetlands.json")
+    if _os_mod.path.exists(path):
+        with open(path) as f:
+            return {"geojson": _json_mod.load(f), "name": "Lakes & Wetlands", "type": "water"}
+    return None
+
 _CONTEXT_LAYERS = _load_context_layers()
+_WATER_LAYER = _load_water_layer()
 
 
 def _map(geojson: dict, name: str, with_context: bool = False, highlight_location: str = "") -> object:
@@ -59,18 +74,58 @@ def _build_suggestions(question: str, has_location: bool, has_data: bool, ds_nam
     """Return up to 3 context-aware follow-up suggestion strings."""
     suggestions = []
     q = question.lower()
-    if has_location and has_data:
-        suggestions.append(f"Show me a map of {question.split('in')[-1].strip() if ' in ' in q else 'this area'}")
-    if has_data and "table" not in q and "summar" not in q:
-        suggestions.append("Show me this data as a table")
-    if has_data and "report" not in q:
-        suggestions.append(f"Generate a report on {ds_name}")
-    if has_data and "summar" not in q and "report" not in q:
-        suggestions.append(f"Summarise {ds_name}")
-    if has_location and "flood" not in q and "risk" not in q:
-        suggestions.append("What is the flood risk in this area?")
-    if has_location and "settlement" not in q and "village" not in q:
-        suggestions.append("How many settlements are in this area?")
+    location = question.split(" in ")[-1].strip().rstrip("?") if " in " in q else ""
+
+    # Dataset-specific suggestions
+    if "health" in ds_name.lower() or "hospital" in q or "clinic" in q:
+        if has_location and location:
+            suggestions.append(f"Which district in {location} has the most health facilities?")
+        if "primary" not in q:
+            suggestions.append("Compare primary vs secondary health facilities")
+        if has_location and "school" not in q:
+            suggestions.append(f"How many schools are in {location}?" if location else "How many schools are in Lusaka?")
+
+    elif "school" in ds_name.lower() or "school" in q or "education" in q:
+        if has_location and location:
+            suggestions.append(f"Which district in {location} has the most schools?")
+        if "primary" not in q:
+            suggestions.append("Compare primary vs secondary schools")
+        if has_location:
+            suggestions.append(f"How many health facilities are in {location}?" if location else "What are the health facilities near schools?")
+
+    elif "settlement" in ds_name.lower() or "settlement" in q or "village" in q:
+        if has_location and location:
+            suggestions.append(f"What is the flood risk for settlements in {location}?")
+            suggestions.append(f"How many schools are in {location}?")
+        suggestions.append("Which province has the most settlements?")
+
+    elif "road" in ds_name.lower() or "road" in q:
+        if has_location and location:
+            suggestions.append(f"What is the road surface breakdown in {location}?")
+        suggestions.append("Which roads are unpaved or in poor condition?")
+        if has_location and location:
+            suggestions.append(f"How many settlements are accessible in {location}?")
+
+    elif "flood" in ds_name.lower() or "flood" in q:
+        if has_location and location:
+            suggestions.append(f"How many settlements are in flood-prone areas in {location}?")
+        suggestions.append("Which province has the most flood-prone districts?")
+        if has_location and location:
+            suggestions.append(f"What are the roads like in {location}?")
+
+    # Generic fallbacks if no specific suggestions added yet
+    if len(suggestions) < 2:
+        if has_location and location and "compare" not in q:
+            suggestions.append(f"Compare districts in {location}")
+        if has_data and "table" not in q:
+            suggestions.append(f"Show me a breakdown of {ds_name} by district")
+        if has_data and "report" not in q:
+            suggestions.append(f"Generate a report on {ds_name}")
+        if has_location and "flood" not in q and "risk" not in q:
+            suggestions.append(f"What is the flood risk in {location or 'this area'}?")
+        if has_location and "settlement" not in q:
+            suggestions.append(f"How many settlements are in {location or 'this area'}?")
+
     return suggestions[:3]
 
 
@@ -121,9 +176,28 @@ def _render_ondemand_panel(msg_idx: int, msg: dict, ctx_layers: list = None):
     # Render requested components
     if msg.get("map_shown") and has_geojson:
         gjson = msg["geojson"]
+        ds_name_lower = (msg.get("ds_name", "") or "").lower()
         layers = ctx_layers if ctx_layers else _CONTEXT_LAYERS
+        # For non-point datasets (polygons/lines), use water layer as context for dam datasets
+        if _is_point_geojson(gjson):
+            map_layers = layers
+        elif ("dam" in ds_name_lower or "reservoir" in ds_name_lower) and _WATER_LAYER:
+            map_layers = [_WATER_LAYER]
+        else:
+            map_layers = None
         st_folium(
-            make_folium_map(gjson, msg.get("ds_name", ""), context_layers=layers if _is_point_geojson(gjson) else None, highlight_location=msg.get("location", "")),
+            make_folium_map(
+                gjson,
+                msg.get("ds_name", ""),
+                context_layers=map_layers,
+                highlight_location=msg.get("location", ""),
+                buffer_center=msg.get("buffer_center"),
+                buffer_radius_km=msg.get("buffer_radius_km"),
+                buffer_label=(
+                    f"{msg.get('buffer_radius_km')} km radius — {msg.get('location', '')}"
+                    if msg.get("buffer_radius_km") else ""
+                ),
+            ),
             width=720, height=340, returned_objects=[], key=f"map_{msg_idx}"
         )
 
@@ -208,6 +282,16 @@ def _render_data_tables(sample_features: list, ds_name: str, key_prefix: str = "
 
     with st.expander(f"Data table — {ds_name} ({len(rows)} records)", expanded=True):
         st.dataframe(df, use_container_width=True, height=260)
+
+        # CSV download
+        st.download_button(
+            "⬇️ Download CSV",
+            df.to_csv(index=False).encode("utf-8"),
+            file_name=f"{ds_name.replace(' ', '_')}_data.csv",
+            mime="text/csv",
+            key=f"{key_prefix}_csv",
+            use_container_width=False,
+        )
 
         # Auto summary stats for numeric columns
         num_cols = df.select_dtypes(include="number").columns.tolist()
@@ -356,7 +440,7 @@ input.addEventListener('keydown', e => { if (e.key === 'Enter') sendBtn.click();
 # Clients
 # ---------------------------------------------------------------------------
 @st.cache_resource(show_spinner=False)
-def get_hub(_v=3): return HubClient()
+def get_hub(_v=5): return HubClient()
 
 @st.cache_resource(show_spinner=False)
 def get_claude(_v=3): return ClaudeClient()
@@ -367,6 +451,61 @@ def get_builder(_v=3): return ReportBuilder()
 hub = get_hub()
 claude = get_claude()
 builder = get_builder()
+
+# ---------------------------------------------------------------------------
+# Token refresh UI — shown in sidebar when token is missing or expired
+# ---------------------------------------------------------------------------
+_token_missing = not _hub_client_module._ARCGIS_TOKEN
+_token_expired = _hub_client_module.token_expired
+
+with st.sidebar:
+    st.markdown("### Zambia GeoHub")
+    if _token_missing or _token_expired:
+        if _token_expired:
+            st.warning("🔑 Access token expired — private datasets unavailable.")
+        else:
+            st.info("🔑 No access token — some datasets require authentication.")
+
+        st.markdown(
+            "**To unlock all datasets:**\n\n"
+            "1. Go to [zmb-geowb.hub.arcgis.com](https://zmb-geowb.hub.arcgis.com) "
+            "and make sure you are logged in\n"
+            "2. Press **F12** → **Network** tab → reload the page\n"
+            "3. Filter by `token` → click `self?f=json&token=...`\n"
+            "4. Copy the long string after `token=` in the Request URL\n"
+            "5. Paste it below"
+        )
+        _new_token = st.text_area(
+            "Paste token here",
+            height=80,
+            placeholder="aPvSzpp...(long string)...",
+            key="token_input",
+        )
+        if st.button("Apply Token", type="primary", use_container_width=True):
+            if _new_token.strip():
+                _hub_client_module.set_token(_new_token.strip())
+                st.success("Token saved — private datasets are now unlocked.")
+                st.rerun()
+            else:
+                st.error("Please paste a token first.")
+    else:
+        st.success("🔓 Authenticated — all datasets available")
+        if st.button("Update Token", use_container_width=True):
+            st.session_state["_show_token_input"] = True
+
+        if st.session_state.get("_show_token_input"):
+            _new_token2 = st.text_area(
+                "Paste new token",
+                height=80,
+                placeholder="aPvSzpp...",
+                key="token_update",
+            )
+            if st.button("Save New Token", type="primary", use_container_width=True):
+                if _new_token2.strip():
+                    _hub_client_module.set_token(_new_token2.strip())
+                    st.session_state["_show_token_input"] = False
+                    st.success("Token updated.")
+                    st.rerun()
 
 # ---------------------------------------------------------------------------
 # Context detection — dataset passed from Hub iframe embed
@@ -492,6 +631,27 @@ def detect_intent(text: str) -> str:
     return "chat"
 
 
+def _extract_comparison_locations(text: str):
+    """
+    Detect 'compare X and Y' or 'X vs Y' patterns.
+    Returns list of location strings if found, else empty list.
+    """
+    t = text.lower()
+    # "compare X and Y" or "X vs Y" or "X versus Y"
+    for pattern in [
+        _re.search(r'compare\s+([a-z][a-z\s]{2,20})\s+and\s+([a-z][a-z\s]{2,20})', t),
+        _re.search(r'([a-z][a-z\s]{2,15})\s+vs\.?\s+([a-z][a-z\s]{2,15})', t),
+        _re.search(r'([a-z][a-z\s]{2,15})\s+versus\s+([a-z][a-z\s]{2,15})', t),
+    ]:
+        if pattern:
+            locs = [pattern.group(1).strip().title(), pattern.group(2).strip().title()]
+            # Filter out generic words
+            locs = [l for l in locs if l.lower() not in {"the", "a", "an", "all", "zambia", "africa"}]
+            if len(locs) == 2:
+                return locs
+    return []
+
+
 # ---------------------------------------------------------------------------
 # Location filter helpers
 # ---------------------------------------------------------------------------
@@ -529,6 +689,31 @@ def _extract_location(text: str):
         if loc.lower() not in {"zambia", "the", "all", "africa"}:
             return (loc, "district")
     return (None, None)
+
+
+def _extract_radius_km(text: str):
+    """
+    Detect a buffer radius in the question.
+    Returns float km or None.
+    Examples:
+      "within 5km"  → 5.0
+      "10 km radius" → 10.0
+      "within 500m"  → 0.5
+      "within 2 kilometres" → 2.0
+    """
+    import re as _re2
+    t = text.lower()
+    # kilometres
+    m = _re2.search(r'(\d+(?:\.\d+)?)\s*(?:km|kms|kilometre|kilometres|kilometer|kilometers)', t)
+    if m:
+        return float(m.group(1))
+    # metres → convert
+    m = _re2.search(r'(\d+(?:\.\d+)?)\s*(?:m|metres|meters|metre|meter)\b', t)
+    if m:
+        val = float(m.group(1))
+        if val >= 50:          # ignore single-digit metres that are likely typos
+            return round(val / 1000, 3)
+    return None
 
 
 def _filter_by_location(features: list, location: str, loc_type: str) -> list:
@@ -706,6 +891,9 @@ def process_question(question: str):
 
     # Detect location once, at the top — used in both context mode and free search mode
     _location, _loc_type = _extract_location(question)
+    _comparison_locs = _extract_comparison_locations(question)  # ["Lusaka", "Copperbelt"] for compare queries
+    _radius_km = _extract_radius_km(question)      # e.g. 5.0 for "within 5km"
+    _buffer_center = None                           # (lat, lon) set later if radius detected
 
     if context_dataset:
         # Hub context mode — direct request so no hub/client.py reload needed
@@ -722,10 +910,14 @@ def process_question(question: str):
                     _where = f"Province='{_location}' OR PROVINCE='{_location}'"
                 else:
                     _where = "1=1"
+                _ctx_tok = _hub_client_module._ARCGIS_TOKEN
+                _ctx_tok_p = {"token": _ctx_tok} if _ctx_tok and any(
+                    org in _base_url for org in ("iQ1dY19aHwbSDYIF", "P3ePLMYs2RVChkJx")
+                ) else {}
                 _resp = _req.get(
                     f"{_base_url}/query",
                     params={"where": _where, "outFields": "*",
-                            "resultRecordCount": 200, "f": "geojson"},
+                            "resultRecordCount": 200, "f": "geojson", **_ctx_tok_p},
                     headers={"Referer": "https://zmb-geowb.hub.arcgis.com",
                              "Origin": "https://zmb-geowb.hub.arcgis.com"},
                     timeout=30,
@@ -764,6 +956,10 @@ def process_question(question: str):
                             sd = _load_static(ds["url"], poi_type=_poi_type)
                             if sd and sd.get("features"):
                                 return sd, ds
+                            else:
+                                # No local static file but this IS the right dataset —
+                                # return it as the candidate so live fetch runs on it.
+                                return None, ds
             for kw in _POI_TYPE_MAP_MODULE:
                 if kw in q_lower:
                     for ds in catalog:
@@ -804,39 +1000,72 @@ def process_question(question: str):
                         live_feats = []
                         _gjson = {}
 
-                        # Settlements dataset has no District field — use bounding box of
-                        # the district polygon from our local districts.json instead.
-                        _is_settlement = "Settlement" in _live_candidate.get("url", "")
-                        if _is_settlement and _loc_type == "district":
-                            _dist_feat = next(
-                                (f for f in _CONTEXT_LAYERS[0]["geojson"]["features"]
-                                 if _location.lower() in (f["properties"].get("DISTRICT") or "").lower()),
-                                None
-                            )
-                            if _dist_feat:
-                                from utils.geo_utils import _polygon_bounds
-                                _bnds = _polygon_bounds(_dist_feat["geometry"])
-                                if _bnds:
-                                    _bbox_str = f"{_bnds[0][1]},{_bnds[0][0]},{_bnds[1][1]},{_bnds[1][0]}"
+                        # Datasets with no District/Province field use a bounding-box
+                        # spatial query against the district polygon from districts.json.
+                        # This covers: Settlements, Building Footprints, Population,
+                        # DRE Atlas, Wealth Index, and other raster/polygon datasets.
+                        _BBOX_DATASETS = (
+                            "Settlement", "Building_Footprints", "Population",
+                            "zambia_dre", "Relative_Wealth", "Aquifer",
+                            "Microgrids", "zmb_dams", "zmb_mines",
+                        )
+                        _needs_bbox = any(kw in _live_candidate.get("url", "") for kw in _BBOX_DATASETS)
+                        # Token for private-org datasets
+                        _tok = _hub_client_module._ARCGIS_TOKEN
+                        _tok_params = {"token": _tok} if _tok and any(
+                            org in _base_url for org in ("iQ1dY19aHwbSDYIF", "P3ePLMYs2RVChkJx")
+                        ) else {}
+
+                        if _needs_bbox and _loc_type in ("district", "province"):
+                            # Find the matching boundary polygon(s) and compute bounding box
+                            _boundary_feats = _CONTEXT_LAYERS[0]["geojson"]["features"] if _CONTEXT_LAYERS else []
+                            _field = "DISTRICT" if _loc_type == "district" else "PROVINCE"
+                            _alt_field = "District" if _loc_type == "district" else "Province"
+                            # For provinces, collect ALL matching district features to get full extent
+                            _matched_feats = [
+                                f for f in _boundary_feats
+                                if _location.lower() in (
+                                    f["properties"].get(_field) or
+                                    f["properties"].get(_alt_field) or ""
+                                ).lower()
+                            ]
+                            from utils.geo_utils import _polygon_bounds
+                            # Merge bounds across all matched features
+                            _bnds = None
+                            for _mf in _matched_feats:
+                                _b = _polygon_bounds(_mf["geometry"])
+                                if _b:
+                                    if _bnds is None:
+                                        _bnds = [list(_b[0]), list(_b[1])]
+                                    else:
+                                        _bnds[0][0] = min(_bnds[0][0], _b[0][0])
+                                        _bnds[0][1] = min(_bnds[0][1], _b[0][1])
+                                        _bnds[1][0] = max(_bnds[1][0], _b[1][0])
+                                        _bnds[1][1] = max(_bnds[1][1], _b[1][1])
+                            if _bnds:
+                                _bbox_str = f"{_bnds[0][1]},{_bnds[0][0]},{_bnds[1][1]},{_bnds[1][0]}"
+                                _bbox_params = {
+                                    "geometry": _bbox_str,
+                                    "geometryType": "esriGeometryEnvelope",
+                                    "spatialRel": "esriSpatialRelIntersects",
+                                    **_tok_params,
+                                }
+                                try:
                                     _cnt_resp = _req.get(f"{_base_url}/query",
-                                        params={"geometry": _bbox_str,
-                                                "geometryType": "esriGeometryEnvelope",
-                                                "spatialRel": "esriSpatialRelContains",
-                                                "returnCountOnly": "true", "f": "json"},
+                                        params={**_bbox_params, "returnCountOnly": "true", "f": "json"},
                                         headers=_headers, timeout=15)
                                     _cnt_data = _cnt_resp.json()
                                     if "count" in _cnt_data:
                                         _total_count = _cnt_data["count"]
-                                    _resp = _req.get(f"{_base_url}/query",
-                                        params={"geometry": _bbox_str,
-                                                "geometryType": "esriGeometryEnvelope",
-                                                "spatialRel": "esriSpatialRelContains",
-                                                "outFields": "*", "resultRecordCount": 30,
-                                                "f": "geojson"},
-                                        headers=_headers, timeout=30)
-                                    _resp.raise_for_status()
-                                    _gjson = _resp.json()
-                                    live_feats = _gjson.get("features", [])
+                                except Exception:
+                                    pass
+                                _resp = _req.get(f"{_base_url}/query",
+                                    params={**_bbox_params, "outFields": "*",
+                                            "resultRecordCount": 30, "f": "geojson"},
+                                    headers=_headers, timeout=30)
+                                _resp.raise_for_status()
+                                _gjson = _resp.json()
+                                live_feats = _gjson.get("features", [])
                         else:
                             # Standard district/province field filter
                             _where = (
@@ -847,7 +1076,8 @@ def process_question(question: str):
                             # Count-only query for exact total
                             try:
                                 _cnt_resp = _req.get(f"{_base_url}/query",
-                                    params={"where": _where, "returnCountOnly": "true", "f": "json"},
+                                    params={"where": _where, "returnCountOnly": "true", "f": "json",
+                                            **_tok_params},
                                     headers=_headers, timeout=15)
                                 _cnt_data = _cnt_resp.json()
                                 if "count" in _cnt_data:
@@ -857,7 +1087,8 @@ def process_question(question: str):
                             # Sample fetch — up to 200 records for table + AI analysis
                             _resp = _req.get(f"{_base_url}/query",
                                 params={"where": _where, "outFields": "*",
-                                        "resultRecordCount": 200, "f": "geojson"},
+                                        "resultRecordCount": 200, "f": "geojson",
+                                        **_tok_params},
                                 headers=_headers, timeout=30)
                             _resp.raise_for_status()
                             _gjson = _resp.json()
@@ -1175,6 +1406,59 @@ def process_question(question: str):
                     datasets = [_static_candidate] + [d for d in datasets if d != _static_candidate]
                 st.info("📦 Using pre-loaded sample data (live server temporarily unavailable).")
 
+    # ---- Buffer / proximity filter ----
+    # If the question contains a radius (e.g. "within 5km of Mongu"), compute the
+    # buffer center from the highlighted district centroid or the first fetched point,
+    # filter map_geojson to only features inside the radius, and annotate each with
+    # its distance so Claude can mention exact distances in its answer.
+    if _radius_km and map_geojson and map_geojson.get("features"):
+        # Determine center: prefer the district polygon centroid (most accurate for
+        # location-named queries like "schools within 10km of Kalomo").
+        _center = None
+        if _location and _CONTEXT_LAYERS:
+            _dist_feat = next(
+                (f for f in _CONTEXT_LAYERS[0]["geojson"]["features"]
+                 if _location.lower() in (
+                     (f["properties"].get("DISTRICT") or f["properties"].get("PROVINCE") or "")
+                 ).lower()),
+                None,
+            )
+            if _dist_feat and _dist_feat.get("geometry"):
+                _center = polygon_centroid(_dist_feat["geometry"])
+
+        # Fallback: centroid of all fetched point features
+        if not _center:
+            _pt_feats = [
+                f for f in map_geojson["features"]
+                if (f.get("geometry") or {}).get("type") == "Point"
+            ]
+            if _pt_feats:
+                _lats = [f["geometry"]["coordinates"][1] for f in _pt_feats]
+                _lons = [f["geometry"]["coordinates"][0] for f in _pt_feats]
+                _center = (sum(_lats) / len(_lats), sum(_lons) / len(_lons))
+
+        if _center:
+            _buffer_center = _center
+            _within = features_within_km(map_geojson["features"], _center[0], _center[1], _radius_km)
+
+            if _within:
+                # Annotate each feature with its distance_km property
+                for feat, dist_km in _within:
+                    if feat.get("properties") is not None:
+                        feat["properties"]["distance_km"] = dist_km
+                map_geojson = {"type": "FeatureCollection", "features": [f for f, _ in _within]}
+                # Rebuild sample_features from the filtered + annotated set
+                sample_features = geojson_to_sample_rows(map_geojson, n=len(_within))
+                st.info(
+                    f"📍 Buffer filter: {len(_within)} feature(s) found within "
+                    f"**{_radius_km} km** of {_location or 'selected point'}."
+                )
+            else:
+                st.info(
+                    f"📍 No features found within {_radius_km} km of "
+                    f"{_location or 'selected point'}."
+                )
+
     # If cross-context has settlement points and the current map has no Point features,
     # override with settlement points so the map always shows something useful.
     if _cross_context.get("settlement_geojson"):
@@ -1291,7 +1575,13 @@ def process_question(question: str):
                 if m["role"] in ("user", "assistant") and m.get("content"):
                     history.append({"role": m["role"], "content": m["content"]})
             # Add current user prompt (with dataset context) as the final user turn
-            user_p = chatbot_user_prompt(question, datasets, sample_features, all_catalog=hub.get_catalog(), total_count=_total_count, location=_location or "", cross_context=_cross_context)
+            _compare_note = (
+                f"\n⚡ COMPARISON REQUEST: The user wants a side-by-side comparison of "
+                f"{' and '.join(_comparison_locs)}. Use the sample records to compare "
+                f"counts, types, and coverage between these locations. Present as a comparison table if possible."
+                if _comparison_locs else ""
+            )
+            user_p = chatbot_user_prompt(question + _compare_note, datasets, sample_features, all_catalog=hub.get_catalog(), total_count=_total_count, location=_location or "", cross_context=_cross_context)
             history.append({"role": "user", "content": user_p})
 
             # Show a Stop button while the AI is streaming
@@ -1340,6 +1630,8 @@ def process_question(question: str):
                 "ds_name": ds.get("name", ""), "geojson": map_geojson if not _ai_error else None,
                 "location": _location or "",
                 "sample_features": sample_features if not _ai_error else [],
+                "buffer_center": _buffer_center,
+                "buffer_radius_km": _radius_km,
             }
             st.session_state.messages.append(_new_msg)
 
