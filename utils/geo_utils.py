@@ -324,16 +324,21 @@ def make_folium_map(
             fill_color, line_color = "#495057", "#212529"
         elif "flood" in ds_lower:
             fill_color, line_color = "#4cc9f0", "#4361ee"
-        elif "road" in ds_lower or "highway" in ds_lower or "railway" in ds_lower:
+        elif "railway" in ds_lower or "rail" in ds_lower or "lobito" in ds_lower or "corridor" in ds_lower:
+            fill_color, line_color = "#e63946", "#9d0208"
+        elif "road" in ds_lower or "highway" in ds_lower:
             fill_color, line_color = "#adb5bd", "#6c757d"
         else:
             fill_color, line_color = "#457b9d", "#1d3557"
 
-        def style_fn(feature, _fc=fill_color, _lc=line_color):
+        _is_railway = "railway" in ds_lower or "rail" in ds_lower or "lobito" in ds_lower or "corridor" in ds_lower
+        _line_weight = 3.5 if _is_railway else 2
+
+        def style_fn(feature, _fc=fill_color, _lc=line_color, _lw=_line_weight):
             return {
                 "fillColor": _fc,
                 "color": _lc,
-                "weight": 2,
+                "weight": _lw,
                 "fillOpacity": 0.45,
             }
 
@@ -515,10 +520,25 @@ def _pick_label_fields(features: list, max_fields: int = 3) -> list:
     if not features:
         return []
     props = features[0].get("properties") or {}
-    priority = ["Name", "NAME", "name", "District", "DISTRICT", "Province", "PROVINCE", "REGION", "Type", "TYPE", "type", "ID"]
+    priority = [
+        # Identity / name fields (broadest coverage first)
+        "Name", "NAME", "name", "label", "LABEL",
+        # Railway / transport specific
+        "operator", "railway", "line_name", "line", "route", "ref",
+        # Administrative
+        "District", "DISTRICT", "Province", "PROVINCE", "REGION",
+        # Classification
+        "Type", "TYPE", "type", "class", "CLASS", "category",
+        # Fallback identifier
+        "ID", "FID", "OBJECTID",
+    ]
     chosen = [f for f in priority if f in props]
     if not chosen:
-        chosen = list(props.keys())
+        # Skip purely numeric/geometry fields
+        chosen = [k for k in props if k not in (
+            "Shape_Area", "Shape_Length", "Shape__Area", "Shape__Length",
+            "OBJECTID", "FID", "GlobalID", "latitude", "longitude",
+        )]
     return chosen[:max_fields]
 
 
