@@ -939,7 +939,7 @@ def process_question(question: str):
             except Exception:
                 datasets = []
 
-        from hub.client import _load_static, _POI_TYPE_MAP_MODULE, _SUBJECT_BOOST_MODULE
+        from hub.client import _load_static, _POI_TYPE_MAP_MODULE, _SUBJECT_BOOST_MODULE, _SEED_CATALOG
 
         _poi_type = ""
         for kw, ptype in _POI_TYPE_MAP_MODULE.items():
@@ -948,10 +948,14 @@ def process_question(question: str):
                 break
 
         def _find_static(q_lower):
+            # Use _SEED_CATALOG for subject-boost lookup — it has correct layer numbers.
+            # The dynamic catalog from hub.get_catalog() enumerates all layers of each
+            # FeatureServer service (0, 1, 2, …) and layer 0 always appears first,
+            # which is wrong for multi-layer services like mines (/12), poverty (/50), etc.
             catalog = hub.get_catalog()
             for kw, frag in _SUBJECT_BOOST_MODULE.items():
                 if kw in q_lower:
-                    for ds in catalog:
+                    for ds in _SEED_CATALOG:
                         if frag in ds["url"]:
                             sd = _load_static(ds["url"], poi_type=_poi_type)
                             if sd and sd.get("features"):
