@@ -1065,6 +1065,9 @@ def process_question(question: str):
                                     headers=_headers, timeout=30)
                                 _resp.raise_for_status()
                                 _gjson = _resp.json()
+                                if "error" in _gjson:
+                                    _err = _gjson["error"]
+                                    raise RuntimeError(f"API error {_err.get('code')}: {_err.get('message')}")
                                 live_feats = _gjson.get("features", [])
                         else:
                             # Standard district/province field filter
@@ -1092,6 +1095,9 @@ def process_question(question: str):
                                 headers=_headers, timeout=30)
                             _resp.raise_for_status()
                             _gjson = _resp.json()
+                            if "error" in _gjson:
+                                _err = _gjson["error"]
+                                raise RuntimeError(f"API error {_err.get('code')}: {_err.get('message')}")
                             live_feats = _gjson.get("features", [])
 
                         if live_feats and "error" not in _gjson:
