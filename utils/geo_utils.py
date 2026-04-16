@@ -520,25 +520,34 @@ def _pick_label_fields(features: list, max_fields: int = 3) -> list:
     if not features:
         return []
     props = features[0].get("properties") or {}
+    # Fields that are never useful as labels
+    _skip = {
+        "OBJECTID", "FID", "GlobalID", "Shape_Area", "Shape_Length",
+        "Shape__Area", "Shape__Length", "latitude", "longitude",
+        "distance_km", "objectid", "fid", "globalid",
+    }
     priority = [
-        # Identity / name fields (broadest coverage first)
+        # Name fields
         "Name", "NAME", "name", "label", "LABEL",
-        # Railway / transport specific
-        "operator", "railway", "line_name", "line", "route", "ref",
+        # Railway / transport
+        "operator", "Operator", "OPERATOR",
+        "railway", "Railway", "line_name", "LineName",
+        "line", "route", "ref", "REF",
         # Administrative
         "District", "DISTRICT", "Province", "PROVINCE", "REGION",
         # Classification
         "Type", "TYPE", "type", "class", "CLASS", "category",
-        # Fallback identifier
-        "ID", "FID", "OBJECTID",
     ]
     chosen = [f for f in priority if f in props]
     if not chosen:
-        # Skip purely numeric/geometry fields
-        chosen = [k for k in props if k not in (
-            "Shape_Area", "Shape_Length", "Shape__Area", "Shape__Length",
-            "OBJECTID", "FID", "GlobalID", "latitude", "longitude",
-        )]
+        # Fall back to any field with a meaningful string value
+        for k, v in props.items():
+            if k in _skip:
+                continue
+            if isinstance(v, str) and v.strip():
+                chosen.append(k)
+            if len(chosen) >= max_fields:
+                break
     return chosen[:max_fields]
 
 
