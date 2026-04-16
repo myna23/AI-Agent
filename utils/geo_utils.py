@@ -349,10 +349,26 @@ def make_folium_map(
             highlight_function=highlight_fn,
             tooltip=tooltip,
         ).add_to(m)
-        try:
-            m.fit_bounds(m.get_bounds())
-        except Exception:
-            pass
+
+        # Compute bounds directly from feature coordinates (more reliable than m.get_bounds())
+        all_lats, all_lons = [], []
+        for feat in features:
+            geom = feat.get("geometry") or {}
+            b = _polygon_bounds(geom)
+            if b:
+                all_lats += [b[0][0], b[1][0]]
+                all_lons += [b[0][1], b[1][1]]
+            elif geom.get("type") in ("LineString", "MultiLineString"):
+                coords = geom.get("coordinates", [])
+                if geom["type"] == "LineString":
+                    coords = [coords]
+                for line in coords:
+                    for pt in (line if isinstance(line[0], (int, float)) else [c for seg in line for c in seg]):
+                        if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                            all_lons.append(pt[0])
+                            all_lats.append(pt[1])
+        if all_lats and all_lons:
+            m.fit_bounds([[min(all_lats), min(all_lons)], [max(all_lats), max(all_lons)]])
 
     # Buffer circle — drawn on top of all other layers
     if buffer_center and buffer_radius_km and buffer_radius_km > 0:
