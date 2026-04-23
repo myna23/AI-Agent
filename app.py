@@ -1896,69 +1896,7 @@ def _process_upload(f):
     except Exception as _ue:
         st.error(f"Could not read file: {_ue}")
 
-# CSS — style the file uploader as a small "+" button inside the chat input
-st.markdown("""
-<style>
-/* Position the uploader inside the chat input row */
-div[data-testid="stFileUploader"] {
-    position: fixed;
-    bottom: 15px;
-    left: calc(50% - 360px);
-    z-index: 9999;
-    width: 36px !important;
-    overflow: visible;
-}
-/* Hide everything except the button */
-div[data-testid="stFileUploader"] > div,
-div[data-testid="stFileUploaderDropzone"],
-div[data-testid="stFileUploader"] label,
-div[data-testid="stFileUploader"] small,
-div[data-testid="stFileUploader"] span[data-testid="stFileUploaderFileName"],
-div[data-testid="stFileUploader"] .uploadedFileName,
-div[data-testid="stFileUploader"] section {
-    display: none !important;
-}
-/* Show only the button */
-div[data-testid="stFileUploader"] button {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    width: 32px !important;
-    height: 32px !important;
-    min-height: unset !important;
-    border-radius: 8px !important;
-    padding: 0 !important;
-    background: transparent !important;
-    border: 1.5px solid rgba(255,255,255,0.3) !important;
-    color: rgba(255,255,255,0.7) !important;
-    font-size: 20px !important;
-    cursor: pointer !important;
-}
-div[data-testid="stFileUploader"] button:hover {
-    border-color: white !important;
-    color: white !important;
-    background: rgba(255,255,255,0.08) !important;
-}
-div[data-testid="stFileUploader"] button p { display: none !important; }
-div[data-testid="stFileUploader"] button::before { content: "+"; font-size: 20px; }
-/* Indent chat input placeholder so it doesn't hide behind + button */
-[data-testid="stChatInput"] textarea {
-    padding-left: 44px !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# The actual file uploader — rendered as the "+" button above via CSS
-_chat_upload = st.file_uploader(
-    "Attach document",
-    type=["pdf", "docx", "txt"],
-    key="chat_doc_upload",
-    label_visibility="collapsed",
-)
-if _chat_upload:
-    _process_upload(_chat_upload)
-
-# Active document banner above chat input
+# Active document banner
 if st.session_state.get("uploaded_doc_name"):
     _doc_col1, _doc_col2 = st.columns([11, 1])
     with _doc_col1:
@@ -1968,6 +1906,41 @@ if st.session_state.get("uploaded_doc_name"):
             st.session_state.pop("uploaded_doc_text", None)
             st.session_state.pop("uploaded_doc_name", None)
             st.rerun()
+
+# Upload row — small + button column sitting just above the chat input
+st.markdown("""
+<style>
+/* Make the uploader row as compact as possible */
+div[data-testid="stFileUploader"] label { display: none !important; }
+div[data-testid="stFileUploaderDropzone"] {
+    padding: 4px 8px !important;
+    border-radius: 8px !important;
+    border: 1.5px solid rgba(255,255,255,0.2) !important;
+    background: transparent !important;
+    min-height: unset !important;
+}
+div[data-testid="stFileUploaderDropzone"] > div { display: none !important; }
+div[data-testid="stFileUploaderDropzone"] button {
+    padding: 2px 12px !important;
+    font-size: 13px !important;
+    min-height: unset !important;
+    height: 28px !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+_up_col, _spacer = st.columns([1, 6])
+with _up_col:
+    _chat_upload = st.file_uploader(
+        "＋ Attach",
+        type=["pdf", "docx", "txt"],
+        key="chat_doc_upload",
+        label_visibility="visible",
+    )
+    if _chat_upload:
+        _process_upload(_chat_upload)
+        if st.session_state.get("uploaded_doc_name"):
+            st.toast(f"📄 {st.session_state['uploaded_doc_name']} attached!", icon="✅")
 
 # ---------------------------------------------------------------------------
 # Chat input
