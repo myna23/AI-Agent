@@ -1752,7 +1752,28 @@ def process_question(question: str):
                         _static_feats = _bbox_feats
                         st.info(f"📦 Found **{len(_bbox_feats)}** records in your drawn area from local data (live server temporarily unavailable).")
                     else:
-                        st.info("📦 No local records found in your drawn area — showing nearest available data.")
+                        # Bbox coordinate filter found nothing — try filtering by district/province name
+                        _area_district = _draw_bbox.get("district", "")
+                        _area_province = _draw_bbox.get("province", "")
+                        _district_feats = []
+                        if _area_district:
+                            _district_feats = [
+                                f for f in _static_feats
+                                if _area_district.lower() in str(f.get("properties", {}).get("District", "")).lower()
+                                or _area_district.lower() in str(f.get("properties", {}).get("DISTRICT", "")).lower()
+                            ]
+                        if not _district_feats and _area_province:
+                            _district_feats = [
+                                f for f in _static_feats
+                                if _area_province.lower() in str(f.get("properties", {}).get("Province", "")).lower()
+                                or _area_province.lower() in str(f.get("properties", {}).get("PROVINCE", "")).lower()
+                            ]
+                        if _district_feats:
+                            _static_feats = _district_feats
+                            _label = _area_district or _area_province
+                            st.info(f"📦 Found **{len(_district_feats)}** records in **{_label}** from local data (live server temporarily unavailable).")
+                        else:
+                            st.info("📦 No local records found in your drawn area — showing countrywide sample data.")
                 else:
                     st.info("📦 Using pre-loaded sample data (live server temporarily unavailable).")
                 sample_features = geojson_to_sample_rows(
