@@ -1896,30 +1896,67 @@ def _process_upload(f):
     except Exception as _ue:
         st.error(f"Could not read file: {_ue}")
 
-# Show active document banner with dismiss button
+# CSS — style the file uploader as a small "+" button fixed inside the chat input
+st.markdown("""
+<style>
+/* Wrap the uploader into the chat input area */
+div[data-testid="stFileUploader"] {
+    position: fixed;
+    bottom: 13px;
+    left: calc(50% - 370px);
+    z-index: 1000;
+    width: 38px;
+}
+/* Hide dropzone, label, size hint */
+div[data-testid="stFileUploaderDropzone"],
+div[data-testid="stFileUploader"] label,
+div[data-testid="stFileUploader"] small {
+    display: none !important;
+}
+/* Style the browse button as a "+" circle */
+div[data-testid="stFileUploader"] button {
+    width: 34px !important;
+    height: 34px !important;
+    min-height: unset !important;
+    border-radius: 8px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 1.5px solid rgba(255,255,255,0.25) !important;
+    color: rgba(255,255,255,0.7) !important;
+    font-size: 22px !important;
+    line-height: 1 !important;
+    cursor: pointer !important;
+}
+div[data-testid="stFileUploader"] button:hover {
+    border-color: rgba(255,255,255,0.6) !important;
+    color: white !important;
+}
+/* Hide the button label text, show only "+" via pseudo */
+div[data-testid="stFileUploader"] button span { display: none !important; }
+div[data-testid="stFileUploader"] button::before { content: "+"; }
+</style>
+""", unsafe_allow_html=True)
+
+# The actual file uploader — rendered as the "+" button above via CSS
+_chat_upload = st.file_uploader(
+    "Attach document",
+    type=["pdf", "docx", "txt"],
+    key="chat_doc_upload",
+    label_visibility="collapsed",
+)
+if _chat_upload:
+    _process_upload(_chat_upload)
+
+# Active document banner above chat input
 if st.session_state.get("uploaded_doc_name"):
-    _doc_col1, _doc_col2 = st.columns([9, 1])
+    _doc_col1, _doc_col2 = st.columns([11, 1])
     with _doc_col1:
-        st.info(f"📄 **{st.session_state['uploaded_doc_name']}** — attached as context for your next question")
+        st.info(f"📄 **{st.session_state['uploaded_doc_name']}** attached — AI will use it as context")
     with _doc_col2:
         if st.button("✕", key="inline_clear_doc", help="Remove document"):
             st.session_state.pop("uploaded_doc_text", None)
             st.session_state.pop("uploaded_doc_name", None)
             st.rerun()
-
-# Upload widget — collapsed by default, opens on click like a + button
-with st.expander("➕ Attach a document", expanded=False):
-    st.caption("Drag & drop or browse — PDF, Word, or TXT. The AI will use it as context alongside the map data.")
-    _inline_upload = st.file_uploader(
-        "Upload file",
-        type=["pdf", "docx", "txt"],
-        key="inline_doc_upload",
-        label_visibility="collapsed",
-    )
-    if _inline_upload:
-        _process_upload(_inline_upload)
-        if st.session_state.get("uploaded_doc_name"):
-            st.success(f"✅ **{st.session_state['uploaded_doc_name']}** ready — now ask your question below.")
 
 # ---------------------------------------------------------------------------
 # Chat input
