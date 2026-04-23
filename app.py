@@ -1896,44 +1896,55 @@ def _process_upload(f):
     except Exception as _ue:
         st.error(f"Could not read file: {_ue}")
 
-# CSS — style the file uploader as a small "+" button fixed inside the chat input
+# CSS — style the file uploader as a small "+" button inside the chat input
 st.markdown("""
 <style>
-/* Wrap the uploader into the chat input area */
+/* Position the uploader inside the chat input row */
 div[data-testid="stFileUploader"] {
     position: fixed;
-    bottom: 13px;
-    left: calc(50% - 370px);
-    z-index: 1000;
-    width: 38px;
+    bottom: 15px;
+    left: calc(50% - 360px);
+    z-index: 9999;
+    width: 36px !important;
+    overflow: visible;
 }
-/* Hide dropzone, label, size hint */
+/* Hide everything except the button */
+div[data-testid="stFileUploader"] > div,
 div[data-testid="stFileUploaderDropzone"],
 div[data-testid="stFileUploader"] label,
-div[data-testid="stFileUploader"] small {
+div[data-testid="stFileUploader"] small,
+div[data-testid="stFileUploader"] span[data-testid="stFileUploaderFileName"],
+div[data-testid="stFileUploader"] .uploadedFileName,
+div[data-testid="stFileUploader"] section {
     display: none !important;
 }
-/* Style the browse button as a "+" circle */
+/* Show only the button */
 div[data-testid="stFileUploader"] button {
-    width: 34px !important;
-    height: 34px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 32px !important;
+    height: 32px !important;
     min-height: unset !important;
     border-radius: 8px !important;
     padding: 0 !important;
     background: transparent !important;
-    border: 1.5px solid rgba(255,255,255,0.25) !important;
+    border: 1.5px solid rgba(255,255,255,0.3) !important;
     color: rgba(255,255,255,0.7) !important;
-    font-size: 22px !important;
-    line-height: 1 !important;
+    font-size: 20px !important;
     cursor: pointer !important;
 }
 div[data-testid="stFileUploader"] button:hover {
-    border-color: rgba(255,255,255,0.6) !important;
+    border-color: white !important;
     color: white !important;
+    background: rgba(255,255,255,0.08) !important;
 }
-/* Hide the button label text, show only "+" via pseudo */
-div[data-testid="stFileUploader"] button span { display: none !important; }
-div[data-testid="stFileUploader"] button::before { content: "+"; }
+div[data-testid="stFileUploader"] button p { display: none !important; }
+div[data-testid="stFileUploader"] button::before { content: "+"; font-size: 20px; }
+/* Indent chat input placeholder so it doesn't hide behind + button */
+[data-testid="stChatInput"] textarea {
+    padding-left: 44px !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
