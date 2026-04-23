@@ -2043,7 +2043,19 @@ if question := st.chat_input("Ask a question, say 'generate a report on...', or 
         with st.chat_message("user"):
             st.markdown(question)
         process_question(question)
+        st.session_state["_scroll_to_bottom"] = True
         st.rerun()
+
+# Auto-scroll to bottom after a new answer is generated
+if st.session_state.pop("_scroll_to_bottom", False):
+    st.components.v1.html("""
+        <script>
+            window.parent.document.querySelector('section.main').scrollTo({
+                top: window.parent.document.querySelector('section.main').scrollHeight,
+                behavior: 'smooth'
+            });
+        </script>
+    """, height=0)
 
 # Persist current chat to URL after every render so refresh restores it
 _persist_chat()
