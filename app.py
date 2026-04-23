@@ -480,20 +480,24 @@ with st.sidebar:
             "5. Paste it below"
         )
         _new_token = st.text_area(
-            "Paste token here",
+            "Paste the full URL or just the token",
             height=80,
-            placeholder="aPvSzpp...(long string)...",
+            placeholder="https://services.arcgis.com/...?token=abc123... or just the token",
             key="token_input",
         )
         if st.button("Apply Token", type="primary", use_container_width=True):
-            if _new_token.strip():
-                _hub_client_module.set_token(_new_token.strip())
+            _raw = _new_token.strip()
+            if _raw:
+                # Auto-extract token if user pasted a full URL
+                if "token=" in _raw:
+                    _raw = _raw.split("token=", 1)[1].split("&")[0].strip()
                 import datetime as _dt
+                _hub_client_module.set_token(_raw)
                 st.session_state["token_set_date"] = _dt.date.today().isoformat()
-                st.success("Token saved — private datasets are now unlocked.")
+                st.success("✅ Token saved — private datasets are now unlocked.")
                 st.rerun()
             else:
-                st.error("Please paste a token first.")
+                st.error("Please paste a URL or token first.")
     else:
         st.success("🔓 Authenticated — all datasets available")
 
@@ -521,17 +525,21 @@ with st.sidebar:
 
         if st.session_state.get("_show_token_input"):
             _new_token2 = st.text_area(
-                "Paste new token",
+                "Paste the full URL or just the token",
                 height=80,
-                placeholder="aPvSzpp...",
+                placeholder="https://services.arcgis.com/...?token=abc123... or just the token",
                 key="token_update",
             )
             if st.button("Save New Token", type="primary", use_container_width=True):
-                if _new_token2.strip():
-                    _hub_client_module.set_token(_new_token2.strip())
+                _raw2 = _new_token2.strip()
+                if _raw2:
+                    # Auto-extract token if user pasted a full URL
+                    if "token=" in _raw2:
+                        _raw2 = _raw2.split("token=", 1)[1].split("&")[0].strip()
+                    _hub_client_module.set_token(_raw2)
                     st.session_state["_show_token_input"] = False
                     st.session_state["token_set_date"] = _dt.date.today().isoformat()
-                    st.success("Token updated.")
+                    st.success("✅ Token updated.")
                     st.rerun()
 
     # ------------------------------------------------------------------
