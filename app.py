@@ -34,13 +34,6 @@ import json as _json_mod
 import os as _os_mod
 import base64 as _base64_mod
 import io as _io_mod
-import streamlit.components.v1 as _components
-
-# Custom chat input component (replaces st.chat_input — adds + file attach button)
-_CHAT_INPUT_COMPONENT = _components.declare_component(
-    "zambia_chat_input",
-    path=_os_mod.path.join(_os_mod.path.dirname(__file__), "components", "chat_input"),
-)
 
 # Module-level buffer for capturing partial streamed responses across reruns.
 # Keyed by a session identifier derived from session_state id.
@@ -551,11 +544,45 @@ with st.sidebar:
                     st.success("✅ Token updated.")
                     st.rerun()
 
-    # Document active indicator in sidebar (compact)
+    # ------------------------------------------------------------------
+    # Document upload for AI analysis
+    # ------------------------------------------------------------------
+    st.markdown("---")
+    st.markdown("### 📄 Attach a Document")
+    st.caption("Upload a PDF, Word, or TXT file. The AI will use it as context alongside the GeoHub data.")
+
+    _uploaded_file = st.file_uploader(
+        "Choose a file",
+        type=["pdf", "docx", "txt"],
+        key="doc_upload",
+        label_visibility="collapsed",
+    )
+    if _uploaded_file:
+        try:
+            if _uploaded_file.name.endswith(".pdf"):
+                import pypdf as _pypdf
+                _reader = _pypdf.PdfReader(_uploaded_file)
+                _doc_text = "\n".join(p.extract_text() or "" for p in _reader.pages)
+            elif _uploaded_file.name.endswith(".docx"):
+                import docx as _docx
+                _doc = _docx.Document(_uploaded_file)
+                _doc_text = "\n".join(p.text for p in _doc.paragraphs if p.text.strip())
+            else:
+                _doc_text = _uploaded_file.read().decode("utf-8", errors="ignore")
+            _doc_text = _doc_text.strip()
+            if _doc_text:
+                st.session_state["uploaded_doc_text"] = _doc_text
+                st.session_state["uploaded_doc_name"] = _uploaded_file.name
+                st.success(f"✅ **{_uploaded_file.name}** ready")
+                st.caption("Now ask your question in the chat.")
+            else:
+                st.warning("No text could be extracted.")
+        except Exception as _ue:
+            st.error(f"Could not read file: {_ue}")
+
     if st.session_state.get("uploaded_doc_name"):
-        st.markdown("---")
-        st.caption(f"📄 **{st.session_state['uploaded_doc_name']}** attached")
-        if st.button("Remove document", use_container_width=True, key="sidebar_clear_doc"):
+        st.info(f"📄 **{st.session_state['uploaded_doc_name']}** attached")
+        if st.button("Remove", use_container_width=True, key="sidebar_clear_doc"):
             st.session_state.pop("uploaded_doc_text", None)
             st.session_state.pop("uploaded_doc_name", None)
             st.rerun()
@@ -1880,65 +1907,15 @@ with st.expander("🗺️ Draw an area to query", expanded=False):
                 st.rerun()
 
 # ---------------------------------------------------------------------------
-# Custom chat input component (+ file attach button built in)
+# Chat input
 # ---------------------------------------------------------------------------
-_reset_file_flag = st.session_state.pop("_reset_component_file", False)
-_comp_result = _CHAT_INPUT_COMPONENT(reset_file=_reset_file_flag, key="main_chat_input")
-
-_last_evt_id = st.session_state.get("_last_evt_id")
-
-if _comp_result and isinstance(_comp_result, dict):
-    _evt_id = _comp_result.get("id")
-    if _evt_id and _evt_id != _last_evt_id:
-        st.session_state["_last_evt_id"] = _evt_id
-        _evt_type = _comp_result.get("type")
-
-        # ── File attached ────────────────────────────────────────────────
-        if _evt_type == "file":
-            _fname = _comp_result.get("name", "")
-            _data_url = _comp_result.get("dataUrl", "")
-            try:
-                _b64 = _data_url.split(",", 1)[1] if "," in _data_url else _data_url
-                _file_bytes = _base64_mod.b64decode(_b64)
-                _doc_text = ""
-                if _fname.endswith(".pdf"):
-                    import pypdf as _pypdf
-                    _reader = _pypdf.PdfReader(_io_mod.BytesIO(_file_bytes))
-                    _doc_text = "\n".join(p.extract_text() or "" for p in _reader.pages)
-                elif _fname.endswith(".docx"):
-                    import docx as _docx
-                    _doc_obj = _docx.Document(_io_mod.BytesIO(_file_bytes))
-                    _doc_text = "\n".join(p.text for p in _doc_obj.paragraphs if p.text.strip())
-                else:
-                    _doc_text = _file_bytes.decode("utf-8", errors="ignore")
-                _doc_text = _doc_text.strip()
-                if _doc_text:
-                    st.session_state["uploaded_doc_text"] = _doc_text
-                    st.session_state["uploaded_doc_name"] = _fname
-                    st.toast(f"📄 {_fname} attached!", icon="✅")
-                else:
-                    st.warning("No text could be extracted from this file.")
-            except Exception as _fe:
-                st.error(f"Could not read file: {_fe}")
-
-        # ── File cleared ─────────────────────────────────────────────────
-        elif _evt_type == "clear_file":
-            st.session_state.pop("uploaded_doc_text", None)
-            st.session_state.pop("uploaded_doc_name", None)
-
-        # ── Message sent ─────────────────────────────────────────────────
-        elif _evt_type == "message":
-            question = _comp_result.get("text", "").strip()
-            if question and st.session_state.edit_idx is None:
-                st.session_state.messages.append({"role": "user", "content": question})
-                with st.chat_message("user"):
-                    st.markdown(question)
-                process_question(question)
-                # Clear attached file after message is sent
-                st.session_state.pop("uploaded_doc_text", None)
-                st.session_state.pop("uploaded_doc_name", None)
-                st.session_state["_reset_component_file"] = True
-                st.rerun()
+if question := st.chat_input("Ask a question, say 'generate a report on...', or 'summarise...'"):
+    if st.session_state.edit_idx is None:
+        st.session_state.messages.append({"role": "user", "content": question})
+        with st.chat_message("user"):
+            st.markdown(question)
+        process_question(question)
+        st.rerun()
 
 # Persist current chat to URL after every render so refresh restores it
 _persist_chat()
