@@ -29,6 +29,7 @@ from reports.builder import ReportBuilder
 from utils.geo_utils import (
     make_folium_map, summarize_geojson, geojson_to_sample_rows,
     haversine_km, features_within_km, polygon_centroid, assign_districts,
+    _point_in_polygon,
 )
 import json as _json_mod
 import os as _os_mod
@@ -1069,16 +1070,58 @@ def process_question(question: str):
 
     # Drawn bounding box from the draw tool — overrides location filter when set
     _draw_bbox = st.session_state.get("draw_bbox")
+    _draw_bbox_location_note = ""
     if _draw_bbox:
         _bbox_str_draw = (
             f"{_draw_bbox['min_lon']},{_draw_bbox['min_lat']},"
             f"{_draw_bbox['max_lon']},{_draw_bbox['max_lat']}"
         )
-        st.info(
-            f"Querying within your drawn area: "
-            f"lat {_draw_bbox['min_lat']:.3f}–{_draw_bbox['max_lat']:.3f}, "
-            f"lon {_draw_bbox['min_lon']:.3f}–{_draw_bbox['max_lon']:.3f}"
-        )
+        # Identify which district(s)/province the drawn area falls in
+        _bbox_center_lat = (_draw_bbox['min_lat'] + _draw_bbox['max_lat']) / 2
+        _bbox_center_lon = (_draw_bbox['min_lon'] + _draw_bbox['max_lon']) / 2
+        _bbox_districts = []
+        _bbox_provinces = []
+        if _CONTEXT_LAYERS:
+            for _df in _CONTEXT_LAYERS[0]["geojson"].get("features", []):
+                _dp = _df.get("properties", {})
+                _dd = _dp.get("DISTRICT") or _dp.get("District") or ""
+                _dpr = _dp.get("PROVINCE") or _dp.get("Province") or ""
+                _dg = _df.get("geometry", {})
+                if _dg.get("type") == "Polygon":
+                    _rings = _dg.get("coordinates", [])
+                    for _ring in _rings:
+                        if _point_in_polygon(_bbox_center_lat, _bbox_center_lon, _ring):
+                            if _dd and _dd not in _bbox_districts:
+                                _bbox_districts.append(_dd)
+                            if _dpr and _dpr not in _bbox_provinces:
+                                _bbox_provinces.append(_dpr)
+                            break
+                elif _dg.get("type") == "MultiPolygon":
+                    for _poly in _dg.get("coordinates", []):
+                        for _ring in _poly:
+                            if _point_in_polygon(_bbox_center_lat, _bbox_center_lon, _ring):
+                                if _dd and _dd not in _bbox_districts:
+                                    _bbox_districts.append(_dd)
+                                if _dpr and _dpr not in _bbox_provinces:
+                                    _bbox_provinces.append(_dpr)
+                                break
+
+        if _bbox_districts:
+            _draw_bbox_location_note = (
+                f"District(s): {', '.join(_bbox_districts)}"
+                + (f" | Province(s): {', '.join(_bbox_provinces)}" if _bbox_provinces else "")
+            )
+            st.info(
+                f"Querying within drawn area — **{_draw_bbox_location_note}** "
+                f"({_draw_bbox['min_lat']:.3f}–{_draw_bbox['max_lat']:.3f}°N, "
+                f"{_draw_bbox['min_lon']:.3f}–{_draw_bbox['max_lon']:.3f}°E)"
+            )
+        else:
+            st.info(
+                f"Querying within drawn area: "
+                f"lat {_draw_bbox['min_lat']:.3f}–{_draw_bbox['max_lat']:.3f}, "
+                f"lon {_draw_bbox['min_lon']:.3f}–{_draw_bbox['max_lon']:.3f}"
+            )
 
     if context_dataset:
         # Hub context mode — direct request so no hub/client.py reload needed
@@ -1824,7 +1867,15 @@ def process_question(question: str):
                     "Use the above document as additional context when answering the question. "
                     "If the question is specifically about the document, prioritise its content."
                 )
-            user_p = chatbot_user_prompt(question + _compare_note + _doc_ctx, datasets, sample_features, all_catalog=hub.get_catalog(), total_count=_total_count, location=_location or "", cross_context=_cross_context)
+            _bbox_note = (
+                f"\n[The user drew an area on the map. {_draw_bbox_location_note}. "
+                f"Coordinates: lat {_draw_bbox['min_lat']:.3f}–{_draw_bbox['max_lat']:.3f}, "
+                f"lon {_draw_bbox['min_lon']:.3f}–{_draw_bbox['max_lon']:.3f}. "
+                f"All data shown is filtered to this area. When answering 'where is this', "
+                f"state the district and province identified above.]"
+                if _draw_bbox else ""
+            )
+            user_p = chatbot_user_prompt(question + _compare_note + _doc_ctx + _bbox_note, datasets, sample_features, all_catalog=hub.get_catalog(), total_count=_total_count, location=_location or "", cross_context=_cross_context)
             history.append({"role": "user", "content": user_p})
 
             # --- Streaming with stop button ---
