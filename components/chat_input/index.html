@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+    background: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+}
+
+#wrapper { padding: 4px 0 2px 0; }
+
+#file-badge {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px 5px 12px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.8);
+}
+#file-badge .fname {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.remove-btn {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.4);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 2px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+.remove-btn:hover { color: rgba(255,255,255,0.9); }
+
+.input-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    background: #262730;
+    border: 1px solid rgba(250,75,75,0.5);
+    border-radius: 12px;
+    padding: 8px 10px;
+    transition: border-color 0.2s;
+}
+.input-row:focus-within { border-color: rgba(250,75,75,0.85); }
+
+.plus-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 7px;
+    border: 1.5px solid rgba(255,255,255,0.2);
+    background: transparent;
+    color: rgba(255,255,255,0.55);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    padding-bottom: 1px;
+}
+.plus-btn:hover {
+    border-color: rgba(255,255,255,0.6);
+    color: rgba(255,255,255,0.9);
+    background: rgba(255,255,255,0.05);
+}
+.plus-btn.has-file {
+    border-color: #ff4b4b;
+    color: #ff4b4b;
+}
+
+#textInput {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: rgba(255,255,255,0.92);
+    font-size: 15px;
+    resize: none;
+    height: 24px;
+    max-height: 140px;
+    line-height: 1.6;
+    font-family: inherit;
+    overflow-y: auto;
+    padding: 0;
+}
+#textInput::placeholder { color: rgba(255,255,255,0.32); }
+
+.send-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 7px;
+    background: #ff4b4b;
+    border: none;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+.send-btn:hover { background: #ff6666; }
+</style>
+</head>
+<body>
+
+<input type="file" id="fileInput" accept=".pdf,.docx,.txt" style="display:none">
+
+<div id="wrapper">
+    <div id="file-badge">
+        <span>📄</span>
+        <span class="fname" id="file-name"></span>
+        <button class="remove-btn" onclick="clearFile()">✕</button>
+    </div>
+    <div class="input-row">
+        <button class="plus-btn" id="plusBtn"
+            onclick="document.getElementById('fileInput').click()"
+            title="Attach a PDF, Word or TXT file">+</button>
+        <textarea id="textInput"
+            placeholder="Ask a question, say 'generate a report on...', or 'summarise...'"
+            rows="1"></textarea>
+        <button class="send-btn" onclick="sendMsg()">↑</button>
+    </div>
+</div>
+
+<script>
+// ── Streamlit component bridge ──────────────────────────────────────────
+window.parent.postMessage({type: 'streamlit:componentReady', apiVersion: 1}, '*');
+
+function toStreamlit(value) {
+    window.parent.postMessage({type: 'streamlit:setComponentValue', value: value}, '*');
+}
+function setHeight(h) {
+    window.parent.postMessage({type: 'streamlit:setFrameHeight', height: h}, '*');
+}
+
+// Receive props from Python (e.g. reset_file after processing)
+window.addEventListener('message', function(e) {
+    if (e.data.type === 'streamlit:render') {
+        const args = e.data.args || {};
+        if (args.reset_file) clearFileSilent();
+    }
+});
+
+// ── File handling ───────────────────────────────────────────────────────
+let attachedFile = null;
+
+document.getElementById('fileInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        attachedFile = {name: file.name, dataUrl: evt.target.result};
+        document.getElementById('file-name').textContent = file.name;
+        document.getElementById('file-badge').style.display = 'flex';
+        document.getElementById('plusBtn').classList.add('has-file');
+        recalcHeight();
+        toStreamlit({type: 'file', name: file.name, dataUrl: evt.target.result, id: Date.now()});
+    };
+    reader.readAsDataURL(file);
+    this.value = '';
+});
+
+function clearFile() {
+    clearFileSilent();
+    toStreamlit({type: 'clear_file', id: Date.now()});
+}
+function clearFileSilent() {
+    attachedFile = null;
+    document.getElementById('file-badge').style.display = 'none';
+    document.getElementById('plusBtn').classList.remove('has-file');
+    document.getElementById('fileInput').value = '';
+    recalcHeight();
+}
+
+// ── Text input ──────────────────────────────────────────────────────────
+const ta = document.getElementById('textInput');
+
+ta.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+    recalcHeight();
+});
+
+ta.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMsg();
+    }
+});
+
+function sendMsg() {
+    const text = ta.value.trim();
+    if (!text) return;
+    toStreamlit({type: 'message', text: text, id: Date.now()});
+    ta.value = '';
+    ta.style.height = 'auto';
+    recalcHeight();
+}
+
+// ── Height ──────────────────────────────────────────────────────────────
+function recalcHeight() {
+    setTimeout(function() {
+        setHeight(document.getElementById('wrapper').offsetHeight + 16);
+    }, 10);
+}
+setTimeout(recalcHeight, 150);
+</script>
+</body>
+</html>
