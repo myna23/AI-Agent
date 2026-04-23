@@ -568,7 +568,8 @@ with st.sidebar:
                              returned_objects=["last_active_drawing"],
                              key="draw_tool_map")
     _drawn = (_draw_result or {}).get("last_active_drawing")
-    if _drawn:
+    # Only process the drawn shape if the user hasn't just cleared it
+    if _drawn and not st.session_state.get("_bbox_cleared"):
         _dgeom = _drawn.get("geometry", {})
         _dtype = _dgeom.get("type", "")
         _dcoords = _dgeom.get("coordinates", [])
@@ -582,6 +583,8 @@ with st.sidebar:
                      "min_lat": min(_lats), "max_lat": max(_lats)}
             st.session_state["draw_bbox"] = _bbox
             st.success("✅ Area set — now ask your question.")
+    # Reset the cleared flag after one rerun
+    st.session_state.pop("_bbox_cleared", None)
 
     if st.session_state.get("draw_bbox"):
         _b = st.session_state["draw_bbox"]
@@ -589,7 +592,10 @@ with st.sidebar:
                    f"{_b['min_lon']:.2f}–{_b['max_lon']:.2f}°E")
         if st.button("Clear area", use_container_width=True, key="clear_bbox_sidebar"):
             st.session_state.pop("draw_bbox", None)
+            st.session_state["_bbox_cleared"] = True
             st.rerun()
+    else:
+        st.caption("No area selected — draw on the map above.")
 
     # ------------------------------------------------------------------
     # Document upload for AI analysis
