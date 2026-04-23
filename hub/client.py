@@ -614,6 +614,15 @@ class HubClient:
         "consumption": "zmb_ADM3_const_Poverty",
         "marketplace": "Zambia_Marketplaces",
         "marketplaces": "Zambia_Marketplaces",
+        "market": "Zambia_Marketplaces",
+        "markets": "Zambia_Marketplaces",
+        "shop": "Zambia_Marketplaces",
+        "shops": "Zambia_Marketplaces",
+        "place": "Zambia_Marketplaces",
+        "places": "Zambia_Marketplaces",
+        "commerce": "Zambia_Marketplaces",
+        "trade": "Zambia_Marketplaces",
+        "business": "Zambia_Marketplaces",
         "dam": "zmb_dams_20251009",
         "dams": "zmb_dams_20251009",
         "reservoir": "zmb_dams_20251009",
@@ -1001,4 +1010,20 @@ _SEED_CATALOG = [
      "description": "Administrative boundaries for Zambia 2023 with population data. Fields: NAME, TOTPOP_CY (total population current year). Source: Esri.",
      "url": "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/ZMB_Boundaries_2023/FeatureServer/0",
      "tags": ["boundaries", "administrative", "population", "2023", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
+    {"id": "b55592d29ac145ad824bc8531ab75224", "name": "Zambia Marketplaces — Places",
+     "description": "Marketplace locations and points of interest across Zambia. Includes named places categorised by primary and alternate category (e.g. market, shop, service). Fields: name, category_primary, category_alternate, confidence, data_sector.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/ArcGIS/rest/services/Zambia_Marketplaces/FeatureServer/1",
+     "tags": ["marketplace", "markets", "places", "points of interest", "commerce", "trade", "shops", "zambia", "zmb"],
+     "fields": [
+         {"name": "name"}, {"name": "category_primary"}, {"name": "category_alternate"},
+         {"name": "confidence"}, {"name": "data_sector"}, {"name": "country_name"}
+     ], "geometry_type": "Point", "extent": {}, "modified": ""},
+    {"id": "b55592d29ac145ad824bc8531ab75224_0", "name": "Zambia Marketplaces — Buildings",
+     "description": "Building footprints associated with Zambia marketplace areas. Includes building class, height, and sector. Fields: name, building_class, height_m, data_sector.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/ArcGIS/rest/services/Zambia_Marketplaces/FeatureServer/0",
+     "tags": ["buildings", "building footprints", "marketplace", "structures", "zambia", "zmb"],
+     "fields": [
+         {"name": "name"}, {"name": "building_class"}, {"name": "height_m"},
+         {"name": "data_sector"}, {"name": "country_name"}
+     ], "geometry_type": "Polygon", "extent": {}, "modified": ""},
 ]
