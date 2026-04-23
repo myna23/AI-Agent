@@ -559,23 +559,41 @@ with st.sidebar:
         draw_options={
             "rectangle": {"shapeOptions": {"color": "#e63946"}},
             "polygon": {"shapeOptions": {"color": "#e63946"}},
-            "circle": False, "marker": False,
-            "circlemarker": False, "polyline": False,
+            "circle": {"shapeOptions": {"color": "#e63946"}},
+            "polyline": {"shapeOptions": {"color": "#e63946", "weight": 3}},
+            "marker": False,
+            "circlemarker": False,
         },
         edit_options={"edit": True, "remove": True},
     ).add_to(_draw_map)
-    _draw_result = st_folium(_draw_map, width=230, height=220,
+    # Use a version key so clearing forces a fresh map with no drawn shapes
+    _draw_map_version = st.session_state.get("draw_map_version", 0)
+    _draw_result = st_folium(_draw_map, width="100%", height=320,
                              returned_objects=["last_active_drawing"],
-                             key="draw_tool_map")
+                             key=f"draw_tool_map_{_draw_map_version}")
     _drawn = (_draw_result or {}).get("last_active_drawing")
-    # Only process the drawn shape if the user hasn't just cleared it
+    # Only process the drawn shape if user hasn't just cleared it
     if _drawn and not st.session_state.get("_bbox_cleared"):
         _dgeom = _drawn.get("geometry", {})
         _dtype = _dgeom.get("type", "")
         _dcoords = _dgeom.get("coordinates", [])
         _flat_pts = []
+
         if _dtype in ("Polygon", "Rectangle") and _dcoords:
             _flat_pts = _dcoords[0]
+        elif _dtype == "LineString" and _dcoords:
+            _flat_pts = _dcoords
+        elif _dtype == "Point" and _dcoords:
+            # Circle — use the radius property to build a bbox
+            _clon, _clat = _dcoords[0], _dcoords[1]
+            _crad = (_drawn.get("properties") or {}).get("radius", 50000)
+            # Rough degree offset: 1 degree ≈ 111km
+            _deg_offset = _crad / 111000
+            _flat_pts = [
+                [_clon - _deg_offset, _clat - _deg_offset],
+                [_clon + _deg_offset, _clat + _deg_offset],
+            ]
+
         if _flat_pts:
             _lons = [p[0] for p in _flat_pts]
             _lats = [p[1] for p in _flat_pts]
@@ -583,16 +601,19 @@ with st.sidebar:
                      "min_lat": min(_lats), "max_lat": max(_lats)}
             st.session_state["draw_bbox"] = _bbox
             st.success("✅ Area set — now ask your question.")
-    # Reset the cleared flag after one rerun
+
+    # Reset cleared flag after one rerun
     st.session_state.pop("_bbox_cleared", None)
 
     if st.session_state.get("draw_bbox"):
         _b = st.session_state["draw_bbox"]
         st.caption(f"Active: {_b['min_lat']:.2f}–{_b['max_lat']:.2f}°N, "
                    f"{_b['min_lon']:.2f}–{_b['max_lon']:.2f}°E")
-        if st.button("Clear area", use_container_width=True, key="clear_bbox_sidebar"):
+        if st.button("🗑️ Clear area", use_container_width=True, key="clear_bbox_sidebar"):
             st.session_state.pop("draw_bbox", None)
             st.session_state["_bbox_cleared"] = True
+            # Increment map version to force a fresh blank map
+            st.session_state["draw_map_version"] = _draw_map_version + 1
             st.rerun()
     else:
         st.caption("No area selected — draw on the map above.")
