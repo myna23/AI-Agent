@@ -488,12 +488,34 @@ with st.sidebar:
         if st.button("Apply Token", type="primary", use_container_width=True):
             if _new_token.strip():
                 _hub_client_module.set_token(_new_token.strip())
+                import datetime as _dt
+                st.session_state["token_set_date"] = _dt.date.today().isoformat()
                 st.success("Token saved — private datasets are now unlocked.")
                 st.rerun()
             else:
                 st.error("Please paste a token first.")
     else:
         st.success("🔓 Authenticated — all datasets available")
+
+        # Token expiry reminder — stored when token is first applied
+        import datetime as _dt
+        _token_set_date = st.session_state.get("token_set_date")
+        if not _token_set_date:
+            # Default: assume token was set today if not recorded
+            st.session_state["token_set_date"] = _dt.date.today().isoformat()
+            _token_set_date = st.session_state["token_set_date"]
+
+        _set_date = _dt.date.fromisoformat(_token_set_date)
+        _expiry_date = _set_date + _dt.timedelta(days=14)
+        _days_left = (_expiry_date - _dt.date.today()).days
+
+        if _days_left <= 0:
+            st.error(f"⚠️ Token likely expired — please refresh it now.")
+        elif _days_left <= 3:
+            st.warning(f"⏰ Token expires in **{_days_left} day(s)** ({_expiry_date.strftime('%d %b %Y')}). Refresh soon.")
+        else:
+            st.caption(f"🔑 Token expires: {_expiry_date.strftime('%d %b %Y')} ({_days_left} days left)")
+
         if st.button("Update Token", use_container_width=True):
             st.session_state["_show_token_input"] = True
 
@@ -508,6 +530,7 @@ with st.sidebar:
                 if _new_token2.strip():
                     _hub_client_module.set_token(_new_token2.strip())
                     st.session_state["_show_token_input"] = False
+                    st.session_state["token_set_date"] = _dt.date.today().isoformat()
                     st.success("Token updated.")
                     st.rerun()
 
