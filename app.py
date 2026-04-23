@@ -1907,78 +1907,52 @@ if st.session_state.get("uploaded_doc_name"):
             st.session_state.pop("uploaded_doc_name", None)
             st.rerun()
 
-# CSS: fix the file uploader at the bottom-left of the screen, inside the chat input visually
+# Compact upload widget — sits flush above the chat input
 st.markdown("""
 <style>
-/* Fix uploader at bottom left, overlapping the chat input bar */
-section.main div[data-testid="stFileUploader"] {
-    position: fixed !important;
-    bottom: 12px !important;
-    left: calc(50% - 352px) !important;
-    width: 36px !important;
-    z-index: 99999 !important;
-}
-/* Hide the label */
-section.main div[data-testid="stFileUploader"] label {
-    display: none !important;
-}
-/* Hide the dropzone drag-drop text, keep only the button */
-section.main div[data-testid="stFileUploaderDropzone"] {
+/* Hide label and dropzone text, keep only the Browse button */
+div[data-testid="stFileUploader"] label { display: none !important; }
+div[data-testid="stFileUploaderDropzone"] {
     border: none !important;
     background: transparent !important;
     padding: 0 !important;
     min-height: unset !important;
+    display: flex !important;
+    align-items: center !important;
 }
-section.main div[data-testid="stFileUploaderDropzone"] > div:first-child {
-    display: none !important;
-}
-/* Style the Browse button as a "+" icon */
-section.main div[data-testid="stFileUploaderDropzone"] button {
-    width: 32px !important;
-    height: 32px !important;
+div[data-testid="stFileUploaderDropzone"] > div:first-child { display: none !important; }
+div[data-testid="stFileUploaderDropzone"] button {
+    height: 30px !important;
     min-height: unset !important;
-    border-radius: 8px !important;
-    padding: 0 !important;
-    background: transparent !important;
-    border: 1.5px solid rgba(255,255,255,0.3) !important;
-    color: transparent !important;
-    font-size: 0 !important;
-    cursor: pointer !important;
-    position: relative !important;
-}
-section.main div[data-testid="stFileUploaderDropzone"] button::after {
-    content: "+" !important;
+    padding: 0 12px !important;
+    font-size: 13px !important;
+    border-radius: 6px !important;
+    background: rgba(255,255,255,0.06) !important;
+    border: 1px solid rgba(255,255,255,0.2) !important;
     color: rgba(255,255,255,0.75) !important;
-    font-size: 22px !important;
-    position: absolute !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) !important;
 }
-section.main div[data-testid="stFileUploaderDropzone"] button:hover {
-    border-color: white !important;
-    background: rgba(255,255,255,0.08) !important;
-}
-section.main div[data-testid="stFileUploaderDropzone"] button:hover::after {
+div[data-testid="stFileUploaderDropzone"] button:hover {
+    background: rgba(255,255,255,0.12) !important;
+    border-color: rgba(255,255,255,0.5) !important;
     color: white !important;
 }
-/* Shift chat input text right so it doesn't hide behind + */
-[data-testid="stChatInput"] textarea {
-    padding-left: 48px !important;
-}
+/* Remove the bottom margin so it sits flush above the chat input */
+div[data-testid="stFileUploader"] { margin-bottom: -1rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
-_chat_upload = st.file_uploader(
-    "Attach",
-    type=["pdf", "docx", "txt"],
-    key="chat_doc_upload",
-    label_visibility="collapsed",
-)
-if _chat_upload:
-    _process_upload(_chat_upload)
-    if st.session_state.get("uploaded_doc_name"):
-        st.toast(f"📄 {st.session_state['uploaded_doc_name']} attached!", icon="✅")
+_up_col, _ = st.columns([2, 8])
+with _up_col:
+    _chat_upload = st.file_uploader(
+        "attach",
+        type=["pdf", "docx", "txt"],
+        key="chat_doc_upload",
+        label_visibility="collapsed",
+    )
+    if _chat_upload:
+        _process_upload(_chat_upload)
+        if st.session_state.get("uploaded_doc_name"):
+            st.toast(f"📄 {st.session_state['uploaded_doc_name']} attached!", icon="✅")
 
 # ---------------------------------------------------------------------------
 # Chat input
