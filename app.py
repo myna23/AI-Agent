@@ -545,17 +545,62 @@ with st.sidebar:
                     st.rerun()
 
     # ------------------------------------------------------------------
+    # Draw tool — compact map in sidebar, always visible
+    # ------------------------------------------------------------------
+    st.markdown("---")
+    st.markdown("### 🗺️ Draw an Area")
+    st.caption("Draw a rectangle on the map then ask your question — the AI will query only within your drawn area.")
+
+    import folium as _folium_draw_mod
+    from folium.plugins import Draw as _FoliumDraw
+    _draw_map = _folium_draw_mod.Map(location=[-13.5, 28.5], zoom_start=5, tiles="CartoDB positron")
+    _FoliumDraw(
+        export=False,
+        draw_options={
+            "rectangle": {"shapeOptions": {"color": "#e63946"}},
+            "polygon": {"shapeOptions": {"color": "#e63946"}},
+            "circle": False, "marker": False,
+            "circlemarker": False, "polyline": False,
+        },
+        edit_options={"edit": True, "remove": True},
+    ).add_to(_draw_map)
+    _draw_result = st_folium(_draw_map, width=230, height=220,
+                             returned_objects=["last_active_drawing"],
+                             key="draw_tool_map")
+    _drawn = (_draw_result or {}).get("last_active_drawing")
+    if _drawn:
+        _dgeom = _drawn.get("geometry", {})
+        _dtype = _dgeom.get("type", "")
+        _dcoords = _dgeom.get("coordinates", [])
+        _flat_pts = []
+        if _dtype in ("Polygon", "Rectangle") and _dcoords:
+            _flat_pts = _dcoords[0]
+        if _flat_pts:
+            _lons = [p[0] for p in _flat_pts]
+            _lats = [p[1] for p in _flat_pts]
+            _bbox = {"min_lon": min(_lons), "max_lon": max(_lons),
+                     "min_lat": min(_lats), "max_lat": max(_lats)}
+            st.session_state["draw_bbox"] = _bbox
+            st.success("✅ Area set — now ask your question.")
+
+    if st.session_state.get("draw_bbox"):
+        _b = st.session_state["draw_bbox"]
+        st.caption(f"Active: {_b['min_lat']:.2f}–{_b['max_lat']:.2f}°N, "
+                   f"{_b['min_lon']:.2f}–{_b['max_lon']:.2f}°E")
+        if st.button("Clear area", use_container_width=True, key="clear_bbox_sidebar"):
+            st.session_state.pop("draw_bbox", None)
+            st.rerun()
+
+    # ------------------------------------------------------------------
     # Document upload for AI analysis
     # ------------------------------------------------------------------
     st.markdown("---")
     st.markdown("### 📄 Attach a Document")
-    st.caption("Upload a PDF, Word, or TXT file. The AI will use it as context alongside the GeoHub data.")
+    st.caption("PDF, Word, or TXT — AI will use it alongside the GeoHub data.")
 
     _uploaded_file = st.file_uploader(
-        "Choose a file",
-        type=["pdf", "docx", "txt"],
-        key="doc_upload",
-        label_visibility="collapsed",
+        "Choose a file", type=["pdf", "docx", "txt"],
+        key="doc_upload", label_visibility="collapsed",
     )
     if _uploaded_file:
         try:
@@ -574,14 +619,13 @@ with st.sidebar:
                 st.session_state["uploaded_doc_text"] = _doc_text
                 st.session_state["uploaded_doc_name"] = _uploaded_file.name
                 st.success(f"✅ **{_uploaded_file.name}** ready")
-                st.caption("Now ask your question in the chat.")
             else:
                 st.warning("No text could be extracted.")
         except Exception as _ue:
             st.error(f"Could not read file: {_ue}")
 
     if st.session_state.get("uploaded_doc_name"):
-        st.info(f"📄 **{st.session_state['uploaded_doc_name']}** attached")
+        st.info(f"📄 **{st.session_state['uploaded_doc_name']}**")
         if st.button("Remove", use_container_width=True, key="sidebar_clear_doc"):
             st.session_state.pop("uploaded_doc_text", None)
             st.session_state.pop("uploaded_doc_name", None)
@@ -1835,76 +1879,6 @@ if hasattr(st.session_state, "_pending_question") and st.session_state._pending_
     process_question(q)
     st.rerun()
 
-# ---------------------------------------------------------------------------
-# Bounding-box / area draw tool
-# ---------------------------------------------------------------------------
-with st.expander("🗺️ Draw an area to query", expanded=False):
-    st.caption(
-        "Draw a rectangle or polygon on the map below, then type your question. "
-        "The AI will query GeoHub data only within your drawn area."
-    )
-    import folium as _folium_draw_mod
-    from folium.plugins import Draw as _FoliumDraw
-
-    _draw_map = _folium_draw_mod.Map(location=[-13.5, 28.5], zoom_start=6, tiles="CartoDB positron")
-    _FoliumDraw(
-        export=False,
-        draw_options={
-            "rectangle": {"shapeOptions": {"color": "#e63946"}},
-            "polygon": {"shapeOptions": {"color": "#e63946"}},
-            "circle": False,
-            "marker": False,
-            "circlemarker": False,
-            "polyline": False,
-        },
-        edit_options={"edit": True, "remove": True},
-    ).add_to(_draw_map)
-
-    _draw_result = st_folium(
-        _draw_map,
-        width=720,
-        height=340,
-        returned_objects=["last_active_drawing"],
-        key="draw_tool_map",
-    )
-
-    _drawn = (_draw_result or {}).get("last_active_drawing")
-    if _drawn:
-        _drawn_geom = _drawn.get("geometry", {})
-        _drawn_type = _drawn_geom.get("type", "")
-        _drawn_coords = _drawn_geom.get("coordinates", [])
-        # Flatten to a list of [lon, lat] points
-        _flat_pts = []
-        if _drawn_type == "Polygon" and _drawn_coords:
-            _flat_pts = _drawn_coords[0]
-        elif _drawn_type == "Rectangle" and _drawn_coords:
-            _flat_pts = _drawn_coords[0]
-
-        if _flat_pts:
-            _lons = [p[0] for p in _flat_pts]
-            _lats = [p[1] for p in _flat_pts]
-            _bbox = {
-                "min_lon": min(_lons), "max_lon": max(_lons),
-                "min_lat": min(_lats), "max_lat": max(_lats),
-            }
-            st.session_state["draw_bbox"] = _bbox
-            st.success(
-                f"Area selected: lat {_bbox['min_lat']:.3f}–{_bbox['max_lat']:.3f}, "
-                f"lon {_bbox['min_lon']:.3f}–{_bbox['max_lon']:.3f}. "
-                "Now type your question below."
-            )
-        else:
-            st.info("Draw a rectangle or polygon on the map above.")
-    else:
-        if st.session_state.get("draw_bbox"):
-            _b = st.session_state["draw_bbox"]
-            st.info(
-                f"Active area: lat {_b['min_lat']:.3f}–{_b['max_lat']:.3f}, "
-                f"lon {_b['min_lon']:.3f}–{_b['max_lon']:.3f}"
-            )
-            if st.button("Clear drawn area", key="clear_bbox"):
-                st.session_state.pop("draw_bbox", None)
-                st.rerun()
 
 # ---------------------------------------------------------------------------
 # Chat input
