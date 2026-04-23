@@ -1735,11 +1735,33 @@ def process_question(question: str):
         if not sample_features:
             _static_data, _static_candidate = _find_static(question.lower())
             if _static_data and _static_data.get("features"):
-                sample_features = geojson_to_sample_rows(_static_data, n=len(_static_data["features"]))
-                map_geojson = {"type": "FeatureCollection", "features": _static_data["features"][:50]}
+                _static_feats = _static_data["features"]
+                # Filter static features by drawn bbox if one is active
+                if _draw_bbox:
+                    def _feat_in_bbox(feat, bb):
+                        _g = feat.get("geometry", {})
+                        _gc = _g.get("coordinates", [])
+                        _gt = _g.get("type", "")
+                        if _gt == "Point" and _gc:
+                            lon, lat = _gc[0], _gc[1]
+                            return (bb["min_lon"] <= lon <= bb["max_lon"] and
+                                    bb["min_lat"] <= lat <= bb["max_lat"])
+                        return False
+                    _bbox_feats = [f for f in _static_feats if _feat_in_bbox(f, _draw_bbox)]
+                    if _bbox_feats:
+                        _static_feats = _bbox_feats
+                        st.info(f"📦 Found **{len(_bbox_feats)}** records in your drawn area from local data (live server temporarily unavailable).")
+                    else:
+                        st.info("📦 No local records found in your drawn area — showing nearest available data.")
+                else:
+                    st.info("📦 Using pre-loaded sample data (live server temporarily unavailable).")
+                sample_features = geojson_to_sample_rows(
+                    {"type": "FeatureCollection", "features": _static_feats},
+                    n=len(_static_feats)
+                )
+                map_geojson = {"type": "FeatureCollection", "features": _static_feats[:50]}
                 if _static_candidate:
                     datasets = [_static_candidate] + [d for d in datasets if d != _static_candidate]
-                st.info("📦 Using pre-loaded sample data (live server temporarily unavailable).")
 
     # ---- Buffer / proximity filter ----
     # If the question contains a radius (e.g. "within 5km of Mongu"), compute the
@@ -2045,17 +2067,6 @@ if question := st.chat_input("Ask a question, say 'generate a report on...', or 
         process_question(question)
         st.session_state["_scroll_to_bottom"] = True
         st.rerun()
-
-# Auto-scroll to bottom after a new answer is generated
-if st.session_state.pop("_scroll_to_bottom", False):
-    st.components.v1.html("""
-        <script>
-            window.parent.document.querySelector('section.main').scrollTo({
-                top: window.parent.document.querySelector('section.main').scrollHeight,
-                behavior: 'smooth'
-            });
-        </script>
-    """, height=0)
 
 # Persist current chat to URL after every render so refresh restores it
 _persist_chat()
