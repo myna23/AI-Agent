@@ -1846,9 +1846,10 @@ with st.expander("🗺️ Draw an area to query", expanded=False):
         "Draw a rectangle or polygon on the map below, then type your question. "
         "The AI will query GeoHub data only within your drawn area."
     )
+    import folium as _folium_draw_mod
     from folium.plugins import Draw as _FoliumDraw
 
-    _draw_map = folium.Map(location=[-13.5, 28.5], zoom_start=6, tiles="CartoDB positron")
+    _draw_map = _folium_draw_mod.Map(location=[-13.5, 28.5], zoom_start=6, tiles="CartoDB positron")
     _FoliumDraw(
         export=False,
         draw_options={
