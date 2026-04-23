@@ -600,7 +600,35 @@ with st.sidebar:
             _lats = [p[1] for p in _flat_pts]
             _bbox = {"min_lon": min(_lons), "max_lon": max(_lons),
                      "min_lat": min(_lats), "max_lat": max(_lats)}
+
+            # --- Measurements ---
+            # Area in km² using haversine on bbox edges
+            _w_km = haversine_km(
+                (_lats[0]+_lats[-1])/2, min(_lons),
+                (_lats[0]+_lats[-1])/2, max(_lons))
+            _h_km = haversine_km(
+                min(_lats), (_lons[0]+_lons[-1])/2,
+                max(_lats), (_lons[0]+_lons[-1])/2)
+
+            # Perimeter for lines / area for polygons
+            if _dtype == "LineString":
+                _perim_km = sum(
+                    haversine_km(_flat_pts[i][1], _flat_pts[i][0],
+                                 _flat_pts[i+1][1], _flat_pts[i+1][0])
+                    for i in range(len(_flat_pts)-1)
+                )
+                _bbox["measurement"] = f"Length: {_perim_km:.1f} km"
+            elif _dtype == "Point":  # circle
+                _rad_km = _crad / 1000
+                _area_km2 = 3.14159 * _rad_km ** 2
+                _bbox["measurement"] = f"Radius: {_rad_km:.1f} km | Area: {_area_km2:.1f} km²"
+            else:
+                _area_km2 = _w_km * _h_km
+                _perim_km = 2 * (_w_km + _h_km)
+                _bbox["measurement"] = f"Area: {_area_km2:.1f} km² | Perimeter: {_perim_km:.1f} km"
+
             st.session_state["draw_bbox"] = _bbox
+            st.session_state.pop("_draw_counts", None)  # reset counts on new draw
             st.success("✅ Area set — now ask your question.")
 
     # Reset cleared flag after one rerun
@@ -608,12 +636,52 @@ with st.sidebar:
 
     if st.session_state.get("draw_bbox"):
         _b = st.session_state["draw_bbox"]
-        st.caption(f"Active: {_b['min_lat']:.2f}–{_b['max_lat']:.2f}°N, "
-                   f"{_b['min_lon']:.2f}–{_b['max_lon']:.2f}°E")
+
+        # Measurement badge
+        if _b.get("measurement"):
+            st.markdown(f"📐 **{_b['measurement']}**")
+        st.caption(f"{_b['min_lat']:.3f}–{_b['max_lat']:.3f}°N, "
+                   f"{_b['min_lon']:.3f}–{_b['max_lon']:.3f}°E")
+
+        # --- Feature count within drawn area ---
+        if st.button("📊 Count features in area", use_container_width=True, key="count_features_btn"):
+            _bbx_str = (f"{_b['min_lon']},{_b['min_lat']},"
+                        f"{_b['max_lon']},{_b['max_lat']}")
+            _tok = _hub_client_module._ARCGIS_TOKEN
+            _count_datasets = [
+                ("🏥 Health facilities", "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_HealthFac_v01beta/FeatureServer/0"),
+                ("🏫 Schools",           "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_School_v01beta/FeatureServer/0"),
+                ("🛣️ Roads",             "https://services6.arcgis.com/Do88DoK2xjTUCXd1/arcgis/rest/services/OSM_Roads_Zambia/FeatureServer/0"),
+                ("⛏️ Mines",             "https://services.arcgis.com/iQ1dY19aHwbSDYIF/ArcGIS/rest/services/zmb_mines_osm/FeatureServer/12"),
+                ("🌊 Dams",              "https://services.arcgis.com/iQ1dY19aHwbSDYIF/ArcGIS/rest/services/zmb_dams_20251009/FeatureServer/0"),
+                ("🏘️ Settlements",       "https://services.arcgis.com/iQ1dY19aHwbSDYIF/ArcGIS/rest/services/zmb_dre_settlement_points/FeatureServer/0"),
+            ]
+            import requests as _req
+            _counts = {}
+            _hdr = {"Referer": "https://zmb-geowb.hub.arcgis.com"}
+            for _label, _url in _count_datasets:
+                try:
+                    _p = {"geometry": _bbx_str, "geometryType": "esriGeometryEnvelope",
+                          "spatialRel": "esriSpatialRelIntersects",
+                          "returnCountOnly": "true", "f": "json"}
+                    if _tok:
+                        _p["token"] = _tok
+                    _r = _req.get(f"{_url}/query", params=_p, headers=_hdr, timeout=10)
+                    _c = _r.json().get("count", 0)
+                    _counts[_label] = _c
+                except Exception:
+                    _counts[_label] = "—"
+            st.session_state["_draw_counts"] = _counts
+
+        if st.session_state.get("_draw_counts"):
+            st.markdown("**Features in this area:**")
+            for _lbl, _cnt in st.session_state["_draw_counts"].items():
+                st.markdown(f"{_lbl}: **{_cnt}**")
+
         if st.button("🗑️ Clear area", use_container_width=True, key="clear_bbox_sidebar"):
             st.session_state.pop("draw_bbox", None)
+            st.session_state.pop("_draw_counts", None)
             st.session_state["_bbox_cleared"] = True
-            # Increment map version to force a fresh blank map
             st.session_state["draw_map_version"] = _draw_map_version + 1
             st.rerun()
     else:
@@ -1867,10 +1935,18 @@ def process_question(question: str):
                     "Use the above document as additional context when answering the question. "
                     "If the question is specifically about the document, prioritise its content."
                 )
+            _draw_counts = st.session_state.get("_draw_counts", {})
+            _draw_counts_note = ""
+            if _draw_counts:
+                _draw_counts_note = " Feature counts in this area: " + ", ".join(
+                    f"{l.split(' ',1)[-1]}: {c}" for l, c in _draw_counts.items()
+                ) + "."
             _bbox_note = (
                 f"\n[The user drew an area on the map. {_draw_bbox_location_note}. "
                 f"Coordinates: lat {_draw_bbox['min_lat']:.3f}–{_draw_bbox['max_lat']:.3f}, "
                 f"lon {_draw_bbox['min_lon']:.3f}–{_draw_bbox['max_lon']:.3f}. "
+                f"Measurement: {_draw_bbox.get('measurement', 'N/A')}."
+                f"{_draw_counts_note} "
                 f"All data shown is filtered to this area. When answering 'where is this', "
                 f"state the district and province identified above.]"
                 if _draw_bbox else ""
