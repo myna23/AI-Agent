@@ -542,50 +542,11 @@ with st.sidebar:
                     st.success("✅ Token updated.")
                     st.rerun()
 
-    # ------------------------------------------------------------------
-    # Document / file upload for AI analysis
-    # ------------------------------------------------------------------
-    st.markdown("---")
-    st.markdown("### Upload for Analysis")
-    st.caption("Upload a PDF, Word document, or paste text. The AI will analyze it alongside the GeoHub data.")
-
-    _uploaded_file = st.file_uploader(
-        "Choose a file",
-        type=["pdf", "docx", "txt"],
-        key="doc_upload",
-        label_visibility="collapsed",
-    )
-
-    if _uploaded_file:
-        _doc_text = ""
-        try:
-            if _uploaded_file.name.endswith(".pdf"):
-                import pypdf as _pypdf
-                _reader = _pypdf.PdfReader(_uploaded_file)
-                _doc_text = "\n".join(
-                    page.extract_text() or "" for page in _reader.pages
-                )
-            elif _uploaded_file.name.endswith(".docx"):
-                import docx as _docx
-                _doc = _docx.Document(_uploaded_file)
-                _doc_text = "\n".join(p.text for p in _doc.paragraphs if p.text.strip())
-            else:  # .txt
-                _doc_text = _uploaded_file.read().decode("utf-8", errors="ignore")
-
-            _doc_text = _doc_text.strip()
-            if _doc_text:
-                st.session_state["uploaded_doc_text"] = _doc_text
-                st.session_state["uploaded_doc_name"] = _uploaded_file.name
-                st.success(f"Loaded: **{_uploaded_file.name}** ({len(_doc_text):,} characters)")
-                st.caption("Now ask a question in the chat — the AI will use this document as context.")
-            else:
-                st.warning("No text could be extracted from this file.")
-        except Exception as _ue:
-            st.error(f"Could not read file: {_ue}")
-
+    # Document active indicator in sidebar (compact)
     if st.session_state.get("uploaded_doc_name"):
-        st.info(f"Active document: **{st.session_state['uploaded_doc_name']}**")
-        if st.button("Clear document", use_container_width=True):
+        st.markdown("---")
+        st.caption(f"📄 **{st.session_state['uploaded_doc_name']}** attached")
+        if st.button("Remove document", use_container_width=True, key="sidebar_clear_doc"):
             st.session_state.pop("uploaded_doc_text", None)
             st.session_state.pop("uploaded_doc_name", None)
             st.rerun()
@@ -1908,6 +1869,57 @@ with st.expander("🗺️ Draw an area to query", expanded=False):
             if st.button("Clear drawn area", key="clear_bbox"):
                 st.session_state.pop("draw_bbox", None)
                 st.rerun()
+
+# ---------------------------------------------------------------------------
+# Document upload — inline above chat input (drag & drop or click +)
+# ---------------------------------------------------------------------------
+def _process_upload(f):
+    """Extract text from uploaded file and store in session state."""
+    _doc_text = ""
+    try:
+        if f.name.endswith(".pdf"):
+            import pypdf as _pypdf
+            _reader = _pypdf.PdfReader(f)
+            _doc_text = "\n".join(page.extract_text() or "" for page in _reader.pages)
+        elif f.name.endswith(".docx"):
+            import docx as _docx
+            _doc = _docx.Document(f)
+            _doc_text = "\n".join(p.text for p in _doc.paragraphs if p.text.strip())
+        else:
+            _doc_text = f.read().decode("utf-8", errors="ignore")
+        _doc_text = _doc_text.strip()
+        if _doc_text:
+            st.session_state["uploaded_doc_text"] = _doc_text
+            st.session_state["uploaded_doc_name"] = f.name
+        else:
+            st.warning("No text could be extracted from this file.")
+    except Exception as _ue:
+        st.error(f"Could not read file: {_ue}")
+
+# Show active document banner with dismiss button
+if st.session_state.get("uploaded_doc_name"):
+    _doc_col1, _doc_col2 = st.columns([9, 1])
+    with _doc_col1:
+        st.info(f"📄 **{st.session_state['uploaded_doc_name']}** — attached as context for your next question")
+    with _doc_col2:
+        if st.button("✕", key="inline_clear_doc", help="Remove document"):
+            st.session_state.pop("uploaded_doc_text", None)
+            st.session_state.pop("uploaded_doc_name", None)
+            st.rerun()
+
+# Upload widget — collapsed by default, opens on click like a + button
+with st.expander("➕ Attach a document", expanded=False):
+    st.caption("Drag & drop or browse — PDF, Word, or TXT. The AI will use it as context alongside the map data.")
+    _inline_upload = st.file_uploader(
+        "Upload file",
+        type=["pdf", "docx", "txt"],
+        key="inline_doc_upload",
+        label_visibility="collapsed",
+    )
+    if _inline_upload:
+        _process_upload(_inline_upload)
+        if st.session_state.get("uploaded_doc_name"):
+            st.success(f"✅ **{st.session_state['uploaded_doc_name']}** ready — now ask your question below.")
 
 # ---------------------------------------------------------------------------
 # Chat input
