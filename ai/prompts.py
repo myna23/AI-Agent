@@ -89,10 +89,17 @@ def chatbot_user_prompt(
     dataset_context = ""
     for i, ds in enumerate(datasets[:5], 1):
         fields_str = ", ".join(f["name"] for f in ds.get("fields", [])[:15])
-        # Link to Zambia GeoHub search pre-filtered by dataset name + zmb tag
-        import urllib.parse as _up
-        _search_name = _up.quote_plus(ds["name"][:80])
-        _hub_link = f"https://zmb-geowb.hub.arcgis.com/search?q={_search_name}&collection=dataset&tags=zmb"
+        # Link to Zambia GeoHub search — strip internal prefixes so the Hub finds it
+        import urllib.parse as _up, re as _re
+        _ds_name = ds["name"]
+        # Remove common prefixes/suffixes that don't appear in Hub titles
+        _ds_name = _re.sub(r'^(ZMB\s*[-–]\s*|GRID3\s+ZMB\s+|GRID3\s+|Zambia\s+)', '', _ds_name, flags=_re.I)
+        _ds_name = _re.sub(r'^Operational\s+', '', _ds_name, flags=_re.I)
+        _ds_name = _re.sub(r'\s*[,\-–—]\s*(Places|Buildings|Points|Polygons|Layer)$', '', _ds_name, flags=_re.I)
+        _ds_name = _re.sub(r'\s+v\d[\d.]*', '', _ds_name, flags=_re.I)
+        _ds_name = _re.sub(r'\s+Version\s*\d+.*$', '', _ds_name, flags=_re.I)
+        _ds_name = _ds_name.strip(" -–—")[:60]
+        _hub_link = f"https://zmb-geowb.hub.arcgis.com/search?q={_up.quote_plus(_ds_name)}&collection=dataset&tags=zmb"
         dataset_context += (
             f"\nDataset {i}: {ds['name']}\n"
             f"  Description: {ds['description'][:300]}\n"
