@@ -166,6 +166,8 @@ _SUBJECT_BOOST_MODULE = {
     "wealth": "Zambia_Relative_Wealth_Index",
     "poverty": "zmb_ADM3_const_Poverty", "poor": "zmb_ADM3_const_Poverty",
     "marketplace": "Zambia_Marketplaces", "marketplaces": "Zambia_Marketplaces",
+    # "market", "markets", "shop", "shops", "commerce", "trade", "business" removed from here —
+    # handled by POI (Type=Commercial) which has Province/District fields.
     "dam": "zmb_dams_20251009", "dams": "zmb_dams_20251009",
     "aquifer": "main_Zambia_aquifers_polygons", "groundwater": "main_Zambia_aquifers_polygons",
     "railway": "LC_MergedRailways", "rail": "LC_MergedRailways", "lobito": "LC_MergedRailways",
@@ -614,15 +616,9 @@ class HubClient:
         "consumption": "zmb_ADM3_const_Poverty",
         "marketplace": "Zambia_Marketplaces",
         "marketplaces": "Zambia_Marketplaces",
-        "market": "Zambia_Marketplaces",
-        "markets": "Zambia_Marketplaces",
-        "shop": "Zambia_Marketplaces",
-        "shops": "Zambia_Marketplaces",
-        "place": "Zambia_Marketplaces",
-        "places": "Zambia_Marketplaces",
-        "commerce": "Zambia_Marketplaces",
-        "trade": "Zambia_Marketplaces",
-        "business": "Zambia_Marketplaces",
+        # "market", "markets", "shop", "shops", "commerce", "trade", "business" intentionally
+        # removed — these are generic commerce terms covered by the POI dataset (Type=Commercial)
+        # which has Province/District fields needed for distribution questions.
         "dam": "zmb_dams_20251009",
         "dams": "zmb_dams_20251009",
         "reservoir": "zmb_dams_20251009",
