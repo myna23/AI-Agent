@@ -699,16 +699,19 @@ class HubClient:
                 break
 
         # When the question asks about province/district distribution for marketplace
-        # keywords, boost POI over Zambia_Marketplaces because POI has Province/District
-        # fields while the Marketplaces dataset does not.
-        _geo_agg_terms = {"province", "district", "region", "provinces", "districts"}
+        # keywords, force POI to rank first because it has Province/District fields
+        # while the Marketplaces dataset does not. Also zero out the Marketplaces boost.
+        _geo_agg_terms = {"province", "district", "region", "provinces", "districts",
+                          "most", "highest", "lowest", "least", "count", "how many"}
         _market_terms = {"market", "markets", "marketplace", "marketplaces",
                          "shop", "shops", "commerce", "trade", "business"}
         if any(t in query_lower for t in _geo_agg_terms) and \
                 any(t in query_lower for t in _market_terms):
             for ds in catalog:
                 if "Points_of_Interest" in ds["url"] or "POI" in ds["url"]:
-                    boost_urls[ds["url"]] = boost_urls.get(ds["url"], 0) + 35
+                    boost_urls[ds["url"]] = boost_urls.get(ds["url"], 0) + 100
+                elif "Zambia_Marketplaces" in ds["url"]:
+                    boost_urls[ds["url"]] = 0  # demote — no Province/District fields
 
         scored = []
         for ds in catalog:
