@@ -89,7 +89,7 @@ def chatbot_user_prompt(
     dataset_context = ""
     for i, ds in enumerate(datasets[:5], 1):
         fields_str = ", ".join(f["name"] for f in ds.get("fields", [])[:15])
-        # Build ArcGIS Online item URL from the dataset ID (direct link, always resolves)
+        # Build Zambia GeoHub dataset page URL from the item ID
         _raw_id = ds.get("id", "")
         # Strip numeric layer suffix like "_0", "_1", "_2" to get the bare item ID
         _item_id = _raw_id.rsplit("_", 1)[0] if (
@@ -97,7 +97,7 @@ def chatbot_user_prompt(
         ) else _raw_id
         # Only build a link if the ID looks like a real ArcGIS GUID (32 hex chars)
         if _item_id and len(_item_id) == 32 and all(c in "0123456789abcdef" for c in _item_id):
-            _hub_link = f"https://www.arcgis.com/home/item.html?id={_item_id}"
+            _hub_link = f"https://zmb-geowb.hub.arcgis.com/datasets/{_item_id}/about"
         else:
             _hub_link = ""
         dataset_context += (

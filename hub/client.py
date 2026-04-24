@@ -698,6 +698,18 @@ class HubClient:
                         boost_urls[ds["url"]] = boost_urls.get(ds["url"], 0) + 20
                 break
 
+        # When the question asks about province/district distribution for marketplace
+        # keywords, boost POI over Zambia_Marketplaces because POI has Province/District
+        # fields while the Marketplaces dataset does not.
+        _geo_agg_terms = {"province", "district", "region", "provinces", "districts"}
+        _market_terms = {"market", "markets", "marketplace", "marketplaces",
+                         "shop", "shops", "commerce", "trade", "business"}
+        if any(t in query_lower for t in _geo_agg_terms) and \
+                any(t in query_lower for t in _market_terms):
+            for ds in catalog:
+                if "Points_of_Interest" in ds["url"] or "POI" in ds["url"]:
+                    boost_urls[ds["url"]] = boost_urls.get(ds["url"], 0) + 35
+
         scored = []
         for ds in catalog:
             score = 0
