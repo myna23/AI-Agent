@@ -89,10 +89,17 @@ def chatbot_user_prompt(
     dataset_context = ""
     for i, ds in enumerate(datasets[:5], 1):
         fields_str = ", ".join(f["name"] for f in ds.get("fields", [])[:15])
-        # Build Hub search URL using the dataset name (always resolves, unlike direct item IDs)
-        import urllib.parse as _up
-        _search_q = _up.quote_plus(ds["name"][:60])
-        _hub_link = f"https://zmb-geowb.hub.arcgis.com/search?q={_search_q}" if ds.get("name") else ""
+        # Build ArcGIS Online item URL from the dataset ID (direct link, always resolves)
+        _raw_id = ds.get("id", "")
+        # Strip numeric layer suffix like "_0", "_1", "_2" to get the bare item ID
+        _item_id = _raw_id.rsplit("_", 1)[0] if (
+            "_" in _raw_id and _raw_id.rsplit("_", 1)[1].isdigit()
+        ) else _raw_id
+        # Only build a link if the ID looks like a real ArcGIS GUID (32 hex chars)
+        if _item_id and len(_item_id) == 32 and all(c in "0123456789abcdef" for c in _item_id):
+            _hub_link = f"https://www.arcgis.com/home/item.html?id={_item_id}"
+        else:
+            _hub_link = ""
         dataset_context += (
             f"\nDataset {i}: {ds['name']}\n"
             f"  Description: {ds['description'][:300]}\n"

@@ -2093,12 +2093,19 @@ if question := st.chat_input("Ask a question, say 'generate a report on...', or 
 if st.session_state.pop("_scroll_to_bottom", False):
     st.components.v1.html("""
         <script>
-            (function() {
-                var body = window.parent.document.querySelector('section.main');
-                if (body) { body.scrollTop = body.scrollHeight; }
-            })();
+            (function tryScroll(attempts) {
+                var doc = window.parent.document;
+                var el = doc.querySelector('[data-testid="stAppViewBlockContainer"]')
+                    || doc.querySelector('section.main')
+                    || doc.querySelector('.main');
+                if (el) {
+                    el.scrollTop = el.scrollHeight;
+                } else if (attempts > 0) {
+                    setTimeout(function() { tryScroll(attempts - 1); }, 200);
+                }
+            })(10);
         </script>
-    """, height=0)
+    """, height=1)
 
 # Persist current chat to URL after every render so refresh restores it
 _persist_chat()
