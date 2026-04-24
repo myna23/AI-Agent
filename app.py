@@ -35,6 +35,7 @@ import json as _json_mod
 import os as _os_mod
 import base64 as _base64_mod
 import io as _io_mod
+import math
 
 # Module-level buffer for capturing partial streamed responses across reruns.
 # Keyed by a session identifier derived from session_state id.
@@ -688,16 +689,19 @@ with st.sidebar:
         st.caption("No area selected — draw on the map above.")
 
     # ------------------------------------------------------------------
-    # Document upload for AI analysis
+    # Document / Image upload for AI analysis
     # ------------------------------------------------------------------
     st.markdown("---")
-    st.markdown("### 📄 Attach a Document")
-    st.caption("PDF, Word, or TXT — AI will use it alongside the GeoHub data.")
+    st.markdown("### 📎 Attach a File")
+    st.caption("PDF, Word, TXT or map image — AI will use it alongside GeoHub data.")
 
-    _uploaded_file = st.file_uploader(
-        "Choose a file", type=["pdf", "docx", "txt"],
-        key="doc_upload", label_visibility="collapsed",
-    )
+    _upload_tab_doc, _upload_tab_img = st.tabs(["📄 Document", "🗺️ Map Image"])
+
+    with _upload_tab_doc:
+        _uploaded_file = st.file_uploader(
+            "Choose a file", type=["pdf", "docx", "txt"],
+            key="doc_upload", label_visibility="collapsed",
+        )
     if _uploaded_file:
         try:
             if _uploaded_file.name.endswith(".pdf"):
@@ -726,6 +730,29 @@ with st.sidebar:
             st.session_state.pop("uploaded_doc_text", None)
             st.session_state.pop("uploaded_doc_name", None)
             st.rerun()
+
+    with _upload_tab_img:
+        st.caption("Upload a map screenshot or satellite image — AI will describe what it shows and relate it to Zambia GeoHub data.")
+        _uploaded_img = st.file_uploader(
+            "Choose an image", type=["png", "jpg", "jpeg", "webp"],
+            key="img_upload", label_visibility="collapsed",
+        )
+        if _uploaded_img:
+            import base64 as _b64
+            _img_bytes = _uploaded_img.read()
+            _img_b64 = _b64.b64encode(_img_bytes).decode()
+            _img_mime = "image/png" if _uploaded_img.name.lower().endswith(".png") else "image/jpeg"
+            st.session_state["uploaded_img_b64"] = _img_b64
+            st.session_state["uploaded_img_mime"] = _img_mime
+            st.session_state["uploaded_img_name"] = _uploaded_img.name
+            st.success(f"✅ **{_uploaded_img.name}** ready")
+            st.image(_img_bytes, use_container_width=True)
+        if st.session_state.get("uploaded_img_name"):
+            if st.button("Remove image", use_container_width=True, key="sidebar_clear_img"):
+                st.session_state.pop("uploaded_img_b64", None)
+                st.session_state.pop("uploaded_img_mime", None)
+                st.session_state.pop("uploaded_img_name", None)
+                st.rerun()
 
 # ---------------------------------------------------------------------------
 # Context detection — dataset passed from Hub iframe embed
@@ -932,6 +959,57 @@ def _extract_location(text: str):
     return (None, None)
 
 
+def _extract_coordinates(text: str):
+    """
+    Detect lat/lon coordinates typed anywhere in the question.
+    Returns (lat, lon) floats or (None, None).
+
+    Recognised patterns:
+      -15.416, 28.283          (decimal, comma-separated)
+      -15.416 28.283           (decimal, space-separated)
+      15.4S, 28.3E             (with hemisphere letters)
+      lat -15.4 lon 28.3       (labelled)
+      coordinates(-15.4, 28.3) (word 'coordinates')
+    Zambia bounds: lat -18 to -8, lon 21 to 34.
+    """
+    import re as _re_c
+    t = text.strip()
+
+    # 1. Labelled: lat/latitude ... lon/longitude
+    m = _re_c.search(
+        r'lat(?:itude)?\s*[:\s]\s*([-−]?\d{1,2}(?:\.\d+)?)\s*[,\s]+\s*'
+        r'lon(?:gitude)?\s*[:\s]\s*([-−]?\d{1,3}(?:\.\d+)?)',
+        t, _re_c.I
+    )
+    if m:
+        lat, lon = float(m.group(1).replace('−', '-')), float(m.group(2).replace('−', '-'))
+        if -18 <= lat <= -8 and 21 <= lon <= 34:
+            return lat, lon
+
+    # 2. Hemisphere letters: 15.4S, 28.3E
+    m = _re_c.search(
+        r'(\d{1,2}(?:\.\d+)?)\s*°?\s*([NS])\s*[,\s]+\s*(\d{1,3}(?:\.\d+)?)\s*°?\s*([EW])',
+        t, _re_c.I
+    )
+    if m:
+        lat = float(m.group(1)) * (-1 if m.group(2).upper() == 'S' else 1)
+        lon = float(m.group(3)) * (-1 if m.group(4).upper() == 'W' else 1)
+        if -18 <= lat <= -8 and 21 <= lon <= 34:
+            return lat, lon
+
+    # 3. Bare decimal pair — negative lat (Zambia is south of equator)
+    m = _re_c.search(
+        r'([-−]\d{1,2}(?:\.\d+)?)\s*[,\s]+\s*(\d{1,3}(?:\.\d+)?)',
+        t
+    )
+    if m:
+        lat, lon = float(m.group(1).replace('−', '-')), float(m.group(2))
+        if -18 <= lat <= -8 and 21 <= lon <= 34:
+            return lat, lon
+
+    return None, None
+
+
 def _extract_radius_km(text: str):
     """
     Detect a buffer radius in the question.
@@ -1136,14 +1214,61 @@ def process_question(question: str):
     _radius_km = _extract_radius_km(question)      # e.g. 5.0 for "within 5km"
     _buffer_center = None                           # (lat, lon) set later if radius detected
 
-    # Drawn bounding box from the draw tool — overrides location filter when set
-    _draw_bbox = st.session_state.get("draw_bbox")
+    # Coordinates typed in the question — treated like a point draw with ~5 km radius
+    _coord_lat, _coord_lon = _extract_coordinates(question)
+    if _coord_lat is not None and not st.session_state.get("draw_bbox"):
+        _coord_r = _radius_km or 5.0   # default 5 km if no radius given
+        # Build a bbox around the coordinate point
+        _deg_lat = _coord_r / 111.0
+        _deg_lon = _coord_r / (111.0 * abs(math.cos(math.radians(_coord_lat))) or 1)
+        _coord_bbox = {
+            "min_lat": _coord_lat - _deg_lat,
+            "max_lat": _coord_lat + _deg_lat,
+            "min_lon": _coord_lon - _deg_lon,
+            "max_lon": _coord_lon + _deg_lon,
+        }
+        # Identify district/province from coordinates using context layers
+        _coord_district, _coord_province = "", ""
+        if _CONTEXT_LAYERS:
+            for _cf in _CONTEXT_LAYERS[0]["geojson"].get("features", []):
+                _cp = _cf.get("properties", {})
+                _cg = _cf.get("geometry", {})
+                if _cg.get("type") == "Polygon":
+                    for _ring in _cg.get("coordinates", []):
+                        if _point_in_polygon(_coord_lat, _coord_lon, _ring):
+                            _coord_district = _cp.get("DISTRICT") or _cp.get("District") or ""
+                            _coord_province = _cp.get("PROVINCE") or _cp.get("Province") or ""
+                            break
+                elif _cg.get("type") == "MultiPolygon":
+                    for _poly in _cg.get("coordinates", []):
+                        for _ring in _poly:
+                            if _point_in_polygon(_coord_lat, _coord_lon, _ring):
+                                _coord_district = _cp.get("DISTRICT") or _cp.get("District") or ""
+                                _coord_province = _cp.get("PROVINCE") or _cp.get("Province") or ""
+                                break
+        _coord_bbox["district"] = _coord_district
+        _coord_bbox["province"] = _coord_province
+        # Use as draw_bbox for this question only (don't save to session state)
+        if not st.session_state.get("draw_bbox"):
+            st.info(
+                f"📍 Detected coordinates **({_coord_lat:.4f}, {_coord_lon:.4f})** — "
+                f"searching within {_coord_r:.0f} km"
+                + (f" in **{_coord_district}**, {_coord_province}" if _coord_district else "") + "."
+            )
+        _draw_bbox = _coord_bbox
+        _bbox_str_draw = (
+            f"{_coord_bbox['min_lon']},{_coord_bbox['min_lat']},"
+            f"{_coord_bbox['max_lon']},{_coord_bbox['max_lat']}"
+        )
+    else:
+        _draw_bbox = st.session_state.get("draw_bbox")
     _draw_bbox_location_note = ""
     if _draw_bbox:
-        _bbox_str_draw = (
-            f"{_draw_bbox['min_lon']},{_draw_bbox['min_lat']},"
-            f"{_draw_bbox['max_lon']},{_draw_bbox['max_lat']}"
-        )
+        if "_bbox_str_draw" not in dir():
+            _bbox_str_draw = (
+                f"{_draw_bbox['min_lon']},{_draw_bbox['min_lat']},"
+                f"{_draw_bbox['max_lon']},{_draw_bbox['max_lat']}"
+            )
         # Identify which district(s)/province the drawn area falls in
         _bbox_center_lat = (_draw_bbox['min_lat'] + _draw_bbox['max_lat']) / 2
         _bbox_center_lon = (_draw_bbox['min_lon'] + _draw_bbox['max_lon']) / 2
@@ -1995,7 +2120,25 @@ def process_question(question: str):
                 if _draw_bbox else ""
             )
             user_p = chatbot_user_prompt(question + _compare_note + _doc_ctx + _bbox_note, datasets, sample_features, all_catalog=hub.get_catalog(), total_count=_total_count, location=_location or "", cross_context=_cross_context)
-            history.append({"role": "user", "content": user_p})
+
+            # If a map image is attached, send it as a vision message block
+            _img_b64 = st.session_state.get("uploaded_img_b64", "")
+            _img_mime = st.session_state.get("uploaded_img_mime", "image/jpeg")
+            _img_name = st.session_state.get("uploaded_img_name", "")
+            if _img_b64:
+                history.append({"role": "user", "content": [
+                    {"type": "image", "source": {
+                        "type": "base64", "media_type": _img_mime, "data": _img_b64,
+                    }},
+                    {"type": "text", "text": (
+                        f"The user has uploaded a map image ({_img_name}). "
+                        "Describe what geographic area, features, or patterns you can see in this image. "
+                        "Then answer their question using both the image and the GeoHub dataset information provided.\n\n"
+                        + user_p
+                    )},
+                ]})
+            else:
+                history.append({"role": "user", "content": user_p})
 
             # --- Streaming with stop button ---
             st.session_state.stop_streaming = False
