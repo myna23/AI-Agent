@@ -1035,6 +1035,32 @@ def _extract_radius_km(text: str):
     return None
 
 
+# Known coordinates for major Zambia towns/cities — used when no district polygon
+# centroid is found (e.g. radius queries like "within 5km of Mongu")
+_ZAMBIA_TOWN_COORDS: dict = {
+    "mongu": (-15.2567, 23.1269), "lusaka": (-15.4167, 28.2833),
+    "ndola": (-12.9587, 28.6366), "kitwe": (-12.8024, 28.2132),
+    "kabwe": (-14.4469, 28.4464), "livingstone": (-17.8614, 25.8542),
+    "chipata": (-13.6436, 32.6444), "solwezi": (-12.1731, 26.3978),
+    "mansa": (-11.2, 28.8833), "kasama": (-10.2, 31.1833),
+    "choma": (-16.8, 26.9833), "mazabuka": (-15.8591, 27.7497),
+    "kafue": (-15.7697, 28.1861), "chingola": (-12.5279, 27.8584),
+    "mufulira": (-12.5529, 28.2392), "luanshya": (-13.1353, 28.4028),
+    "kalulushi": (-12.8385, 28.1013), "chililabombwe": (-12.3602, 27.8289),
+    "samfya": (-11.3667, 29.55), "mwinilunga": (-11.7381, 24.4322),
+    "senanga": (-16.1167, 23.2667), "sesheke": (-17.4833, 24.3),
+    "zambezi": (-13.5378, 23.1069), "chavuma": (-13.0833, 22.7),
+    "petauke": (-14.2478, 31.3228), "lundazi": (-12.2945, 33.175),
+    "isoka": (-10.1667, 32.6333), "mpika": (-11.8309, 31.4529),
+    "chinsali": (-10.5545, 32.0649), "nakonde": (-9.3667, 32.7333),
+    "mbala": (-8.8333, 31.3667), "nchelenge": (-9.35, 28.7333),
+    "kawambwa": (-9.7833, 29.0833), "mwense": (-10.3667, 28.7),
+    "luwingu": (-10.2558, 29.9233), "kaputa": (-8.4667, 29.6833),
+    "serenje": (-13.2294, 30.2364), "mkushi": (-13.6167, 29.3833),
+    "kapiri mposhi": (-13.9667, 28.6833),
+}
+
+
 def _filter_by_location(features: list, location: str, loc_type: str) -> list:
     """Filter features to only those matching district or province."""
     loc_lower = location.lower()
@@ -1801,8 +1827,7 @@ def process_question(question: str):
                         datasets = [_static_candidate] + [d for d in datasets if d != _static_candidate]
                     st.info(f"📦 Showing {len(loc_feats)} pre-loaded records for {_location} (live server unavailable).")
 
-            # 3. Location not found anywhere — tell the AI explicitly so it gives the right answer.
-            # Do NOT pass nationwide data: that causes the AI to say "none in Kalomo" from wrong records.
+            # 3. Location not found anywhere
             if not sample_features:
                 if _live_candidate or _static_candidate:
                     datasets = [_live_candidate or _static_candidate] + [
@@ -1813,9 +1838,20 @@ def process_question(question: str):
                     f"⚠️ Could not load live data for **{_location}**{_err_detail}. "
                     f"The live GeoHub server may be temporarily unavailable."
                 )
-                # Pass a placeholder so the AI knows to say it couldn't retrieve the data
-                sample_features = [{"_note": f"No data could be retrieved for {_location}. "
-                                    f"Inform the user that the live server is unavailable and suggest they try again later."}]
+                if _radius_km:
+                    # For radius queries: don't set a placeholder — let the countrywide
+                    # static fallback (below) load all features, then the haversine filter
+                    # will find what's within range of the named location's coordinates.
+                    pass
+                else:
+                    # Non-radius query: tell Claude data is unavailable for this location
+                    sample_features = [{"_note": (
+                        f"No data could be retrieved for {_location}. "
+                        f"The live GeoHub server is temporarily unavailable and the pre-loaded "
+                        f"offline data does not cover {_location}. "
+                        f"Tell the user: the live server is down, no offline data exists for {_location}, "
+                        f"and they should try again later. Do NOT show data from other provinces or districts."
+                    )}]
 
         # No location: try live fetch, fall back to static
         if not sample_features:
@@ -1939,6 +1975,13 @@ def process_question(question: str):
                 (_draw_bbox["min_lat"] + _draw_bbox["max_lat"]) / 2,
                 (_draw_bbox["min_lon"] + _draw_bbox["max_lon"]) / 2,
             )
+
+        # Fallback: known town/city coordinate lookup
+        if not _center and _location:
+            _town_coord = _ZAMBIA_TOWN_COORDS.get(_location.lower())
+            if _town_coord:
+                _center = _town_coord
+                st.info(f"📍 Using known coordinates for **{_location}** ({_town_coord[0]:.4f}, {_town_coord[1]:.4f}) to apply {_radius_km} km radius filter.")
 
         # Fallback: centroid of all fetched point features
         if not _center:
