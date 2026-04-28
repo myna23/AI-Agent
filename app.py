@@ -1403,7 +1403,9 @@ def process_question(question: str):
         # filter — this gives accurate counts for ALL 116 Zambia districts regardless of
         # whether the local static sample covers that area.
         # Fallback chain: live filtered → static filtered → static full
-        if _location:
+        # EXCEPTION: when a draw_bbox is active, skip the location path — the bbox
+        # spatial filter is more accurate and handles the static fallback + radius filter.
+        if _location and not _draw_bbox:
             _static_data, _static_candidate = _find_static(question.lower())
             _live_candidate = _static_candidate or (datasets[0] if datasets else None)
 
