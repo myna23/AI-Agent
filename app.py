@@ -1905,7 +1905,9 @@ def process_question(question: str):
                     {"type": "FeatureCollection", "features": _static_feats},
                     n=len(_static_feats)
                 )
-                map_geojson = {"type": "FeatureCollection", "features": _static_feats[:50]}
+                # Use full static set for map_geojson so the radius filter
+                # (applied below) can search all features, not just the first 50
+                map_geojson = {"type": "FeatureCollection", "features": _static_feats}
                 if _static_candidate:
                     datasets = [_static_candidate] + [d for d in datasets if d != _static_candidate]
 
@@ -1928,6 +1930,13 @@ def process_question(question: str):
             )
             if _dist_feat and _dist_feat.get("geometry"):
                 _center = polygon_centroid(_dist_feat["geometry"])
+
+        # Fallback: centroid of drawn bbox (covers "within the buffer" phrasing)
+        if not _center and _draw_bbox:
+            _center = (
+                (_draw_bbox["min_lat"] + _draw_bbox["max_lat"]) / 2,
+                (_draw_bbox["min_lon"] + _draw_bbox["max_lon"]) / 2,
+            )
 
         # Fallback: centroid of all fetched point features
         if not _center:
