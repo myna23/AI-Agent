@@ -1864,7 +1864,7 @@ def process_question(question: str):
                 # Filter static features by drawn bbox if one is active
                 if _draw_bbox:
                     def _feat_in_bbox(feat, bb):
-                        _g = feat.get("geometry", {})
+                        _g = feat.get("geometry") or {}
                         _gc = _g.get("coordinates", [])
                         _gt = _g.get("type", "")
                         if _gt == "Point" and _gc:
