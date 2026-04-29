@@ -1,4 +1,4 @@
-# API keys - NEVER commit this
+# API keys — NEVER commit
 .env
 
 # Python
@@ -18,3 +18,11 @@ demo_report.pdf
 
 # Jupyter checkpoints
 .ipynb_checkpoints/
+
+# Project notes / scratch files
+note
+get_token.py
+main.ipynb
+
+# Word docs (documentation lives in .md files)
+*.docx
