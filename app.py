@@ -2020,8 +2020,18 @@ def process_question(question: str):
             else:
                 st.info(
                     f"📍 No features found within {_radius_km} km of "
-                    f"{_location or 'selected point'}."
+                    f"{_location or 'selected point'} in the offline data "
+                    f"(live server unavailable — try again later)."
                 )
+                # Clear sample_features so Claude doesn't receive data from the wrong
+                # location (e.g. Copperbelt schools when the question is about Mongu)
+                sample_features = [{"_note": (
+                    f"No data found within {_radius_km} km of {_location or 'the selected point'} "
+                    f"in the pre-loaded offline dataset. The live GeoHub server is currently "
+                    f"unavailable. Tell the user this clearly — do NOT describe data from "
+                    f"other districts or provinces."
+                )}]
+                map_geojson = {"type": "FeatureCollection", "features": []}
 
     # If cross-context has settlement points and the current map has no Point features,
     # override with settlement points so the map always shows something useful.
