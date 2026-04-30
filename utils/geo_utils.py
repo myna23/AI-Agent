@@ -406,6 +406,18 @@ def make_folium_map(
             props = feat.get("properties") or {}
             color = _point_color(props, dataset_name)
             popup_html = _props_to_html(props)
+            _tip_name = (
+                props.get("Name") or props.get("NAME") or props.get("name") or
+                props.get("Fac_Name") or props.get("FAC_NAME") or
+                props.get("POI_Name") or props.get("Facility") or ""
+            )
+            _tip_type = (
+                props.get("Type") or props.get("TYPE") or props.get("type") or
+                props.get("Facility_T") or props.get("Facility_Type") or ""
+            )
+            _tip_loc = props.get("DISTRICT") or props.get("District") or ""
+            _tip_parts = [p for p in [_tip_name, _tip_type, _tip_loc] if p]
+            _tooltip = " — ".join(_tip_parts) if _tip_parts else "Feature"
             marker = folium.CircleMarker(
                 location=[lat, lon],
                 radius=5,
@@ -414,7 +426,7 @@ def make_folium_map(
                 fill_color=color,
                 fill_opacity=0.8,
                 popup=folium.Popup(popup_html, max_width=300),
-                tooltip=props.get("Name") or props.get("NAME") or props.get("name") or props.get("DISTRICT") or props.get("District") or "Feature",
+                tooltip=_tooltip,
             )
             marker.add_to(cluster if use_cluster else m)
 
@@ -504,8 +516,9 @@ def make_folium_map(
     # Resolve theme color once — used for both buffer and bbox
     _border_color, _fill_color, _theme_label = _dataset_theme(dataset_name)
 
-    # Drawn bbox overlay — colored rectangle matching the dataset theme
-    if draw_bbox:
+    # Drawn bbox overlay — only show when there is no named location highlight
+    # (when highlight_location is set the district polygon already frames the area)
+    if draw_bbox and not highlight_location:
         _bb = draw_bbox
         _bbox_coords = [
             [_bb["min_lat"], _bb["min_lon"]],
