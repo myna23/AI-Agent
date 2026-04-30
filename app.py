@@ -605,55 +605,13 @@ claude = get_claude()
 builder = get_builder()
 
 # ---------------------------------------------------------------------------
-# Sidebar header — datasets are now public, token is optional
+# ---------------------------------------------------------------------------
+# Sidebar
 # ---------------------------------------------------------------------------
 import datetime as _dt
 
 with st.sidebar:
     st.markdown("### Zambia GeoHub")
-    st.success("🌍 All datasets are publicly accessible — no login required")
-
-    # Optional token panel for advanced users who have credentials to access
-    # any remaining private or restricted layers
-    with st.expander("🔑 Advanced: Use authentication token", expanded=False):
-        _token_expired = _hub_client_module.token_expired
-        _token_set = bool(_hub_client_module._ARCGIS_TOKEN)
-        if _token_expired:
-            st.warning("Your saved token has expired.")
-        elif _token_set:
-            _token_set_date = st.session_state.get("token_set_date")
-            if _token_set_date:
-                _set_date = _dt.date.fromisoformat(_token_set_date)
-                _expiry_date = _set_date + _dt.timedelta(days=14)
-                _days_left = (_expiry_date - _dt.date.today()).days
-                if _days_left <= 0:
-                    st.warning("Token likely expired — paste a fresh one below.")
-                elif _days_left <= 3:
-                    st.warning(f"Token expires in {_days_left} day(s). Refresh soon.")
-                else:
-                    st.caption(f"Token active · expires {_expiry_date.strftime('%d %b %Y')}")
-        st.markdown(
-            "Paste a GeoHub token to access any restricted layers.\n\n"
-            "To obtain: log in at [zmb-geowb.hub.arcgis.com](https://zmb-geowb.hub.arcgis.com), "
-            "press **F12** → Network tab → filter by `token` → copy the token string."
-        )
-        _new_token = st.text_area(
-            "Token", height=70,
-            placeholder="Paste token or full URL here",
-            key="token_input",
-            label_visibility="collapsed",
-        )
-        if st.button("Apply Token", type="primary", use_container_width=True, key="apply_tok"):
-            _raw = _new_token.strip()
-            if _raw:
-                if "token=" in _raw:
-                    _raw = _raw.split("token=", 1)[1].split("&")[0].strip()
-                _hub_client_module.set_token(_raw)
-                st.session_state["token_set_date"] = _dt.date.today().isoformat()
-                st.success("Token saved.")
-                st.rerun()
-            else:
-                st.error("Please paste a token first.")
 
     # ------------------------------------------------------------------
     # Draw tool — compact map in sidebar, always visible
