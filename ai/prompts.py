@@ -103,7 +103,7 @@ def chatbot_user_prompt(
         _ds_name = _re.sub(r'\s+v\d[\d.]*', '', _ds_name, flags=_re.I)
         _ds_name = _re.sub(r'\s+Version\s*\d+.*$', '', _ds_name, flags=_re.I)
         _ds_name = _ds_name.strip(" -–—")[:60]
-        _hub_link = f"https://zmb-geowb.hub.arcgis.com/search?q={_up.quote_plus(_ds_name)}&collection=dataset&tags=zmb"
+        _hub_link = f"https://zmb-geowb.hub.arcgis.com/search?q={_up.quote_plus(_ds_name)}&collection=dataset"
         dataset_context += (
             f"\nDataset {i}: {ds['name']}\n"
             f"  Description: {ds['description'][:300]}\n"
