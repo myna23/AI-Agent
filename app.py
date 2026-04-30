@@ -72,10 +72,10 @@ _CONTEXT_LAYERS = _load_context_layers()
 _WATER_LAYER = _load_water_layer()
 
 
-def _map(geojson: dict, name: str, with_context: bool = False, highlight_location: str = "") -> object:
+def _map(geojson: dict, name: str, with_context: bool = False, highlight_location: str = "", draw_bbox: dict = None) -> object:
     """Wrapper: adds district + road context layers for point datasets."""
     ctx = _CONTEXT_LAYERS if with_context else None
-    return make_folium_map(geojson, name, context_layers=ctx, highlight_location=highlight_location)
+    return make_folium_map(geojson, name, context_layers=ctx, highlight_location=highlight_location, draw_bbox=draw_bbox)
 
 
 def _build_suggestions(question: str, has_location: bool, has_data: bool, ds_name: str) -> list:
@@ -205,6 +205,7 @@ def _render_ondemand_panel(msg_idx: int, msg: dict, ctx_layers: list = None):
                     f"{msg.get('buffer_radius_km')} km radius — {msg.get('location', '')}"
                     if msg.get("buffer_radius_km") else ""
                 ),
+                draw_bbox=msg.get("draw_bbox"),
             ),
             width=720, height=340, returned_objects=[], key=f"map_{msg_idx}"
         )
@@ -2087,12 +2088,13 @@ def process_question(question: str):
                 mime="application/pdf", key="dl_pdf_new", use_container_width=True)
 
             display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
-            st_folium(_map(display_geojson, ds["name"], with_context=_is_point_geojson(display_geojson), highlight_location=_location or ""), width=720, height=340, returned_objects=[], key="map_new_rpt")
+            st_folium(_map(display_geojson, ds["name"], with_context=_is_point_geojson(display_geojson), highlight_location=_location or "", draw_bbox=_draw_bbox), width=720, height=340, returned_objects=[], key="map_new_rpt")
 
             st.session_state.messages.append({
                 "role": "assistant", "content": rpt_text, "intent": intent,
                 "docx_bytes": docx_bytes, "pdf_bytes": pdf_bytes,
                 "ds_name": ds["name"], "geojson": map_geojson,
+                "draw_bbox": _draw_bbox,
             })
 
     # --- SUMMARY ---
@@ -2129,12 +2131,13 @@ def process_question(question: str):
                 mime="text/plain", key="dl_sum_new")
 
             display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
-            st_folium(_map(display_geojson, ds["name"], with_context=_is_point_geojson(display_geojson), highlight_location=_location or ""), width=720, height=340, returned_objects=[], key="map_new_sum")
+            st_folium(_map(display_geojson, ds["name"], with_context=_is_point_geojson(display_geojson), highlight_location=_location or "", draw_bbox=_draw_bbox), width=720, height=340, returned_objects=[], key="map_new_sum")
 
             st.session_state.messages.append({
                 "role": "assistant", "content": summary, "intent": intent,
                 "summary_txt": summary, "ds_name": ds["name"], "geojson": map_geojson,
                 "sample_features": sample_features,
+                "draw_bbox": _draw_bbox,
             })
 
     # --- CHAT (default) ---
@@ -2264,6 +2267,7 @@ def process_question(question: str):
                 "sample_features": sample_features if not _ai_error else [],
                 "buffer_center": _buffer_center,
                 "buffer_radius_km": _radius_km,
+                "draw_bbox": _draw_bbox,
             }
             st.session_state.messages.append(_new_msg)
 

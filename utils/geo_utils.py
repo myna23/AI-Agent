@@ -92,6 +92,55 @@ def _point_color(props: dict, dataset_name: str = "") -> str:
     return _TYPE_COLORS["default"]
 
 
+# Theme colors per dataset category — (border_color, fill_color, label)
+_THEME_PALETTE = {
+    "water":      ("#0096c7", "#90e0ef", "Water"),
+    "river":      ("#0096c7", "#90e0ef", "River"),
+    "wetland":    ("#0077b6", "#48cae4", "Wetland/Lake"),
+    "lake":       ("#0077b6", "#48cae4", "Lake"),
+    "borehole":   ("#0096c7", "#caf0f8", "Borehole/Well"),
+    "well":       ("#0096c7", "#caf0f8", "Well"),
+    "aquifer":    ("#0096c7", "#caf0f8", "Aquifer"),
+    "dam":        ("#023e8a", "#48cae4", "Dam"),
+    "road":       ("#d4790a", "#ffd166", "Road"),
+    "highway":    ("#d4790a", "#ffd166", "Highway"),
+    "railway":    ("#9d0208", "#e63946", "Railway"),
+    "rail":       ("#9d0208", "#e63946", "Railway"),
+    "health":     ("#c1121f", "#f4a261", "Health Facility"),
+    "hospital":   ("#c1121f", "#f4a261", "Hospital"),
+    "clinic":     ("#c1121f", "#f4a261", "Clinic"),
+    "school":     ("#1d3557", "#457b9d", "School"),
+    "education":  ("#1d3557", "#457b9d", "Education"),
+    "settlement": ("#7b4f12", "#f4a261", "Settlement"),
+    "village":    ("#7b4f12", "#f4a261", "Village"),
+    "market":     ("#2d6a4f", "#74c69d", "Market"),
+    "commercial": ("#2d6a4f", "#74c69d", "Commercial"),
+    "forest":     ("#1b4332", "#2d6a4f", "Forest"),
+    "woodland":   ("#1b4332", "#2d6a4f", "Forest"),
+    "flood":      ("#4361ee", "#4cc9f0", "Flood Zone"),
+    "mine":       ("#495057", "#adb5bd", "Mine"),
+    "mining":     ("#495057", "#adb5bd", "Mine"),
+    "biodiversity": ("#386641", "#6a994e", "Biodiversity"),
+    "wildlife":   ("#386641", "#6a994e", "Wildlife"),
+    "park":       ("#386641", "#6a994e", "National Park"),
+    "power":      ("#f8961e", "#fee440", "Power"),
+    "poverty":    ("#7b2d8b", "#c77dff", "Poverty/Risk"),
+    "risk":       ("#7b2d8b", "#c77dff", "Risk"),
+    "population": ("#3a0ca3", "#7209b7", "Population"),
+}
+
+def _dataset_theme(dataset_name: str) -> tuple:
+    """
+    Return (border_color, fill_color, label) for a dataset based on its name.
+    Used to consistently color buffers, bbox overlays, and markers.
+    """
+    ds = dataset_name.lower()
+    for keyword, theme in _THEME_PALETTE.items():
+        if keyword in ds:
+            return theme
+    return ("#e63946", "#ff6b6b", "Features")  # default red
+
+
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Return the great-circle distance in kilometres between two lat/lon points."""
     R = 6371.0
@@ -234,6 +283,7 @@ def make_folium_map(
     buffer_center: tuple = None,
     buffer_radius_km: float = None,
     buffer_label: str = "",
+    draw_bbox: dict = None,
 ) -> folium.Map:
     """
     Build a Folium map from a GeoJSON FeatureCollection.
@@ -451,7 +501,31 @@ def make_folium_map(
         if all_lats and all_lons:
             m.fit_bounds([[min(all_lats), min(all_lons)], [max(all_lats), max(all_lons)]])
 
-    # Buffer circle — drawn on top of all other layers
+    # Resolve theme color once — used for both buffer and bbox
+    _border_color, _fill_color, _theme_label = _dataset_theme(dataset_name)
+
+    # Drawn bbox overlay — colored rectangle matching the dataset theme
+    if draw_bbox:
+        _bb = draw_bbox
+        _bbox_coords = [
+            [_bb["min_lat"], _bb["min_lon"]],
+            [_bb["min_lat"], _bb["max_lon"]],
+            [_bb["max_lat"], _bb["max_lon"]],
+            [_bb["max_lat"], _bb["min_lon"]],
+            [_bb["min_lat"], _bb["min_lon"]],
+        ]
+        folium.Polygon(
+            locations=_bbox_coords,
+            color=_border_color,
+            weight=2,
+            dash_array="6 3",
+            fill=True,
+            fill_color=_fill_color,
+            fill_opacity=0.12,
+            tooltip=f"Search area — {_theme_label}",
+        ).add_to(m)
+
+    # Buffer circle — drawn on top of all other layers, colored by dataset theme
     if buffer_center and buffer_radius_km and buffer_radius_km > 0:
         blat, blon = buffer_center
         radius_m = buffer_radius_km * 1000
@@ -459,21 +533,21 @@ def make_folium_map(
         folium.Circle(
             location=[blat, blon],
             radius=radius_m,
-            color="#e63946",
+            color=_border_color,
             weight=2,
             dash_array="8 4",
             fill=True,
-            fill_color="#e63946",
-            fill_opacity=0.08,
+            fill_color=_fill_color,
+            fill_opacity=0.12,
             tooltip=tooltip_text,
         ).add_to(m)
         # Pin at the center
         folium.CircleMarker(
             location=[blat, blon],
             radius=5,
-            color="#e63946",
+            color=_border_color,
             fill=True,
-            fill_color="#e63946",
+            fill_color=_fill_color,
             fill_opacity=1.0,
             tooltip=f"Buffer center — {tooltip_text}",
         ).add_to(m)
