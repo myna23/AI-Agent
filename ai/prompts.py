@@ -93,17 +93,21 @@ def chatbot_user_prompt(
     dataset_context = ""
     for i, ds in enumerate(datasets[:5], 1):
         fields_str = ", ".join(f["name"] for f in ds.get("fields", [])[:15])
-        # Link to Zambia GeoHub search — strip internal prefixes so the Hub finds it
-        import urllib.parse as _up, re as _re
-        _ds_name = ds["name"]
-        # Remove common prefixes/suffixes that don't appear in Hub titles
-        _ds_name = _re.sub(r'^(ZMB\s*[-–]\s*|GRID3\s+ZMB\s+|GRID3\s+|Zambia\s+)', '', _ds_name, flags=_re.I)
-        _ds_name = _re.sub(r'^Operational\s+', '', _ds_name, flags=_re.I)
-        _ds_name = _re.sub(r'\s*[,\-–—]\s*(Places|Buildings|Points|Polygons|Layer)$', '', _ds_name, flags=_re.I)
-        _ds_name = _re.sub(r'\s+v\d[\d.]*', '', _ds_name, flags=_re.I)
-        _ds_name = _re.sub(r'\s+Version\s*\d+.*$', '', _ds_name, flags=_re.I)
-        _ds_name = _ds_name.strip(" -–—")[:60]
-        _hub_link = f"https://zmb-geowb.hub.arcgis.com/search?q={_up.quote_plus(_ds_name)}&collection=dataset"
+        # Build a direct Hub link using the item ID.
+        # IDs from the live catalog are 32-char hex GUIDs that link directly to the
+        # dataset page on the Hub — no search needed, always resolves correctly.
+        # For multi-layer entries the ID may be "guid_layerN" — strip the suffix.
+        import re as _re
+        _raw_id = ds.get("id", "")
+        _item_id = (
+            _raw_id.rsplit("_", 1)[0]
+            if "_" in _raw_id and _raw_id.rsplit("_", 1)[1].isdigit()
+            else _raw_id
+        )
+        _hub_link = (
+            f"https://zmb-geowb.hub.arcgis.com/datasets/{_item_id}"
+            if _item_id else ""
+        )
         dataset_context += (
             f"\nDataset {i}: {ds['name']}\n"
             f"  Description: {ds['description'][:300]}\n"
