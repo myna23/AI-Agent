@@ -323,3 +323,40 @@ def report_prompt(
         "Be specific — reference field names, numbers, and districts where the data supports it. "
         "The report should be suitable for printing and sharing with senior officials."
     )
+
+
+# ---------------------------------------------------------------------------
+# Feature 4 — Map Image Analysis
+# ---------------------------------------------------------------------------
+
+def map_analysis_system_prompt() -> str:
+    return (
+        "You are an expert geospatial analyst for the Zambia GeoHub (zmb-geowb.hub.arcgis.com). "
+        "The user has uploaded a map image and wants you to analyse it.\n\n"
+        "RULES:\n"
+        "- Describe what you can visually observe in the map: geographic features, boundaries, "
+        "labels, colours, symbols, patterns, and any data layers visible.\n"
+        "- Identify the region, district, or province shown if it is determinable from the map.\n"
+        "- Identify the type of map (road, health facility, land use, flood, satellite, etc.).\n"
+        "- If the user asks a specific question about the map, answer it directly using what "
+        "you can see in the image — do NOT invent data you cannot see.\n"
+        "- If related GeoHub dataset records are provided, cross-reference them with what the "
+        "map shows and highlight agreements or discrepancies.\n"
+        "- Structure your response with these sections using ## headings:\n"
+        "  ## Map Overview\n"
+        "  ## Key Observations\n"
+        "  ## Findings (answer to user's question)\n"
+        "  ## Recommendations\n"
+        "- Use bullet points with specific observations. Be concise and analytical.\n"
+        "- Do NOT add follow-up suggestions at the end — the UI handles these automatically.\n"
+        "- Do NOT invent geographic facts not visible in the image."
+    )
+
+
+def map_analysis_user_prompt(question: str, image_name: str) -> str:
+    return (
+        f"I have uploaded a map image: **{image_name}**\n\n"
+        f"My question: {question}\n\n"
+        "Please analyse the map image and answer my question. Structure your response with "
+        "## Map Overview, ## Key Observations, ## Findings, and ## Recommendations sections."
+    )

@@ -24,6 +24,8 @@ from ai.prompts import (
     summarizer_prompt,
     report_system_prompt,
     report_prompt,
+    map_analysis_system_prompt,
+    map_analysis_user_prompt,
 )
 from reports.builder import ReportBuilder
 from utils.geo_utils import (
@@ -735,7 +737,7 @@ with st.sidebar:
             st.rerun()
 
     with _upload_tab_img:
-        st.caption("Upload a map screenshot or satellite image — AI will describe what it shows and relate it to Zambia GeoHub data.")
+        st.caption("Upload a map screenshot or satellite image. Once uploaded, ask any question in the chat — AI will analyse the map and offer PDF, Word, or table export of the findings.")
         _uploaded_img = st.file_uploader(
             "Choose an image", type=["png", "jpg", "jpeg", "webp"],
             key="img_upload", label_visibility="collapsed",
@@ -893,12 +895,14 @@ if st.session_state.get("is_generating"):
 # ---------------------------------------------------------------------------
 # Intent detection
 # ---------------------------------------------------------------------------
-def detect_intent(text: str) -> str:
+def detect_intent(text: str, has_image: bool = False) -> str:
     t = text.lower()
     if any(w in t for w in ["report", "generate report", "write report", "create report"]):
         return "report"
     if any(w in t for w in ["summarise", "summarize", "summary", "overview", "brief"]):
         return "summary"
+    if has_image:
+        return "map_analysis"
     return "chat"
 
 
@@ -1235,7 +1239,8 @@ if st.session_state.edit_idx is not None:
 # Process a question (either new or edited)
 # ---------------------------------------------------------------------------
 def process_question(question: str):
-    intent = detect_intent(question)
+    _has_image = bool(st.session_state.get("uploaded_img_b64"))
+    intent = detect_intent(question, has_image=_has_image)
 
     geojson = None
     map_geojson = None   # lightweight copy for map rendering (≤50 features)
@@ -2061,6 +2066,102 @@ def process_question(question: str):
 
     ds = datasets[0] if datasets else {}
 
+    # --- MAP IMAGE ANALYSIS ---
+    if intent == "map_analysis":
+        _img_b64 = st.session_state.get("uploaded_img_b64", "")
+        _img_mime = st.session_state.get("uploaded_img_mime", "image/jpeg")
+        _img_name = st.session_state.get("uploaded_img_name", "Uploaded map")
+
+        with st.chat_message("assistant"):
+            st.markdown('<span class="intent-badge intent-report">Map Analysis</span>', unsafe_allow_html=True)
+
+            # Show the uploaded image inline so the user sees what's being analysed
+            import base64 as _b64img
+            _img_bytes_display = _b64img.b64decode(_img_b64)
+            st.image(_img_bytes_display, caption=_img_name, use_container_width=True)
+
+            _analysis_messages = [
+                {"role": "user", "content": [
+                    {"type": "image", "source": {
+                        "type": "base64", "media_type": _img_mime, "data": _img_b64,
+                    }},
+                    {"type": "text", "text": map_analysis_user_prompt(question, _img_name)},
+                ]}
+            ]
+
+            st.session_state.stop_streaming = False
+            st.session_state.is_generating = True
+            _sess_buf_key_ma = id(st.session_state) + 1
+            _STREAM_BUFFERS[_sess_buf_key_ma] = ""
+
+            def _map_analysis_stream():
+                for chunk in claude.stream_with_history(map_analysis_system_prompt(), _analysis_messages, max_tokens=2000):
+                    if st.session_state.get("stop_streaming"):
+                        break
+                    _STREAM_BUFFERS[_sess_buf_key_ma] = _STREAM_BUFFERS.get(_sess_buf_key_ma, "") + chunk
+                    yield chunk
+
+            try:
+                analysis_text = st.write_stream(_map_analysis_stream())
+            except Exception:
+                analysis_text = _STREAM_BUFFERS.get(_sess_buf_key_ma, "⚠️ Something went wrong. Please try again.")
+                st.warning(analysis_text)
+            finally:
+                st.session_state.is_generating = False
+                st.session_state.stop_streaming = False
+                _STREAM_BUFFERS.pop(_sess_buf_key_ma, None)
+
+            # Export buttons — ask the user which format they want
+            st.markdown("---")
+            st.markdown("**Export this analysis:**")
+            _exp_col1, _exp_col2, _exp_col3 = st.columns(3)
+
+            with st.spinner("Preparing exports..."):
+                _exp_docx = builder.to_docx(_img_name, analysis_text, {"name": _img_name, "description": f"Map analysis of {_img_name}"})
+                _exp_pdf = builder.to_pdf(_img_name, analysis_text, {"name": _img_name, "description": f"Map analysis of {_img_name}"})
+
+            _safe_name = _img_name.rsplit(".", 1)[0].replace(" ", "_")
+            _exp_col1.download_button(
+                "⬇️ Word (.docx)", _exp_docx,
+                file_name=f"{_safe_name}_analysis.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                key=f"dl_map_docx_{len(st.session_state.messages)}",
+                use_container_width=True,
+            )
+            _exp_col2.download_button(
+                "⬇️ PDF", _exp_pdf,
+                file_name=f"{_safe_name}_analysis.pdf",
+                mime="application/pdf",
+                key=f"dl_map_pdf_{len(st.session_state.messages)}",
+                use_container_width=True,
+            )
+            # Table export — convert the markdown bullet points to a CSV-like text
+            import pandas as _pd_map
+            _table_rows = [
+                {"Section": ln.lstrip("#").strip(), "Content": ""}
+                if ln.startswith("#") else
+                {"Section": "", "Content": ln.lstrip("•- ").strip()}
+                for ln in analysis_text.splitlines()
+                if ln.strip()
+            ]
+            _table_csv = "\n".join(
+                f"{r['Section']}\t{r['Content']}" for r in _table_rows
+            )
+            _exp_col3.download_button(
+                "⬇️ Table (.txt)", _table_csv,
+                file_name=f"{_safe_name}_analysis_table.txt",
+                mime="text/plain",
+                key=f"dl_map_tbl_{len(st.session_state.messages)}",
+                use_container_width=True,
+            )
+
+            st.session_state.messages.append({
+                "role": "assistant", "content": analysis_text, "intent": intent,
+                "ds_name": _img_name, "geojson": None,
+                "docx_bytes": _exp_docx, "pdf_bytes": _exp_pdf,
+            })
+        return
+
     # --- REPORT ---
     if intent == "report":
         with st.chat_message("assistant"):
@@ -2299,7 +2400,12 @@ if hasattr(st.session_state, "_pending_question") and st.session_state._pending_
 # ---------------------------------------------------------------------------
 # Chat input
 # ---------------------------------------------------------------------------
-if question := st.chat_input("Ask a question, say 'generate a report on...', or 'summarise...'"):
+_chat_placeholder = (
+    "Ask a question about your map — AI will analyse and extract information from it..."
+    if st.session_state.get("uploaded_img_b64")
+    else "Ask a question, say 'generate a report on...', or 'summarise...'"
+)
+if question := st.chat_input(_chat_placeholder):
     if st.session_state.edit_idx is None:
         st.session_state.messages.append({"role": "user", "content": question})
         with st.chat_message("user"):
