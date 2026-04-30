@@ -221,6 +221,145 @@ def _render_ondemand_panel(msg_idx: int, msg: dict, ctx_layers: list = None):
         _render_charts_only(msg["sample_features"], msg.get("ds_name", "Data"), key_prefix=f"cht_{msg_idx}")
 
 
+def _render_location_overview(location: str, loc_type: str, hub, key_prefix: str = ""):
+    """
+    Render a compact 'Area Overview' card for a district or province.
+
+    Fetches live counts from the main thematic datasets and displays them
+    as metric tiles so users instantly understand what's in an area they
+    may not be familiar with.
+
+    Datasets queried:
+      - Health facilities (GRID3)
+      - Schools (GRID3)
+      - Points of Interest — Commercial, Religion, Farm subcategories
+      - Settlements (GRID3)
+    """
+    if not location:
+        return
+
+    # Dataset URLs from catalog — picked from seed catalog for reliability
+    _OV_DATASETS = [
+        {
+            "label": "Health Facilities",
+            "emoji": "🏥",
+            "url_key": "GRID3_ZMB_HealthFac",
+            "color": "#c1121f",
+        },
+        {
+            "label": "Schools",
+            "emoji": "🏫",
+            "url_key": "GRID3_ZMB_School",
+            "color": "#1d3557",
+        },
+        {
+            "label": "Settlements",
+            "emoji": "🏘️",
+            "url_key": "GRID3_Zambia_Operational_Settlement_Points_and_Names",
+            "color": "#7b4f12",
+        },
+        {
+            "label": "Points of Interest",
+            "emoji": "📍",
+            "url_key": "GRID3_Zambia_Operational_Points_of_Interest",
+            "color": "#2d6a4f",
+        },
+    ]
+
+    # Find URLs from catalog
+    catalog = hub.get_catalog()
+    _url_map = {}
+    for entry in catalog:
+        for ds in _OV_DATASETS:
+            if ds["url_key"] in entry.get("url", ""):
+                if ds["label"] not in _url_map:
+                    _url_map[ds["label"]] = entry["url"]
+
+    # Use static file fallback URLs for robustness
+    from hub.client import _STATIC_MAP as _SM, _DATA_DIR as _DD
+    import os as _os, json as _json
+    _static_fallbacks = {}
+    for ds in _OV_DATASETS:
+        for key, fname in _SM.items():
+            if ds["url_key"] in key or key in ds["url_key"]:
+                path = _os.path.join(_DD, fname)
+                if _os.path.exists(path):
+                    _static_fallbacks[ds["label"]] = path
+
+    is_province = (loc_type == "province")
+    filter_field = "Province" if is_province else "District"
+
+    counts = {}
+    poi_breakdown = {}
+
+    for ds in _OV_DATASETS:
+        label = ds["label"]
+        count = None
+
+        # Try live count first
+        url = _url_map.get(label)
+        if url:
+            try:
+                if is_province:
+                    count = hub.count_features(url, province_filter=location)
+                else:
+                    count = hub.count_features(url, district_filter=location)
+            except Exception:
+                count = None
+
+        # Fallback: count from static file
+        if count is None and label in _static_fallbacks:
+            try:
+                with open(_static_fallbacks[label]) as _f:
+                    _gj = _json.load(_f)
+                _feats = _gj.get("features", [])
+                _filtered = [
+                    f for f in _feats
+                    if location.lower() in (
+                        (f.get("properties") or {}).get(filter_field, "") or
+                        (f.get("properties") or {}).get(filter_field.upper(), "") or ""
+                    ).lower()
+                ]
+                count = len(_filtered)
+
+                # For POI, also break down by Type
+                if label == "Points of Interest" and _filtered:
+                    for f in _filtered:
+                        t = (f.get("properties") or {}).get("Type", "Other") or "Other"
+                        poi_breakdown[t] = poi_breakdown.get(t, 0) + 1
+            except Exception:
+                count = None
+
+        if count is not None:
+            counts[label] = count
+
+    if not counts:
+        return
+
+    st.markdown(f"#### 📊 {location} — Area Overview")
+    st.caption(
+        f"Key infrastructure counts for **{location}** {'Province' if is_province else 'District'} "
+        f"(from live GeoHub data or pre-loaded sample):"
+    )
+
+    _cols = st.columns(len(_OV_DATASETS))
+    for i, ds in enumerate(_OV_DATASETS):
+        label = ds["label"]
+        if label in counts:
+            _cols[i].metric(
+                label=f"{ds['emoji']} {label}",
+                value=f"{counts[label]:,}",
+            )
+
+    # POI breakdown by type if available
+    if poi_breakdown:
+        top_types = sorted(poi_breakdown.items(), key=lambda x: x[1], reverse=True)[:6]
+        _type_md = "  ".join(f"**{t}**: {c}" for t, c in top_types)
+        st.caption(f"POI breakdown — {_type_md}")
+
+    st.markdown("---")
+
+
 def _render_charts_only(sample_features: list, ds_name: str, key_prefix: str = ""):
     """Bar charts for categorical fields; line/bar chart for numeric fields as fallback."""
     import pandas as _pd
@@ -466,90 +605,55 @@ claude = get_claude()
 builder = get_builder()
 
 # ---------------------------------------------------------------------------
-# Token refresh UI — shown in sidebar when token is missing or expired
+# Sidebar header — datasets are now public, token is optional
 # ---------------------------------------------------------------------------
-_token_missing = not _hub_client_module._ARCGIS_TOKEN
-_token_expired = _hub_client_module.token_expired
+import datetime as _dt
 
 with st.sidebar:
     st.markdown("### Zambia GeoHub")
-    if _token_missing or _token_expired:
-        if _token_expired:
-            st.warning("🔑 Access token expired — private datasets unavailable.")
-        else:
-            st.info("🔑 No access token — some datasets require authentication.")
+    st.success("🌍 All datasets are publicly accessible — no login required")
 
+    # Optional token panel for advanced users who have credentials to access
+    # any remaining private or restricted layers
+    with st.expander("🔑 Advanced: Use authentication token", expanded=False):
+        _token_expired = _hub_client_module.token_expired
+        _token_set = bool(_hub_client_module._ARCGIS_TOKEN)
+        if _token_expired:
+            st.warning("Your saved token has expired.")
+        elif _token_set:
+            _token_set_date = st.session_state.get("token_set_date")
+            if _token_set_date:
+                _set_date = _dt.date.fromisoformat(_token_set_date)
+                _expiry_date = _set_date + _dt.timedelta(days=14)
+                _days_left = (_expiry_date - _dt.date.today()).days
+                if _days_left <= 0:
+                    st.warning("Token likely expired — paste a fresh one below.")
+                elif _days_left <= 3:
+                    st.warning(f"Token expires in {_days_left} day(s). Refresh soon.")
+                else:
+                    st.caption(f"Token active · expires {_expiry_date.strftime('%d %b %Y')}")
         st.markdown(
-            "**To unlock all datasets:**\n\n"
-            "1. Go to [zmb-geowb.hub.arcgis.com](https://zmb-geowb.hub.arcgis.com) "
-            "and make sure you are logged in\n"
-            "2. Press **F12** → **Network** tab → reload the page\n"
-            "3. Filter by `token` → click `self?f=json&token=...`\n"
-            "4. Copy the long string after `token=` in the Request URL\n"
-            "5. Paste it below"
+            "Paste a GeoHub token to access any restricted layers.\n\n"
+            "To obtain: log in at [zmb-geowb.hub.arcgis.com](https://zmb-geowb.hub.arcgis.com), "
+            "press **F12** → Network tab → filter by `token` → copy the token string."
         )
         _new_token = st.text_area(
-            "Paste the full URL or just the token",
-            height=80,
-            placeholder="https://services.arcgis.com/...?token=abc123... or just the token",
+            "Token", height=70,
+            placeholder="Paste token or full URL here",
             key="token_input",
+            label_visibility="collapsed",
         )
-        if st.button("Apply Token", type="primary", use_container_width=True):
+        if st.button("Apply Token", type="primary", use_container_width=True, key="apply_tok"):
             _raw = _new_token.strip()
             if _raw:
-                # Auto-extract token if user pasted a full URL
                 if "token=" in _raw:
                     _raw = _raw.split("token=", 1)[1].split("&")[0].strip()
-                import datetime as _dt
                 _hub_client_module.set_token(_raw)
                 st.session_state["token_set_date"] = _dt.date.today().isoformat()
-                st.success("✅ Token saved — private datasets are now unlocked.")
+                st.success("Token saved.")
                 st.rerun()
             else:
-                st.error("Please paste a URL or token first.")
-    else:
-        st.success("🔓 Authenticated — all datasets available")
-
-        # Token expiry reminder — stored when token is first applied
-        import datetime as _dt
-        _token_set_date = st.session_state.get("token_set_date")
-        if not _token_set_date:
-            # Default: assume token was set today if not recorded
-            st.session_state["token_set_date"] = _dt.date.today().isoformat()
-            _token_set_date = st.session_state["token_set_date"]
-
-        _set_date = _dt.date.fromisoformat(_token_set_date)
-        _expiry_date = _set_date + _dt.timedelta(days=14)
-        _days_left = (_expiry_date - _dt.date.today()).days
-
-        if _days_left <= 0:
-            st.error(f"⚠️ Token likely expired — please refresh it now.")
-        elif _days_left <= 3:
-            st.warning(f"⏰ Token expires in **{_days_left} day(s)** ({_expiry_date.strftime('%d %b %Y')}). Refresh soon.")
-        else:
-            st.caption(f"🔑 Token expires: {_expiry_date.strftime('%d %b %Y')} ({_days_left} days left)")
-
-        if st.button("Update Token", use_container_width=True):
-            st.session_state["_show_token_input"] = True
-
-        if st.session_state.get("_show_token_input"):
-            _new_token2 = st.text_area(
-                "Paste the full URL or just the token",
-                height=80,
-                placeholder="https://services.arcgis.com/...?token=abc123... or just the token",
-                key="token_update",
-            )
-            if st.button("Save New Token", type="primary", use_container_width=True):
-                _raw2 = _new_token2.strip()
-                if _raw2:
-                    # Auto-extract token if user pasted a full URL
-                    if "token=" in _raw2:
-                        _raw2 = _raw2.split("token=", 1)[1].split("&")[0].strip()
-                    _hub_client_module.set_token(_raw2)
-                    st.session_state["_show_token_input"] = False
-                    st.session_state["token_set_date"] = _dt.date.today().isoformat()
-                    st.success("✅ Token updated.")
-                    st.rerun()
+                st.error("Please paste a token first.")
 
     # ------------------------------------------------------------------
     # Draw tool — compact map in sidebar, always visible
@@ -2253,6 +2357,13 @@ def process_question(question: str):
     else:
         with st.chat_message("assistant"):
             st.markdown('<span class="intent-badge intent-chat">Answer</span>', unsafe_allow_html=True)
+
+            # District / Province overview card — shown when the question names a location,
+            # giving the user context about the area even if they're unfamiliar with it.
+            if _location and _loc_type in ("district", "province"):
+                _ov_key = f"ov_{_location}_{len(st.session_state.messages)}"
+                with st.spinner(f"Loading {_location} overview..."):
+                    _render_location_overview(_location, _loc_type, hub, key_prefix=_ov_key)
 
             # Build multi-turn message history for Claude so follow-up questions
             # reference previous answers (e.g. "how many of those are in Lusaka?")

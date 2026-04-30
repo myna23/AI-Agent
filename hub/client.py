@@ -411,6 +411,44 @@ class HubClient:
     def get_field_metadata(self, dataset: dict) -> list:
         return dataset.get("fields", [])
 
+    def count_features(
+        self,
+        feature_url: str,
+        district_filter: str = "",
+        province_filter: str = "",
+    ) -> int:
+        """
+        Return an exact feature count from a FeatureServer layer using
+        returnCountOnly=true.  No geometry is downloaded.
+
+        Raises RuntimeError on network failure so callers can fall back.
+        """
+        base = feature_url.rstrip("/")
+        if base.endswith("/query"):
+            base = base[:-6]
+
+        where = "1=1"
+        if district_filter:
+            where = f"District='{district_filter}' OR DISTRICT='{district_filter}'"
+        elif province_filter:
+            where = f"Province='{province_filter}' OR PROVINCE='{province_filter}'"
+
+        params = {
+            "where": where,
+            "returnCountOnly": "true",
+            "f": "json",
+            **_token_params(base),
+        }
+        try:
+            resp = self.session.get(f"{base}/query", params=params, timeout=REQUEST_TIMEOUT)
+            resp.raise_for_status()
+            data = resp.json()
+            if "error" in data:
+                raise RuntimeError(f"ArcGIS error: {data['error']}")
+            return int(data.get("count", 0))
+        except Exception as exc:
+            raise RuntimeError(f"count_features failed: {exc}") from exc
+
     # ------------------------------------------------------------------
     # Catalog loading
     # ------------------------------------------------------------------
