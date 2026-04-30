@@ -202,7 +202,9 @@ def _render_ondemand_panel(msg_idx: int, msg: dict, ctx_layers: list = None):
                 buffer_center=msg.get("buffer_center"),
                 buffer_radius_km=msg.get("buffer_radius_km"),
                 buffer_label=(
-                    f"{msg.get('buffer_radius_km')} km radius — {msg.get('location', '')}"
+                    (f"{msg.get('buffer_radius_km')} km radius — {msg.get('location')}"
+                     if msg.get("location") else
+                     f"{msg.get('buffer_radius_km')} km radius")
                     if msg.get("buffer_radius_km") else ""
                 ),
                 draw_bbox=msg.get("draw_bbox"),
@@ -945,6 +947,12 @@ def _extract_location(text: str):
     for prov in _ZAMBIA_PROVINCES:
         if prov in t:
             return (prov.title(), "province")
+    # Look for "within X km/miles of <place>" first (most specific radius pattern)
+    match_of = _re.search(r'\bof\s+([a-zA-Z][a-z]{2,}(?:\s+[a-zA-Z][a-z]{2,})?)', text, _re.IGNORECASE)
+    if match_of:
+        loc = _re.sub(r'\s+(?:district|province|region)\s*$', '', match_of.group(1).strip(), flags=_re.IGNORECASE).title()
+        if loc.lower() not in {"zambia", "the", "all", "africa"}:
+            return (loc, "district")
     # Look for "in/within/around/near/at <place>" — case-insensitive
     match = _re.search(r'\b(?:in|within|around|near|at)\s+([a-zA-Z][a-z]{2,}(?:\s+[a-zA-Z][a-z]{2,})?)', text, _re.IGNORECASE)
     if match:
