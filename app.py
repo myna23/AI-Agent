@@ -639,6 +639,69 @@ with st.sidebar:
     st.markdown("### Zambia GeoHub")
 
     # ------------------------------------------------------------------
+    # AI Model Settings
+    # ------------------------------------------------------------------
+    with st.expander("⚙️ AI Model", expanded=False):
+        _cur_provider = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
+        _new_provider = st.selectbox(
+            "Provider",
+            options=list(PROVIDERS.keys()),
+            index=list(PROVIDERS.keys()).index(_cur_provider),
+            key="ai_provider_select",
+        )
+        _model_list    = PROVIDERS[_new_provider]["models"]
+        _cur_model     = st.session_state.get("ai_model", DEFAULT_MODEL)
+        _model_default = _cur_model if _cur_model in _model_list else _model_list[0]
+        _new_model = st.selectbox(
+            "Model",
+            options=_model_list,
+            index=_model_list.index(_model_default),
+            key="ai_model_select",
+        )
+        _env_var  = PROVIDERS[_new_provider]["env_key"]
+        _docs_url = PROVIDERS[_new_provider]["docs_url"]
+        _ss_key   = f"ai_key_{_new_provider}"
+        _new_key  = st.text_input(
+            "API Key",
+            value=st.session_state.get(_ss_key, ""),
+            type="password",
+            placeholder=f"{_env_var}…",
+            key=f"ai_key_input_{_new_provider}",
+        )
+        st.markdown(f"[Get key ↗]({_docs_url})", unsafe_allow_html=False)
+        if st.button("Apply", use_container_width=True, key="ai_apply_btn"):
+            if not _new_key.strip():
+                st.warning("Enter an API key first.")
+            else:
+                st.session_state["ai_provider"] = _new_provider
+                st.session_state["ai_model"]    = _new_model
+                st.session_state[_ss_key]       = _new_key.strip()
+                import os as _os
+                _env_path = _os.path.join(_os.path.dirname(__file__), ".env")
+                try:
+                    try:
+                        with open(_env_path) as _f:
+                            _env_content = _f.read()
+                    except FileNotFoundError:
+                        _env_content = ""
+                    if f"{_env_var}=" in _env_content:
+                        _env_content = "\n".join(
+                            f"{_env_var}={_new_key.strip()}" if _l.startswith(f"{_env_var}=") else _l
+                            for _l in _env_content.splitlines()
+                        ) + "\n"
+                    else:
+                        _env_content = _env_content.rstrip() + f"\n{_env_var}={_new_key.strip()}\n"
+                    with open(_env_path, "w") as _f:
+                        _f.write(_env_content)
+                except Exception:
+                    pass
+                st.success(f"✅ {_new_provider} — {_new_model}")
+                st.rerun()
+        _active_p = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
+        _active_m = st.session_state.get("ai_model", DEFAULT_MODEL)
+        st.caption(f"Active: **{_active_p}** › {_active_m}")
+
+    # ------------------------------------------------------------------
     # Draw tool — compact map in sidebar, always visible
     # ------------------------------------------------------------------
     st.markdown("---")
@@ -845,80 +908,6 @@ with st.sidebar:
                 st.session_state.pop("uploaded_img_mime", None)
                 st.session_state.pop("uploaded_img_name", None)
                 st.rerun()
-
-# ---------------------------------------------------------------------------
-# AI Model Settings — separate sidebar block (avoids Streamlit tab rendering quirk)
-# ---------------------------------------------------------------------------
-with st.sidebar:
-    st.markdown("---")
-    with st.expander("⚙️ AI Model Settings", expanded=False):
-        st.caption("Switch AI provider or model. Changes take effect immediately.")
-
-        _cur_provider = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
-        _new_provider = st.selectbox(
-            "Provider",
-            options=list(PROVIDERS.keys()),
-            index=list(PROVIDERS.keys()).index(_cur_provider),
-            key="ai_provider_select",
-        )
-
-        _model_list = PROVIDERS[_new_provider]["models"]
-        _cur_model  = st.session_state.get("ai_model", DEFAULT_MODEL)
-        _model_default = _cur_model if _cur_model in _model_list else _model_list[0]
-        _new_model = st.selectbox(
-            "Model",
-            options=_model_list,
-            index=_model_list.index(_model_default),
-            key="ai_model_select",
-        )
-
-        _env_var  = PROVIDERS[_new_provider]["env_key"]
-        _docs_url = PROVIDERS[_new_provider]["docs_url"]
-        _ss_key   = f"ai_key_{_new_provider}"
-        st.caption(f"API key for **{_new_provider}** (`{_env_var}`)")
-        _new_key = st.text_input(
-            "API Key",
-            value=st.session_state.get(_ss_key, ""),
-            type="password",
-            placeholder=f"Paste {_env_var} here…",
-            key=f"ai_key_input_{_new_provider}",
-            label_visibility="collapsed",
-        )
-        st.markdown(f"[Get API key ↗]({_docs_url})", unsafe_allow_html=False)
-
-        if st.button("Apply", use_container_width=True, key="ai_apply_btn"):
-            if not _new_key.strip():
-                st.warning("Enter an API key first.")
-            else:
-                st.session_state["ai_provider"] = _new_provider
-                st.session_state["ai_model"]    = _new_model
-                st.session_state[_ss_key]       = _new_key.strip()
-                import os as _os
-                _env_path = _os.path.join(_os.path.dirname(__file__), ".env")
-                try:
-                    try:
-                        with open(_env_path) as _f:
-                            _env_content = _f.read()
-                    except FileNotFoundError:
-                        _env_content = ""
-                    if f"{_env_var}=" in _env_content:
-                        _lines = [
-                            f"{_env_var}={_new_key.strip()}" if _l.startswith(f"{_env_var}=") else _l
-                            for _l in _env_content.splitlines()
-                        ]
-                        _env_content = "\n".join(_lines) + "\n"
-                    else:
-                        _env_content = _env_content.rstrip() + f"\n{_env_var}={_new_key.strip()}\n"
-                    with open(_env_path, "w") as _f:
-                        _f.write(_env_content)
-                except Exception:
-                    pass
-                st.success(f"✅ Switched to **{_new_provider} — {_new_model}**")
-                st.rerun()
-
-        _active_p = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
-        _active_m = st.session_state.get("ai_model",    DEFAULT_MODEL)
-        st.caption(f"Active: **{_active_p}** › {_active_m}")
 
 # ---------------------------------------------------------------------------
 # Context detection — dataset passed from Hub iframe embed
