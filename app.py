@@ -16,7 +16,7 @@ from streamlit_folium import st_folium
 
 from hub.client import HubClient
 import hub.client as _hub_client_module
-from ai.model_client import ModelClient, PROVIDERS, DEFAULT_PROVIDER, DEFAULT_MODEL
+from ai.model_client import ModelClient, PROVIDERS, DEFAULT_PROVIDER, DEFAULT_MODEL, fetch_available_models
 from ai.prompts import (
     chatbot_system_prompt,
     chatbot_user_prompt,
@@ -641,65 +641,106 @@ with st.sidebar:
     # ------------------------------------------------------------------
     # AI Model Settings
     # ------------------------------------------------------------------
+    import os as _os
     st.markdown("#### ⚙️ AI Model")
-    _cur_provider = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
-    _new_provider = st.selectbox(
-        "Provider",
-        options=list(PROVIDERS.keys()),
-        index=list(PROVIDERS.keys()).index(_cur_provider),
-        key="ai_provider_select",
+
+    # Build combined "Provider — model" option list.
+    # Use live model list from session state (refreshed by admin after key entry).
+    _all_options: list = []
+    for _prov, _pinfo in PROVIDERS.items():
+        _live_models = st.session_state.get(f"_models_{_prov}", _pinfo["models"])
+        for _mod in _live_models:
+            _all_options.append(f"{_prov} — {_mod}")
+
+    _cur_p   = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
+    _cur_m   = st.session_state.get("ai_model",    DEFAULT_MODEL)
+    _cur_sel = f"{_cur_p} — {_cur_m}"
+    _sel_idx = _all_options.index(_cur_sel) if _cur_sel in _all_options else 0
+
+    _selected = st.selectbox(
+        "Provider & Model",
+        options=_all_options,
+        index=_sel_idx,
+        key="ai_model_combined",
     )
-    _model_list    = PROVIDERS[_new_provider]["models"]
-    _cur_model     = st.session_state.get("ai_model", DEFAULT_MODEL)
-    _model_default = _cur_model if _cur_model in _model_list else _model_list[0]
-    _new_model = st.selectbox(
-        "Model",
-        options=_model_list,
-        index=_model_list.index(_model_default),
-        key="ai_model_select",
-    )
-    _env_var  = PROVIDERS[_new_provider]["env_key"]
-    _docs_url = PROVIDERS[_new_provider]["docs_url"]
-    _ss_key   = f"ai_key_{_new_provider}"
-    _new_key  = st.text_input(
-        f"API Key ({_env_var})",
-        value=st.session_state.get(_ss_key, ""),
-        type="password",
-        placeholder=f"Paste key here…",
-        key=f"ai_key_input_{_new_provider}",
-    )
-    st.markdown(f"[Get key ↗]({_docs_url})", unsafe_allow_html=False)
-    if st.button("Apply", use_container_width=True, key="ai_apply_btn"):
-        if not _new_key.strip():
-            st.warning("Enter an API key first.")
-        else:
-            st.session_state["ai_provider"] = _new_provider
-            st.session_state["ai_model"]    = _new_model
-            st.session_state[_ss_key]       = _new_key.strip()
-            import os as _os
-            _env_path = _os.path.join(_os.path.dirname(__file__), ".env")
-            try:
-                try:
-                    with open(_env_path) as _f:
-                        _env_content = _f.read()
-                except FileNotFoundError:
-                    _env_content = ""
-                if f"{_env_var}=" in _env_content:
-                    _env_content = "\n".join(
-                        f"{_env_var}={_new_key.strip()}" if _l.startswith(f"{_env_var}=") else _l
-                        for _l in _env_content.splitlines()
-                    ) + "\n"
+    _sel_prov, _sel_mod = _selected.split(" — ", 1)
+
+    # Apply model change immediately (no key needed to switch models)
+    if _sel_prov != _cur_p or _sel_mod != _cur_m:
+        st.session_state["ai_provider"] = _sel_prov
+        st.session_state["ai_model"]    = _sel_mod
+        st.rerun()
+
+    st.caption(f"Active: **{_cur_p}** › {_cur_m}")
+
+    # ------ Admin-only: API key management ------
+    _admin_pin    = _os.getenv("ADMIN_PIN", "zambia2025")
+    _admin_open   = st.session_state.get("_admin_unlocked", False)
+
+    if not _admin_open:
+        _pc, _bc = st.columns([3, 1])
+        with _pc:
+            _pin_val = st.text_input(
+                "Admin PIN", type="password",
+                placeholder="Admin PIN…", label_visibility="collapsed",
+                key="admin_pin_input",
+            )
+        with _bc:
+            if st.button("🔓", key="admin_unlock_btn", use_container_width=True):
+                if _pin_val == _admin_pin:
+                    st.session_state["_admin_unlocked"] = True
+                    st.rerun()
                 else:
-                    _env_content = _env_content.rstrip() + f"\n{_env_var}={_new_key.strip()}\n"
-                with open(_env_path, "w") as _f:
-                    _f.write(_env_content)
-            except Exception:
-                pass
-            st.success(f"✅ {_new_provider} — {_new_model}")
-            st.rerun()
-    _active_p = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
-    _active_m = st.session_state.get("ai_model", DEFAULT_MODEL)
-    st.caption(f"Active: **{_active_p}** › {_active_m}")
+                    st.error("Wrong PIN")
+    else:
+        st.caption("🔓 Admin — API Key Management")
+        _adm_prov  = _sel_prov
+        _adm_env   = PROVIDERS[_adm_prov]["env_key"]
+        _adm_docs  = PROVIDERS[_adm_prov]["docs_url"]
+        _adm_ss    = f"ai_key_{_adm_prov}"
+        _adm_key   = st.text_input(
+            f"API Key ({_adm_env})",
+            value=st.session_state.get(_adm_ss, ""),
+            type="password",
+            placeholder="Paste key here…",
+            key=f"ai_key_input_{_adm_prov}",
+        )
+        st.markdown(f"[Get key ↗]({_adm_docs})")
+        _c1, _c2 = st.columns(2)
+        with _c1:
+            if st.button("Apply & Refresh", use_container_width=True, key="ai_apply_btn"):
+                if not _adm_key.strip():
+                    st.warning("Enter a key first.")
+                else:
+                    st.session_state[_adm_ss] = _adm_key.strip()
+                    # Fetch live model list for this provider
+                    _live = fetch_available_models(_adm_prov, _adm_key.strip())
+                    st.session_state[f"_models_{_adm_prov}"] = _live
+                    # Persist key to .env
+                    _env_path = _os.path.join(_os.path.dirname(__file__), ".env")
+                    try:
+                        try:
+                            with open(_env_path) as _f:
+                                _ec = _f.read()
+                        except FileNotFoundError:
+                            _ec = ""
+                        if f"{_adm_env}=" in _ec:
+                            _ec = "\n".join(
+                                f"{_adm_env}={_adm_key.strip()}" if _l.startswith(f"{_adm_env}=") else _l
+                                for _l in _ec.splitlines()
+                            ) + "\n"
+                        else:
+                            _ec = _ec.rstrip() + f"\n{_adm_env}={_adm_key.strip()}\n"
+                        with open(_env_path, "w") as _f:
+                            _f.write(_ec)
+                    except Exception:
+                        pass
+                    st.success(f"✅ {len(_live)} models loaded")
+                    st.rerun()
+        with _c2:
+            if st.button("🔒 Lock", use_container_width=True, key="admin_lock_btn"):
+                st.session_state["_admin_unlocked"] = False
+                st.rerun()
 
     # ------------------------------------------------------------------
     # Draw tool — compact map in sidebar, always visible

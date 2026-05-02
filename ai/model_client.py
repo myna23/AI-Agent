@@ -37,6 +37,7 @@ PROVIDERS: dict[str, dict] = {
         "package": "openai",
         "docs_url": "https://platform.openai.com/api-keys",
     },
+
     "Google (Gemini)": {
         "models": [
             "gemini-2.0-flash",
@@ -51,6 +52,49 @@ PROVIDERS: dict[str, dict] = {
 
 DEFAULT_PROVIDER = "Anthropic (Claude)"
 DEFAULT_MODEL    = "claude-sonnet-4-5"
+
+
+def fetch_available_models(provider: str, api_key: str) -> list:
+    """
+    Try to fetch the live model list from the provider API.
+    Falls back to the hardcoded list in PROVIDERS if the call fails or
+    the library is not installed.
+    """
+    fallback = PROVIDERS[provider]["models"]
+    if not api_key:
+        return fallback
+    try:
+        if provider == "Anthropic (Claude)":
+            import anthropic
+            client = anthropic.Anthropic(api_key=api_key)
+            data = client.models.list(limit=50)
+            ids = [m.id for m in data.data]
+            return ids if ids else fallback
+
+        if provider == "OpenAI (GPT)":
+            import openai
+            client = openai.OpenAI(api_key=api_key)
+            data = client.models.list()
+            # Keep only chat/GPT models, newest first
+            ids = sorted(
+                [m.id for m in data.data if m.id.startswith(("gpt-4", "gpt-3.5", "o1", "o3"))],
+                reverse=True,
+            )
+            return ids[:15] if ids else fallback
+
+        if provider == "Google (Gemini)":
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            ids = [
+                m.name.replace("models/", "")
+                for m in genai.list_models()
+                if "generateContent" in (m.supported_generation_methods or [])
+            ]
+            return ids if ids else fallback
+
+    except Exception:
+        pass
+    return fallback
 
 
 class ModelClient:
