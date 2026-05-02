@@ -106,13 +106,15 @@ def chatbot_user_prompt(
         )
         _is_real_guid = bool(_re.fullmatch(r"[0-9a-f]{32}", _item_id))
         if _is_real_guid:
-            _hub_link = f"https://zmb-geowb.hub.arcgis.com/datasets/{_item_id}"
+            # Hub dataset pages use {itemId}_0 format (layer index suffix).
+            # hub.arcgis.com works reliably for all public datasets.
+            _hub_link = f"https://hub.arcgis.com/datasets/{_item_id}_0/about"
         else:
             # Fallback: search by a cleaned version of the dataset name
             _ds_name = ds["name"]
             _ds_name = _re.sub(r'^(ZMB\s*[-–]\s*|GRID3\s+ZMB\s+|GRID3\s+|Zambia\s+)', '', _ds_name, flags=_re.I)
             _ds_name = _re.sub(r'\s+v\d[\d.]*$|\s+Version\s*\d+.*$', '', _ds_name, flags=_re.I).strip(" -–—")[:60]
-            _hub_link = f"https://zmb-geowb.hub.arcgis.com/search?q={_up.quote_plus(_ds_name)}&collection=dataset" if _ds_name else ""
+            _hub_link = f"https://hub.arcgis.com/search?q={_up.quote_plus(_ds_name)}+zambia&collection=dataset" if _ds_name else ""
         dataset_context += (
             f"\nDataset {i}: {ds['name']}\n"
             f"  Description: {ds['description'][:300]}\n"

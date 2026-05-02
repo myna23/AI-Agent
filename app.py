@@ -2431,9 +2431,11 @@ def process_question(question: str):
                                 if "_" in _raw_id and _raw_id.rsplit("_", 1)[1].isdigit()
                                 else _raw_id
                             )
+                            import re as _re_app
+                            _is_guid = bool(_re_app.fullmatch(r"[0-9a-f]{32}", _item_id))
                             _link = (
-                                f" — [View on GeoHub ↗](https://zmb-geowb.hub.arcgis.com/datasets/{_item_id})"
-                                if _item_id else ""
+                                f" — [View on GeoHub ↗](https://hub.arcgis.com/datasets/{_item_id}_0/about)"
+                                if _is_guid else ""
                             )
                             st.markdown(f"- **{d['name']}**{_link}  \n  {d['description'][:180]}")
 
