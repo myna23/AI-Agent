@@ -846,9 +846,10 @@ with st.sidebar:
                 st.session_state.pop("uploaded_img_name", None)
                 st.rerun()
 
-    # ------------------------------------------------------------------
-    # AI Model Settings
-    # ------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# AI Model Settings — separate sidebar block (avoids Streamlit tab rendering quirk)
+# ---------------------------------------------------------------------------
+with st.sidebar:
     st.markdown("---")
     with st.expander("⚙️ AI Model Settings", expanded=False):
         st.caption("Switch AI provider or model. Changes take effect immediately.")
@@ -892,7 +893,6 @@ with st.sidebar:
                 st.session_state["ai_provider"] = _new_provider
                 st.session_state["ai_model"]    = _new_model
                 st.session_state[_ss_key]       = _new_key.strip()
-                # Persist to .env so it survives restarts
                 import os as _os
                 _env_path = _os.path.join(_os.path.dirname(__file__), ".env")
                 try:
@@ -901,15 +901,14 @@ with st.sidebar:
                             _env_content = _f.read()
                     except FileNotFoundError:
                         _env_content = ""
-                    for _var, _val in [(_env_var, _new_key.strip())]:
-                        if f"{_var}=" in _env_content:
-                            _lines = [
-                                f"{_var}={_val}" if _l.startswith(f"{_var}=") else _l
-                                for _l in _env_content.splitlines()
-                            ]
-                            _env_content = "\n".join(_lines) + "\n"
-                        else:
-                            _env_content = _env_content.rstrip() + f"\n{_var}={_val}\n"
+                    if f"{_env_var}=" in _env_content:
+                        _lines = [
+                            f"{_env_var}={_new_key.strip()}" if _l.startswith(f"{_env_var}=") else _l
+                            for _l in _env_content.splitlines()
+                        ]
+                        _env_content = "\n".join(_lines) + "\n"
+                    else:
+                        _env_content = _env_content.rstrip() + f"\n{_env_var}={_new_key.strip()}\n"
                     with open(_env_path, "w") as _f:
                         _f.write(_env_content)
                 except Exception:
