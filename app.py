@@ -16,7 +16,7 @@ from streamlit_folium import st_folium
 
 from hub.client import HubClient
 import hub.client as _hub_client_module
-from ai.claude_client import ClaudeClient
+from ai.model_client import ModelClient, PROVIDERS, DEFAULT_PROVIDER, DEFAULT_MODEL
 from ai.prompts import (
     chatbot_system_prompt,
     chatbot_user_prompt,
@@ -595,14 +595,39 @@ input.addEventListener('keydown', e => { if (e.key === 'Enter') sendBtn.click();
 def get_hub(_v=6): return HubClient()
 
 @st.cache_resource(show_spinner=False)
-def get_claude(_v=3): return ClaudeClient()
+def get_ai_client(provider: str, model: str, api_key_hash: str):
+    """Cached by (provider, model, hash of key) so a new key invalidates the cache."""
+    return ModelClient(provider, model, api_key_hash)
 
 @st.cache_resource(show_spinner=False)
 def get_builder(_v=3): return ReportBuilder()
 
 hub = get_hub()
-claude = get_claude()
 builder = get_builder()
+
+def _resolve_ai_key(provider: str) -> str:
+    """Read API key: session state first, then .env / Streamlit secrets."""
+    from ai.model_client import PROVIDERS
+    env_var = PROVIDERS[provider]["env_key"]
+    # Session state key set by the settings UI
+    ss_key = f"ai_key_{provider}"
+    if st.session_state.get(ss_key, "").strip():
+        return st.session_state[ss_key].strip()
+    # Environment / Streamlit secrets
+    import os
+    key = os.getenv(env_var, "")
+    if not key:
+        try:
+            key = st.secrets.get(env_var, "")
+        except Exception:
+            pass
+    return key
+
+_ai_provider = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
+_ai_model    = st.session_state.get("ai_model",    DEFAULT_MODEL)
+_ai_key      = _resolve_ai_key(_ai_provider)
+# Cache key includes the actual key value so changing it invalidates the cache
+claude = get_ai_client(_ai_provider, _ai_model, _ai_key)
 
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
@@ -820,6 +845,81 @@ with st.sidebar:
                 st.session_state.pop("uploaded_img_mime", None)
                 st.session_state.pop("uploaded_img_name", None)
                 st.rerun()
+
+    # ------------------------------------------------------------------
+    # AI Model Settings
+    # ------------------------------------------------------------------
+    st.markdown("---")
+    with st.expander("⚙️ AI Model Settings", expanded=False):
+        st.caption("Switch AI provider or model. Changes take effect immediately.")
+
+        _cur_provider = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
+        _new_provider = st.selectbox(
+            "Provider",
+            options=list(PROVIDERS.keys()),
+            index=list(PROVIDERS.keys()).index(_cur_provider),
+            key="ai_provider_select",
+        )
+
+        _model_list = PROVIDERS[_new_provider]["models"]
+        _cur_model  = st.session_state.get("ai_model", DEFAULT_MODEL)
+        _model_default = _cur_model if _cur_model in _model_list else _model_list[0]
+        _new_model = st.selectbox(
+            "Model",
+            options=_model_list,
+            index=_model_list.index(_model_default),
+            key="ai_model_select",
+        )
+
+        _env_var  = PROVIDERS[_new_provider]["env_key"]
+        _docs_url = PROVIDERS[_new_provider]["docs_url"]
+        _ss_key   = f"ai_key_{_new_provider}"
+        st.caption(f"API key for **{_new_provider}** (`{_env_var}`)")
+        _new_key = st.text_input(
+            "API Key",
+            value=st.session_state.get(_ss_key, ""),
+            type="password",
+            placeholder=f"Paste {_env_var} here…",
+            key=f"ai_key_input_{_new_provider}",
+            label_visibility="collapsed",
+        )
+        st.markdown(f"[Get API key ↗]({_docs_url})", unsafe_allow_html=False)
+
+        if st.button("Apply", use_container_width=True, key="ai_apply_btn"):
+            if not _new_key.strip():
+                st.warning("Enter an API key first.")
+            else:
+                st.session_state["ai_provider"] = _new_provider
+                st.session_state["ai_model"]    = _new_model
+                st.session_state[_ss_key]       = _new_key.strip()
+                # Persist to .env so it survives restarts
+                import os as _os
+                _env_path = _os.path.join(_os.path.dirname(__file__), ".env")
+                try:
+                    try:
+                        with open(_env_path) as _f:
+                            _env_content = _f.read()
+                    except FileNotFoundError:
+                        _env_content = ""
+                    for _var, _val in [(_env_var, _new_key.strip())]:
+                        if f"{_var}=" in _env_content:
+                            _lines = [
+                                f"{_var}={_val}" if _l.startswith(f"{_var}=") else _l
+                                for _l in _env_content.splitlines()
+                            ]
+                            _env_content = "\n".join(_lines) + "\n"
+                        else:
+                            _env_content = _env_content.rstrip() + f"\n{_var}={_val}\n"
+                    with open(_env_path, "w") as _f:
+                        _f.write(_env_content)
+                except Exception:
+                    pass
+                st.success(f"✅ Switched to **{_new_provider} — {_new_model}**")
+                st.rerun()
+
+        _active_p = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
+        _active_m = st.session_state.get("ai_model",    DEFAULT_MODEL)
+        st.caption(f"Active: **{_active_p}** › {_active_m}")
 
 # ---------------------------------------------------------------------------
 # Context detection — dataset passed from Hub iframe embed
