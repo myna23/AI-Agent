@@ -15,7 +15,7 @@ import time
 # ---------------------------------------------------------------------------
 # Provider catalogue — shown in the settings UI
 # ---------------------------------------------------------------------------
-PROVIDERS: dict[str, dict] = {
+PROVIDERS = {
     "Anthropic (Claude)": {
         "models": [
             "claude-opus-4-5",
@@ -54,7 +54,7 @@ DEFAULT_PROVIDER = "Anthropic (Claude)"
 DEFAULT_MODEL    = "claude-sonnet-4-5"
 
 
-def fetch_available_models(provider: str, api_key: str) -> list:
+def fetch_available_models(provider, api_key):
     """
     Try to fetch the live model list from the provider API.
     Falls back to the hardcoded list in PROVIDERS if the call fails or
