@@ -221,6 +221,10 @@ class HubClient:
     Searches ArcGIS Online for all public datasets tagged 'zmb'.
     """
 
+    # Module-level cache: layer URL → real 32-char serviceItemId
+    # Populated lazily the first time each dataset is queried.
+    _item_id_cache: dict = {}
+
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({
@@ -247,7 +251,15 @@ class HubClient:
         Loads and caches the full catalog on first call.
         """
         catalog = self._load_catalog()
-        return self._rank(query, catalog)[:max_results]
+        results = self._rank(query, catalog)[:max_results]
+        # Fill in any real IDs already discovered from previous fetch_geojson calls
+        import re as _re
+        for ds in results:
+            url = ds.get("url", "").rstrip("/")
+            cached = HubClient._item_id_cache.get(url, "")
+            if cached and _re.fullmatch(r"[0-9a-f]{32}", cached):
+                ds["id"] = cached
+        return results
 
     # Mapping of user query keywords to POI Type filter values
     _POI_TYPE_MAP = {
@@ -264,6 +276,33 @@ class HubClient:
         "bus stop": "Bus Stop", "prison": "Prison", "mill": "Mill",
     }
 
+    def _discover_item_id(self, layer_url: str) -> str:
+        """
+        Try to read the real ArcGIS item ID (serviceItemId) from the layer
+        metadata endpoint.  Returns a 32-char hex string or "" on failure.
+        Results are cached so each URL is only fetched once per process.
+        """
+        import re as _re
+        if layer_url in HubClient._item_id_cache:
+            return HubClient._item_id_cache[layer_url]
+
+        # Strip query string and trailing slash
+        base = layer_url.split("?")[0].rstrip("/")
+        # Remove trailing layer index so we hit /FeatureServer/N?f=json
+        try:
+            resp = self.session.get(f"{base}?f=json", timeout=8)
+            if resp.status_code == 200:
+                data = resp.json()
+                sid = data.get("serviceItemId", "")
+                if sid and _re.fullmatch(r"[0-9a-f]{32}", sid):
+                    HubClient._item_id_cache[layer_url] = sid
+                    return sid
+        except Exception:
+            pass
+
+        HubClient._item_id_cache[layer_url] = ""
+        return ""
+
     def fetch_geojson(self, feature_url: str, max_features: int = MAX_FEATURES, query_hint: str = "", district_filter: str = "", province_filter: str = "") -> dict:
         """Fetch features from a FeatureServer layer as GeoJSON.
 
@@ -277,6 +316,16 @@ class HubClient:
         base = feature_url.rstrip("/")
         if base.endswith("/query"):
             base = base[:-6]
+
+        # Opportunistically discover the real item ID in the background.
+        # Non-blocking: timeout is short; failure is silently ignored.
+        _real_id = self._discover_item_id(base)
+        if _real_id:
+            # Update any catalog entry whose URL matches this layer
+            for _ds in self._catalog:
+                if _ds.get("url", "").rstrip("/") == base:
+                    _ds["id"] = _real_id
+                    break
 
         # Cap at 30 features — enough for AI analysis and map display,
         # keeps payloads under ~60KB for any geometry type on Streamlit Cloud.
