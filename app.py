@@ -2425,19 +2425,8 @@ def process_question(question: str):
                 if datasets:
                     with st.expander("📂 Data sources"):
                         for d in datasets:
-                            _raw_id = d.get("id", "")
-                            _item_id = (
-                                _raw_id.rsplit("_", 1)[0]
-                                if "_" in _raw_id and _raw_id.rsplit("_", 1)[1].isdigit()
-                                else _raw_id
-                            )
-                            import re as _re_app
-                            _is_guid = bool(_re_app.fullmatch(r"[0-9a-f]{32}", _item_id))
-                            _link = (
-                                f" — [View on GeoHub ↗](https://hub.arcgis.com/datasets/{_item_id}_0/about)"
-                                if _is_guid else ""
-                            )
-                            st.markdown(f"- **{d['name']}**{_link}  \n  {d['description'][:180]}")
+                            st.markdown(f"- **{d['name']}**  \n  {d['description'][:180]}")
+                        st.markdown("[Browse all datasets on Zambia GeoHub ↗](https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb)")
 
             # Append message first, then show on-demand panel using the stored message
             _new_msg = {

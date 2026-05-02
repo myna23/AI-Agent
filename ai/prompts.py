@@ -93,34 +93,15 @@ def chatbot_user_prompt(
     dataset_context = ""
     for i, ds in enumerate(datasets[:5], 1):
         fields_str = ", ".join(f["name"] for f in ds.get("fields", [])[:15])
-        # Build a direct Hub link.
-        # Real item IDs are 32-char hex strings → /datasets/{id} always works.
-        # Placeholder IDs (e.g. "zmb_soil_types") fall back to a name search.
-        import re as _re, urllib.parse as _up
-        _raw_id = ds.get("id", "")
-        # Strip layer suffix (e.g. "abc123_0" → "abc123")
-        _item_id = (
-            _raw_id.rsplit("_", 1)[0]
-            if "_" in _raw_id and _raw_id.rsplit("_", 1)[1].isdigit()
-            else _raw_id
-        )
-        _is_real_guid = bool(_re.fullmatch(r"[0-9a-f]{32}", _item_id))
-        if _is_real_guid:
-            # Hub dataset pages use {itemId}_0 format (layer index suffix).
-            # hub.arcgis.com works reliably for all public datasets.
-            _hub_link = f"https://hub.arcgis.com/datasets/{_item_id}_0/about"
-        else:
-            # Fallback: search by a cleaned version of the dataset name
-            _ds_name = ds["name"]
-            _ds_name = _re.sub(r'^(ZMB\s*[-–]\s*|GRID3\s+ZMB\s+|GRID3\s+|Zambia\s+)', '', _ds_name, flags=_re.I)
-            _ds_name = _re.sub(r'\s+v\d[\d.]*$|\s+Version\s*\d+.*$', '', _ds_name, flags=_re.I).strip(" -–—")[:60]
-            _hub_link = f"https://hub.arcgis.com/search?q={_up.quote_plus(_ds_name)}+zambia&collection=dataset" if _ds_name else ""
+        # Link to the Zambia GeoHub dataset search page.
+        # Always use the Hub search URL — direct dataset page links are fragile
+        # since Hub IDs vary by domain. Stakeholders can browse from the search page.
+        _hub_link = "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb"
         dataset_context += (
             f"\nDataset {i}: {ds['name']}\n"
             f"  Description: {ds['description'][:300]}\n"
         )
-        if _hub_link:
-            dataset_context += f"  Source URL: {_hub_link}\n"
+        dataset_context += f"  Source: Zambia GeoHub — {_hub_link}\n"
         if fields_str:
             dataset_context += f"  Fields: {fields_str}\n"
 

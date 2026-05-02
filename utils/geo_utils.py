@@ -7,7 +7,6 @@ Geospatial utility helpers:
 
 import math
 import folium
-from folium.plugins import MarkerCluster
 
 
 # Zambia center coordinates and default zoom
@@ -393,10 +392,6 @@ def make_folium_map(
     geom_type = first_geom.get("type", "")
 
     if geom_type == "Point":
-        # Use marker clustering for dense datasets (>30 points)
-        use_cluster = len(features) > 30
-        cluster = MarkerCluster(name=dataset_name or "Points").add_to(m) if use_cluster else None
-
         for feat in features:
             geom = feat.get("geometry") or {}
             coords = geom.get("coordinates", [])
@@ -418,7 +413,7 @@ def make_folium_map(
             _tip_loc = props.get("DISTRICT") or props.get("District") or ""
             _tip_parts = [p for p in [_tip_name, _tip_type, _tip_loc] if p]
             _tooltip = " — ".join(_tip_parts) if _tip_parts else "Feature"
-            marker = folium.CircleMarker(
+            folium.CircleMarker(
                 location=[lat, lon],
                 radius=5,
                 color=color,
@@ -427,8 +422,7 @@ def make_folium_map(
                 fill_opacity=0.8,
                 popup=folium.Popup(popup_html, max_width=300),
                 tooltip=_tooltip,
-            )
-            marker.add_to(cluster if use_cluster else m)
+            ).add_to(m)
 
         # Fit bounds: prefer the highlighted district polygon extent, fall back to points
         if highlight_bounds:
