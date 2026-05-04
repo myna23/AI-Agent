@@ -713,7 +713,7 @@ with st.sidebar:
                     st.error("Wrong PIN")
     else:
         st.caption("🔓 Admin — API Key Management")
-        _adm_prov  = _sel_prov
+        _adm_prov  = _cur_p
         _adm_env   = PROVIDERS[_adm_prov]["env_key"]
         _adm_docs  = PROVIDERS[_adm_prov]["docs_url"]
         _adm_ss    = f"ai_key_{_adm_prov}"
