@@ -658,14 +658,16 @@ with st.sidebar:
     _extra_names = [_m for _m in _all_model_map if _m not in _best_names]
     _show_sub    = st.session_state.get("_model_show_sub", _cur_m in _extra_names)
 
-    # Main dropdown: 3 best + "More models →" at bottom
+    # Use a version counter as key suffix — incrementing it forces a fresh widget
+    # render (Streamlit respects index= param on first render of a new key).
+    _kv       = st.session_state.get("_main_kv", 0)
     _main_opts = _best_names + ["More models  →"]
     _main_idx  = _best_names.index(_cur_m) if _cur_m in _best_names else 0
-    _main_sel  = st.selectbox("Model", options=_main_opts, index=_main_idx, key="ai_model_main")
+    _main_sel  = st.selectbox("Model", options=_main_opts, index=_main_idx,
+                               key=f"ai_model_main_{_kv}")
 
     if _main_sel == "More models  →":
-        # Clear widget state so box resets to active model on next render
-        st.session_state.pop("ai_model_main", None)
+        st.session_state["_main_kv"]        = _kv + 1   # new key → fresh render
         st.session_state["_model_show_sub"] = True
         st.rerun()
     elif _main_sel != _cur_m:
