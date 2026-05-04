@@ -18,8 +18,8 @@ import time
 PROVIDERS = {
     "Anthropic (Claude)": {
         "models": [
-            "claude-opus-4-5",
-            "claude-sonnet-4-5",
+            "claude-opus-4-6",
+            "claude-sonnet-4-6",
             "claude-haiku-4-5-20251001",
         ],
         "env_key": "ANTHROPIC_API_KEY",
@@ -30,19 +30,15 @@ PROVIDERS = {
         "models": [
             "gpt-4o",
             "gpt-4o-mini",
-            "gpt-4-turbo",
-            "gpt-3.5-turbo",
         ],
         "env_key": "OPENAI_API_KEY",
         "package": "openai",
         "docs_url": "https://platform.openai.com/api-keys",
     },
-
     "Google (Gemini)": {
         "models": [
             "gemini-2.0-flash",
             "gemini-1.5-pro",
-            "gemini-1.5-flash",
         ],
         "env_key": "GOOGLE_API_KEY",
         "package": "google-generativeai",
@@ -51,7 +47,7 @@ PROVIDERS = {
 }
 
 DEFAULT_PROVIDER = "Anthropic (Claude)"
-DEFAULT_MODEL    = "claude-sonnet-4-5"
+DEFAULT_MODEL    = "claude-sonnet-4-6"
 
 
 def fetch_available_models(provider, api_key):

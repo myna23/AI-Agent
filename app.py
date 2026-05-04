@@ -658,7 +658,7 @@ with st.sidebar:
     _sel_idx = _all_options.index(_cur_sel) if _cur_sel in _all_options else 0
 
     _selected = st.selectbox(
-        "Provider & Model",
+        "Model",
         options=_all_options,
         index=_sel_idx,
         key="ai_model_combined",
