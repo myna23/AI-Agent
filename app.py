@@ -654,39 +654,17 @@ with st.sidebar:
         for _mod in _live:
             _all_model_map[_mod] = _prov
 
+    # Single dropdown with all models — best 3 first, then extras
     _best_names  = [_m for _p, _m in BEST_MODELS]
     _extra_names = [_m for _m in _all_model_map if _m not in _best_names]
-    _show_sub    = st.session_state.get("_model_show_sub", _cur_m in _extra_names)
-
-    # Main dropdown — 3 best models only
-    _main_idx = _best_names.index(_cur_m) if _cur_m in _best_names else 0
-    _main_sel = st.selectbox("Model", options=_best_names, index=_main_idx,
-                              key="ai_model_main")
-    if _main_sel != _cur_m and _cur_m not in _extra_names:
-        st.session_state["ai_provider"]     = _all_model_map.get(_main_sel, DEFAULT_PROVIDER)
-        st.session_state["ai_model"]        = _main_sel
-        st.session_state["_model_show_sub"] = False
+    _all_names   = _best_names + _extra_names
+    _all_idx     = _all_names.index(_cur_m) if _cur_m in _all_names else 0
+    _sel_model   = st.selectbox("Model", options=_all_names, index=_all_idx,
+                                key="ai_model_select")
+    if _sel_model != _cur_m:
+        st.session_state["ai_provider"] = _all_model_map.get(_sel_model, DEFAULT_PROVIDER)
+        st.session_state["ai_model"]    = _sel_model
         st.rerun()
-
-    # "More models" button — toggles a second dropdown directly below
-    _btn_label = "Hide extra models ▲" if _show_sub else "More models ▼"
-    if st.button(_btn_label, key="more_models_btn", use_container_width=True):
-        st.session_state["_model_show_sub"] = not _show_sub
-        st.rerun()
-
-    if _show_sub and _extra_names:
-        _sub_idx = _extra_names.index(_cur_m) if _cur_m in _extra_names else 0
-        _sub_sel = st.selectbox(
-            "Extra models",
-            options=_extra_names,
-            index=_sub_idx,
-            key="ai_model_sub",
-            label_visibility="collapsed",
-        )
-        if _sub_sel != _cur_m:
-            st.session_state["ai_provider"]     = _all_model_map.get(_sub_sel, DEFAULT_PROVIDER)
-            st.session_state["ai_model"]        = _sub_sel
-            st.rerun()
 
     # ------ Admin-only: API key management ------
     _admin_pin    = _os.getenv("ADMIN_PIN", "zambia2025")
