@@ -656,34 +656,32 @@ with st.sidebar:
 
     _best_names  = [_m for _p, _m in BEST_MODELS]
     _extra_names = [_m for _m in _all_model_map if _m not in _best_names]
-    _show_full   = st.session_state.get("_model_show_full", _cur_m not in _best_names)
+    _show_more   = st.session_state.get("_model_show_more", _cur_m not in _best_names)
 
-    if not _show_full:
-        # Default view: 3 best + More models…
-        _opts     = _best_names + ["More models…"]
+    if not _show_more:
+        # Main view: 3 top models + "More models →"
+        _opts     = _best_names + ["More models  →"]
         _drop_idx = _best_names.index(_cur_m) if _cur_m in _best_names else 0
         _selected = st.selectbox("Model", options=_opts, index=_drop_idx, key="ai_model_dropdown")
-        if _selected == "More models…":
-            st.session_state["_model_show_full"] = True
+        if _selected == "More models  →":
+            st.session_state["_model_show_more"] = True
             st.rerun()
+        _sel_mod = _selected
     else:
-        # Expanded view: extra models only + ← Back at top
-        _BACK_OPT = "← Best models"
-        _opts     = [_BACK_OPT] + _extra_names
-        _drop_idx = _extra_names.index(_cur_m) + 1 if _cur_m in _extra_names else 1
-        _selected = st.selectbox("Model", options=_opts, index=_drop_idx, key="ai_model_full")
-        if _selected == _BACK_OPT:
-            st.session_state["_model_show_full"] = False
-            # Reset to default best model if current is not in best list
+        # More models view: additional models + "← Back" at top
+        _opts     = ["← Back"] + _extra_names
+        _drop_idx = (_extra_names.index(_cur_m) + 1) if _cur_m in _extra_names else 1
+        _selected = st.selectbox("Model", options=_opts, index=_drop_idx, key="ai_model_more")
+        if _selected == "← Back":
+            st.session_state["_model_show_more"] = False
             if _cur_m not in _best_names:
                 st.session_state["ai_model"]    = _best_names[0]
                 st.session_state["ai_provider"] = _all_model_map.get(_best_names[0], DEFAULT_PROVIDER)
             st.rerun()
+        _sel_mod = _selected
 
-    _sel_prov = _all_model_map.get(_selected, DEFAULT_PROVIDER)
-    _sel_mod  = _selected
-
-    if _sel_mod not in ("More models…", "← Best models") and (_sel_prov != _cur_p or _sel_mod != _cur_m):
+    _sel_prov = _all_model_map.get(_sel_mod, DEFAULT_PROVIDER)
+    if _sel_prov != _cur_p or _sel_mod != _cur_m:
         st.session_state["ai_provider"] = _sel_prov
         st.session_state["ai_model"]    = _sel_mod
         st.rerun()
