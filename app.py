@@ -647,42 +647,48 @@ with st.sidebar:
     _cur_p = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
     _cur_m = st.session_state.get("ai_model",    DEFAULT_MODEL)
 
-    # --- Top 3 best models (one per provider) as radio buttons ---
+    # Build dropdown: 3 best models + "More models…" separator option
+    _MORE_OPT = "── More models ──"
     _best_labels = [f"{_p} — {_m}" for _p, _m in BEST_MODELS]
-    _cur_best    = f"{_cur_p} — {_cur_m}"
-    _best_idx    = _best_labels.index(_cur_best) if _cur_best in _best_labels else None
+    _cur_sel     = f"{_cur_p} — {_cur_m}"
 
-    # If current selection is in the best list, show radio; else pre-select None
-    _radio_val = st.radio(
-        "Model",
-        options=_best_labels,
-        index=_best_idx if _best_idx is not None else 0,
-        key="ai_best_radio",
-    )
-
-    # "More models" toggle
-    _show_more = st.toggle("More models", value=st.session_state.get("_show_more_models", False), key="ai_more_toggle")
-    st.session_state["_show_more_models"] = _show_more
-
-    _sel_prov, _sel_mod = _radio_val.split(" — ", 1)
-
-    if _show_more:
-        # Full list of all models across all providers
-        _all_options = []
+    # If current model is NOT in the best 3, show all models straight away
+    _showing_all = _cur_sel not in _best_labels
+    if _showing_all:
+        _dropdown_opts = []
         for _prov, _pinfo in PROVIDERS.items():
             _live = st.session_state.get(f"_models_{_prov}", _pinfo["models"])
             for _mod in _live:
-                _all_options.append(f"{_prov} — {_mod}")
-        _cur_sel  = f"{_cur_p} — {_cur_m}"
-        _more_idx = _all_options.index(_cur_sel) if _cur_sel in _all_options else 0
-        _more_val = st.selectbox(
-            "All models",
-            options=_all_options,
+                _dropdown_opts.append(f"{_prov} — {_mod}")
+        _drop_idx = _dropdown_opts.index(_cur_sel) if _cur_sel in _dropdown_opts else 0
+    else:
+        _dropdown_opts = _best_labels + [_MORE_OPT]
+        _drop_idx = _best_labels.index(_cur_sel)
+
+    _selected = st.selectbox(
+        "Model",
+        options=_dropdown_opts,
+        index=_drop_idx,
+        key="ai_model_dropdown",
+    )
+
+    # If "More models…" chosen, rebuild with full list and keep showing it
+    if _selected == _MORE_OPT:
+        _dropdown_opts = []
+        for _prov, _pinfo in PROVIDERS.items():
+            _live = st.session_state.get(f"_models_{_prov}", _pinfo["models"])
+            for _mod in _live:
+                _dropdown_opts.append(f"{_prov} — {_mod}")
+        _more_idx = _dropdown_opts.index(_cur_sel) if _cur_sel in _dropdown_opts else 0
+        _selected = st.selectbox(
+            "Model",
+            options=_dropdown_opts,
             index=_more_idx,
-            key="ai_more_select",
+            key="ai_model_full",
             label_visibility="collapsed",
         )
-        _sel_prov, _sel_mod = _more_val.split(" — ", 1)
+
+    _sel_prov, _sel_mod = _selected.split(" — ", 1)
 
     # Apply change immediately
     if _sel_prov != _cur_p or _sel_mod != _cur_m:
