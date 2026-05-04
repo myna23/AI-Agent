@@ -16,7 +16,7 @@ from streamlit_folium import st_folium
 
 from hub.client import HubClient
 import hub.client as _hub_client_module
-from ai.model_client import ModelClient, PROVIDERS, DEFAULT_PROVIDER, DEFAULT_MODEL, fetch_available_models
+from ai.model_client import ModelClient, PROVIDERS, BEST_MODELS, DEFAULT_PROVIDER, DEFAULT_MODEL, fetch_available_models
 from ai.prompts import (
     chatbot_system_prompt,
     chatbot_user_prompt,
@@ -644,34 +644,51 @@ with st.sidebar:
     import os as _os
     st.markdown("#### ⚙️ AI Model")
 
-    # Build combined "Provider — model" option list.
-    # Use live model list from session state (refreshed by admin after key entry).
-    _all_options: list = []
-    for _prov, _pinfo in PROVIDERS.items():
-        _live_models = st.session_state.get(f"_models_{_prov}", _pinfo["models"])
-        for _mod in _live_models:
-            _all_options.append(f"{_prov} — {_mod}")
+    _cur_p = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
+    _cur_m = st.session_state.get("ai_model",    DEFAULT_MODEL)
 
-    _cur_p   = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
-    _cur_m   = st.session_state.get("ai_model",    DEFAULT_MODEL)
-    _cur_sel = f"{_cur_p} — {_cur_m}"
-    _sel_idx = _all_options.index(_cur_sel) if _cur_sel in _all_options else 0
+    # --- Top 3 best models (one per provider) as radio buttons ---
+    _best_labels = [f"{_p} — {_m}" for _p, _m in BEST_MODELS]
+    _cur_best    = f"{_cur_p} — {_cur_m}"
+    _best_idx    = _best_labels.index(_cur_best) if _cur_best in _best_labels else None
 
-    _selected = st.selectbox(
+    # If current selection is in the best list, show radio; else pre-select None
+    _radio_val = st.radio(
         "Model",
-        options=_all_options,
-        index=_sel_idx,
-        key="ai_model_combined",
+        options=_best_labels,
+        index=_best_idx if _best_idx is not None else 0,
+        key="ai_best_radio",
     )
-    _sel_prov, _sel_mod = _selected.split(" — ", 1)
 
-    # Apply model change immediately (no key needed to switch models)
+    # "More models" toggle
+    _show_more = st.toggle("More models", value=st.session_state.get("_show_more_models", False), key="ai_more_toggle")
+    st.session_state["_show_more_models"] = _show_more
+
+    _sel_prov, _sel_mod = _radio_val.split(" — ", 1)
+
+    if _show_more:
+        # Full list of all models across all providers
+        _all_options = []
+        for _prov, _pinfo in PROVIDERS.items():
+            _live = st.session_state.get(f"_models_{_prov}", _pinfo["models"])
+            for _mod in _live:
+                _all_options.append(f"{_prov} — {_mod}")
+        _cur_sel  = f"{_cur_p} — {_cur_m}"
+        _more_idx = _all_options.index(_cur_sel) if _cur_sel in _all_options else 0
+        _more_val = st.selectbox(
+            "All models",
+            options=_all_options,
+            index=_more_idx,
+            key="ai_more_select",
+            label_visibility="collapsed",
+        )
+        _sel_prov, _sel_mod = _more_val.split(" — ", 1)
+
+    # Apply change immediately
     if _sel_prov != _cur_p or _sel_mod != _cur_m:
         st.session_state["ai_provider"] = _sel_prov
         st.session_state["ai_model"]    = _sel_mod
         st.rerun()
-
-    st.caption(f"Active: **{_cur_p}** › {_cur_m}")
 
     # ------ Admin-only: API key management ------
     _admin_pin    = _os.getenv("ADMIN_PIN", "zambia2025")

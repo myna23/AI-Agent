@@ -17,8 +17,10 @@ import time
 # ---------------------------------------------------------------------------
 PROVIDERS = {
     "Anthropic (Claude)": {
+        # Best model shown by default; rest available under "More models"
+        "best":   "claude-opus-4-7",
         "models": [
-            "claude-opus-4-6",
+            "claude-opus-4-7",
             "claude-sonnet-4-6",
             "claude-haiku-4-5-20251001",
         ],
@@ -27,6 +29,7 @@ PROVIDERS = {
         "docs_url": "https://console.anthropic.com/",
     },
     "OpenAI (GPT)": {
+        "best":   "gpt-4o",
         "models": [
             "gpt-4o",
             "gpt-4o-mini",
@@ -36,6 +39,7 @@ PROVIDERS = {
         "docs_url": "https://platform.openai.com/api-keys",
     },
     "Google (Gemini)": {
+        "best":   "gemini-2.0-flash",
         "models": [
             "gemini-2.0-flash",
             "gemini-1.5-pro",
@@ -46,8 +50,15 @@ PROVIDERS = {
     },
 }
 
+# The three best models — one per provider — shown by default
+BEST_MODELS = [
+    ("Anthropic (Claude)", "claude-opus-4-7"),
+    ("OpenAI (GPT)",        "gpt-4o"),
+    ("Google (Gemini)",     "gemini-2.0-flash"),
+]
+
 DEFAULT_PROVIDER = "Anthropic (Claude)"
-DEFAULT_MODEL    = "claude-sonnet-4-6"
+DEFAULT_MODEL    = "claude-opus-4-7"
 
 
 def fetch_available_models(provider, api_key):
