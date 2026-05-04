@@ -755,54 +755,14 @@ with st.sidebar:
         },
         edit_options={"edit": True, "remove": True},
     ).add_to(_draw_map)
-    # Use a version key so clearing (or fresh session) starts with a clean map
-    # On a fresh session (no draw_bbox), bump version so stale client shapes are cleared
-    if "draw_map_version" not in st.session_state:
-        st.session_state["draw_map_version"] = 1
-    _draw_map_version = st.session_state["draw_map_version"]
+    # Version key — incremented on clear to reset the map component
+    _draw_map_version = st.session_state.get("draw_map_version", 0)
     _draw_result = st_folium(_draw_map, width="100%", height=320,
+                             returned_objects=["last_active_drawing"],
                              key=f"draw_tool_map_{_draw_map_version}")
 
-    # Extract drawing from st_folium return value
-    _dr = _draw_result or {}
-    _new_draw = _dr.get("last_active_drawing")
-    if not _new_draw:
-        _all = _dr.get("all_drawings") or []
-        if isinstance(_all, list) and _all:
-            _new_draw = _all[-1]
-        elif isinstance(_all, dict):
-            _feats = _all.get("features") or []
-            if _feats:
-                _new_draw = _feats[-1]
+    _drawn = (_draw_result or {}).get("last_active_drawing")
 
-    # Save new draw; only process pending if bbox not yet set (avoids infinite loop)
-    if _new_draw:
-        st.session_state["_pending_drawing"] = _new_draw
-    _drawn = _new_draw or (
-        None if st.session_state.get("draw_bbox")
-        else st.session_state.get("_pending_drawing")
-    )
-
-    # Also offer map-view bbox as a reliable fallback
-    _bounds = _dr.get("bounds") or {}
-    _ne = _bounds.get("_northEast") or {}
-    _sw = _bounds.get("_southWest") or {}
-    if _ne and _sw:
-        _view_bbox = {
-            "min_lat": _sw.get("lat", 0), "max_lat": _ne.get("lat", 0),
-            "min_lon": _sw.get("lng", 0), "max_lon": _ne.get("lng", 0),
-        }
-        if st.button("🗺️ Use current map view as area", key="use_view_btn", use_container_width=True):
-            _w_km = haversine_km(_view_bbox["min_lat"], _view_bbox["min_lon"],
-                                  _view_bbox["min_lat"], _view_bbox["max_lon"])
-            _h_km = haversine_km(_view_bbox["min_lat"], _view_bbox["min_lon"],
-                                  _view_bbox["max_lat"], _view_bbox["min_lon"])
-            _view_bbox["measurement"] = f"Area: {_w_km*_h_km:.1f} km² | {_w_km:.1f}×{_h_km:.1f} km"
-            st.session_state["draw_bbox"] = _view_bbox
-            st.session_state.pop("_draw_counts", None)
-            st.rerun()
-
-    # Auto-process drawn shape (when st_folium does fire the draw event)
     if _drawn and not st.session_state.get("_bbox_cleared"):
         _dgeom = _drawn.get("geometry", {})
         _dtype = _dgeom.get("type", "")
@@ -858,12 +818,10 @@ with st.sidebar:
 
             st.session_state["draw_bbox"] = _bbox
             st.session_state.pop("_draw_counts", None)
-            st.session_state.pop("_pending_drawing", None)
             st.rerun()
 
     # Reset cleared flag after one rerun
-    if st.session_state.pop("_bbox_cleared", None):
-        st.session_state.pop("_pending_drawing", None)
+    st.session_state.pop("_bbox_cleared", None)
 
     if st.session_state.get("draw_bbox"):
         _b = st.session_state["draw_bbox"]
@@ -876,7 +834,6 @@ with st.sidebar:
         if st.button("🗑️ Clear drawn area", use_container_width=True, key="clear_bbox_sidebar"):
             st.session_state.pop("draw_bbox", None)
             st.session_state.pop("_draw_counts", None)
-            st.session_state.pop("_pending_drawing", None)
             st.session_state["_bbox_cleared"] = True
             st.session_state["draw_map_version"] = _draw_map_version + 1
             st.rerun()
