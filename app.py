@@ -738,7 +738,7 @@ with st.sidebar:
     # ------------------------------------------------------------------
     st.markdown("---")
     st.markdown("### 🗺️ Draw an Area")
-    st.caption("Draw a rectangle on the map then ask your question — the AI will query only within your drawn area.")
+    st.caption("Draw a rectangle or polygon on the map — coordinates and area appear automatically.")
 
     import folium as _folium_draw_mod
     from folium.plugins import Draw as _FoliumDraw
@@ -747,13 +747,13 @@ with st.sidebar:
         export=False,
         draw_options={
             "rectangle": {"shapeOptions": {"color": "#e63946"}},
-            "polygon": {"shapeOptions": {"color": "#e63946"}},
-            "circle": {"shapeOptions": {"color": "#e63946"}},
-            "polyline": {"shapeOptions": {"color": "#e63946", "weight": 3}},
-            "marker": False,
+            "polygon":   {"shapeOptions": {"color": "#e63946"}},
+            "circle":    False,
+            "polyline":  False,
+            "marker":    False,
             "circlemarker": False,
         },
-        edit_options={"edit": True, "remove": True},
+        edit_options={"edit": False, "remove": True},
     ).add_to(_draw_map)
     # Version key — incremented on clear to reset the map component
     _draw_map_version = st.session_state.get("draw_map_version", 0)
@@ -818,7 +818,6 @@ with st.sidebar:
 
             st.session_state["draw_bbox"] = _bbox
             st.session_state.pop("_draw_counts", None)
-            st.rerun()
 
     # Reset cleared flag after one rerun
     st.session_state.pop("_bbox_cleared", None)
