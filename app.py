@@ -748,8 +748,8 @@ with st.sidebar:
         draw_options={
             "rectangle": {"shapeOptions": {"color": "#e63946"}},
             "polygon":   {"shapeOptions": {"color": "#e63946"}},
-            "circle":    False,
-            "polyline":  False,
+            "circle":   False,
+            "polyline": {"shapeOptions": {"color": "#e63946", "weight": 3}},
             "marker":    False,
             "circlemarker": False,
         },
