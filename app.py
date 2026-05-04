@@ -654,13 +654,11 @@ with st.sidebar:
         for _mod in _live:
             _all_model_map[_mod] = _prov
 
-    # Single dropdown with all models — best 3 first, then extras
-    _best_names  = [_m for _p, _m in BEST_MODELS]
-    _extra_names = [_m for _m in _all_model_map if _m not in _best_names]
-    _all_names   = _best_names + _extra_names
-    _all_idx     = _all_names.index(_cur_m) if _cur_m in _all_names else 0
-    _sel_model   = st.selectbox("Model", options=_all_names, index=_all_idx,
-                                key="ai_model_select")
+    # Dropdown — 3 best models only (one per provider)
+    _best_names = [_m for _p, _m in BEST_MODELS]
+    _best_idx   = _best_names.index(_cur_m) if _cur_m in _best_names else 0
+    _sel_model  = st.selectbox("Model", options=_best_names, index=_best_idx,
+                               key="ai_model_select")
     if _sel_model != _cur_m:
         st.session_state["ai_provider"] = _all_model_map.get(_sel_model, DEFAULT_PROVIDER)
         st.session_state["ai_model"]    = _sel_model
