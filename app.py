@@ -647,53 +647,40 @@ with st.sidebar:
     _cur_p = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
     _cur_m = st.session_state.get("ai_model",    DEFAULT_MODEL)
 
-    # Build dropdown: 3 best models + "More models…" separator option
-    _MORE_OPT = "── More models ──"
-    _best_labels = [f"{_p} — {_m}" for _p, _m in BEST_MODELS]
-    _cur_sel     = f"{_cur_p} — {_cur_m}"
+    # Build a model-name→provider lookup for all models
+    _all_model_map = {}  # model_name → provider
+    for _prov, _pinfo in PROVIDERS.items():
+        _live = st.session_state.get(f"_models_{_prov}", _pinfo["models"])
+        for _mod in _live:
+            _all_model_map[_mod] = _prov
 
-    # If current model is NOT in the best 3, show all models straight away
-    _showing_all = _cur_sel not in _best_labels
-    if _showing_all:
-        _dropdown_opts = []
-        for _prov, _pinfo in PROVIDERS.items():
-            _live = st.session_state.get(f"_models_{_prov}", _pinfo["models"])
-            for _mod in _live:
-                _dropdown_opts.append(f"{_prov} — {_mod}")
-        _drop_idx = _dropdown_opts.index(_cur_sel) if _cur_sel in _dropdown_opts else 0
+    _MORE_OPT   = "More models…"
+    _best_names = [_m for _p, _m in BEST_MODELS]  # just model names, no provider prefix
+
+    # Use expanded list if current model is not in the best 3
+    _use_full = st.session_state.get("_model_show_full", _cur_m not in _best_names)
+
+    if _use_full:
+        _opts     = list(_all_model_map.keys())
+        _drop_idx = _opts.index(_cur_m) if _cur_m in _opts else 0
     else:
-        _dropdown_opts = _best_labels + [_MORE_OPT]
-        _drop_idx = _best_labels.index(_cur_sel)
+        _opts     = _best_names + [_MORE_OPT]
+        _drop_idx = _best_names.index(_cur_m) if _cur_m in _best_names else 0
 
-    _selected = st.selectbox(
-        "Model",
-        options=_dropdown_opts,
-        index=_drop_idx,
-        key="ai_model_dropdown",
-    )
+    _selected = st.selectbox("Model", options=_opts, index=_drop_idx, key="ai_model_dropdown")
 
-    # If "More models…" chosen, rebuild with full list and keep showing it
     if _selected == _MORE_OPT:
-        _dropdown_opts = []
-        for _prov, _pinfo in PROVIDERS.items():
-            _live = st.session_state.get(f"_models_{_prov}", _pinfo["models"])
-            for _mod in _live:
-                _dropdown_opts.append(f"{_prov} — {_mod}")
-        _more_idx = _dropdown_opts.index(_cur_sel) if _cur_sel in _dropdown_opts else 0
-        _selected = st.selectbox(
-            "Model",
-            options=_dropdown_opts,
-            index=_more_idx,
-            key="ai_model_full",
-            label_visibility="collapsed",
-        )
+        # Switch to full list mode and rerun so the selectbox rebuilds
+        st.session_state["_model_show_full"] = True
+        st.rerun()
 
-    _sel_prov, _sel_mod = _selected.split(" — ", 1)
+    _sel_prov = _all_model_map.get(_selected, DEFAULT_PROVIDER)
+    _sel_mod  = _selected
 
-    # Apply change immediately
     if _sel_prov != _cur_p or _sel_mod != _cur_m:
         st.session_state["ai_provider"] = _sel_prov
         st.session_state["ai_model"]    = _sel_mod
+        st.session_state["_model_show_full"] = _use_full
         st.rerun()
 
     # ------ Admin-only: API key management ------
