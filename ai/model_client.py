@@ -1,5 +1,6 @@
 """
 Unified AI model client — supports Anthropic Claude, OpenAI GPT, and Google Gemini.
+Exports: ModelClient, PROVIDERS, BEST_MODELS, DEFAULT_PROVIDER, DEFAULT_MODEL, fetch_available_models
 
 Exposes the same interface as ClaudeClient so the rest of the app doesn't change:
     client.ask(system, user) → str
