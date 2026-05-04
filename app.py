@@ -760,14 +760,23 @@ with st.sidebar:
     _draw_result = st_folium(_draw_map, width="100%", height=320,
                              returned_objects=["last_active_drawing", "all_drawings"],
                              key=f"draw_tool_map_{_draw_map_version}")
+
+    # "Confirm area" button — user clicks this after drawing to register the shape
+    if st.button("📍 Confirm drawn area", key="confirm_draw_btn", use_container_width=True):
+        st.session_state["_confirm_draw"] = True
+        st.rerun()
+
     _drawn = (_draw_result or {}).get("last_active_drawing")
-    # Fallback: if last_active_drawing is None but there are drawings, use the last one
+    # Fallback: use all_drawings if last_active_drawing is empty
     if not _drawn:
         _all_drawings = (_draw_result or {}).get("all_drawings") or []
         if _all_drawings:
             _drawn = _all_drawings[-1]
-    # Only process the drawn shape if user hasn't just cleared it
-    if _drawn and not st.session_state.get("_bbox_cleared"):
+
+    # Process on automatic draw event OR after confirm button
+    _should_process = ((_drawn and not st.session_state.get("_bbox_cleared"))
+                       or st.session_state.pop("_confirm_draw", False))
+    if _should_process and _drawn and not st.session_state.get("_bbox_cleared"):
         _dgeom = _drawn.get("geometry", {})
         _dtype = _dgeom.get("type", "")
         _dcoords = _dgeom.get("coordinates", [])
