@@ -656,29 +656,30 @@ with st.sidebar:
 
     _best_names  = [_m for _p, _m in BEST_MODELS]
     _extra_names = [_m for _m in _all_model_map if _m not in _best_names]
-    _show_more   = st.session_state.get("_model_show_more", _cur_m not in _best_names)
 
-    if not _show_more:
-        # Main view: 3 top models + "More models →"
-        _opts     = _best_names + ["More models  →"]
-        _drop_idx = _best_names.index(_cur_m) if _cur_m in _best_names else 0
-        _selected = st.selectbox("Model", options=_opts, index=_drop_idx, key="ai_model_dropdown")
-        if _selected == "More models  →":
-            st.session_state["_model_show_more"] = True
-            st.rerun()
-        _sel_mod = _selected
+    # Main dropdown — always shows 3 best + "More models →"
+    # If current model is an extra, still show it selected in the main box
+    if _cur_m in _best_names:
+        _main_idx = _best_names.index(_cur_m)
     else:
-        # More models view: additional models + "← Back" at top
-        _opts     = ["← Back"] + _extra_names
-        _drop_idx = (_extra_names.index(_cur_m) + 1) if _cur_m in _extra_names else 1
-        _selected = st.selectbox("Model", options=_opts, index=_drop_idx, key="ai_model_more")
-        if _selected == "← Back":
-            st.session_state["_model_show_more"] = False
-            if _cur_m not in _best_names:
-                st.session_state["ai_model"]    = _best_names[0]
-                st.session_state["ai_provider"] = _all_model_map.get(_best_names[0], DEFAULT_PROVIDER)
-            st.rerun()
-        _sel_mod = _selected
+        _main_idx = len(_best_names)  # point to "More models →"
+
+    _main_opts = _best_names + ["More models  →"]
+    _main_sel  = st.selectbox("Model", options=_main_opts, index=_main_idx, key="ai_model_main")
+
+    # When "More models →" is selected, show submenu below (doesn't replace main)
+    if _main_sel == "More models  →":
+        _sub_idx = _extra_names.index(_cur_m) if _cur_m in _extra_names else 0
+        _sub_sel = st.selectbox(
+            "More models",
+            options=_extra_names,
+            index=_sub_idx,
+            key="ai_model_sub",
+            label_visibility="collapsed",
+        )
+        _sel_mod = _sub_sel
+    else:
+        _sel_mod = _main_sel
 
     _sel_prov = _all_model_map.get(_sel_mod, DEFAULT_PROVIDER)
     if _sel_prov != _cur_p or _sel_mod != _cur_m:
