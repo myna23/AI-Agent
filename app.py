@@ -758,9 +758,14 @@ with st.sidebar:
     # Use a version key so clearing forces a fresh map with no drawn shapes
     _draw_map_version = st.session_state.get("draw_map_version", 0)
     _draw_result = st_folium(_draw_map, width="100%", height=320,
-                             returned_objects=["last_active_drawing"],
+                             returned_objects=["last_active_drawing", "all_drawings"],
                              key=f"draw_tool_map_{_draw_map_version}")
     _drawn = (_draw_result or {}).get("last_active_drawing")
+    # Fallback: if last_active_drawing is None but there are drawings, use the last one
+    if not _drawn:
+        _all_drawings = (_draw_result or {}).get("all_drawings") or []
+        if _all_drawings:
+            _drawn = _all_drawings[-1]
     # Only process the drawn shape if user hasn't just cleared it
     if _drawn and not st.session_state.get("_bbox_cleared"):
         _dgeom = _drawn.get("geometry", {})
@@ -816,8 +821,8 @@ with st.sidebar:
                 _bbox["measurement"] = f"Area: {_area_km2:.1f} km² | Perimeter: {_perim_km:.1f} km"
 
             st.session_state["draw_bbox"] = _bbox
-            st.session_state.pop("_draw_counts", None)  # reset counts on new draw
-            st.success("✅ Area set — now ask your question.")
+            st.session_state.pop("_draw_counts", None)
+            st.rerun()
 
     # Reset cleared flag after one rerun
     st.session_state.pop("_bbox_cleared", None)
