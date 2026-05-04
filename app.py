@@ -763,9 +763,6 @@ with st.sidebar:
     _draw_result = st_folium(_draw_map, width="100%", height=320,
                              key=f"draw_tool_map_{_draw_map_version}")
 
-    # Confirm button — user clicks after drawing to register the shape
-    _confirm_clicked = st.button("📍 Confirm drawn area", key="confirm_draw_btn", use_container_width=True)
-
     # Extract drawing from all possible return keys (varies by streamlit-folium version)
     _dr = _draw_result or {}
     _drawn = _dr.get("last_active_drawing")
@@ -778,13 +775,13 @@ with st.sidebar:
             if _feats:
                 _drawn = _feats[-1]
 
-    # Save drawing to session state so confirm button can access it on rerun
+    # Persist so it survives reruns triggered by other widgets
     if _drawn:
         st.session_state["_pending_drawing"] = _drawn
     _drawn = _drawn or st.session_state.get("_pending_drawing")
 
-    # Process on automatic draw event OR when confirm button is clicked
-    if (_drawn and not st.session_state.get("_bbox_cleared")) or (_confirm_clicked and _drawn):
+    # Auto-process whenever a drawing is present
+    if _drawn and not st.session_state.get("_bbox_cleared"):
         _dgeom = _drawn.get("geometry", {})
         _dtype = _dgeom.get("type", "")
         _dcoords = _dgeom.get("coordinates", [])
@@ -848,11 +845,18 @@ with st.sidebar:
     if st.session_state.get("draw_bbox"):
         _b = st.session_state["draw_bbox"]
 
-        # Measurement badge
+        # Measurement + coords + clear on one bar
         if _b.get("measurement"):
-            st.markdown(f"📐 **{_b['measurement']}**")
-        st.caption(f"{_b['min_lat']:.3f}–{_b['max_lat']:.3f}°N, "
+            st.success(f"📐 {_b['measurement']}")
+        st.caption(f"📍 {_b['min_lat']:.3f}–{_b['max_lat']:.3f}°N, "
                    f"{_b['min_lon']:.3f}–{_b['max_lon']:.3f}°E")
+        if st.button("🗑️ Clear drawn area", use_container_width=True, key="clear_bbox_sidebar"):
+            st.session_state.pop("draw_bbox", None)
+            st.session_state.pop("_draw_counts", None)
+            st.session_state.pop("_pending_drawing", None)
+            st.session_state["_bbox_cleared"] = True
+            st.session_state["draw_map_version"] = _draw_map_version + 1
+            st.rerun()
 
         # --- Feature count within drawn area ---
         if st.button("📊 Count features in area", use_container_width=True, key="count_features_btn"):
@@ -889,12 +893,6 @@ with st.sidebar:
             for _lbl, _cnt in st.session_state["_draw_counts"].items():
                 st.markdown(f"{_lbl}: **{_cnt}**")
 
-        if st.button("🗑️ Clear area", use_container_width=True, key="clear_bbox_sidebar"):
-            st.session_state.pop("draw_bbox", None)
-            st.session_state.pop("_draw_counts", None)
-            st.session_state["_bbox_cleared"] = True
-            st.session_state["draw_map_version"] = _draw_map_version + 1
-            st.rerun()
     else:
         st.caption("No area selected — draw on the map above.")
 
