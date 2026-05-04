@@ -656,27 +656,24 @@ with st.sidebar:
 
     _best_names  = [_m for _p, _m in BEST_MODELS]
     _extra_names = [_m for _m in _all_model_map if _m not in _best_names]
-    _show_sub    = st.session_state.get("_model_show_sub", False)
+    _show_sub    = st.session_state.get("_model_show_sub", _cur_m in _extra_names)
 
-    # Main dropdown always shows the 3 best + "More models →"
-    # Index always points to current model (never to "More models →")
-    _main_opts = _best_names + ["More models  →"]
-    _main_idx  = _best_names.index(_cur_m) if _cur_m in _best_names else 0
-    _main_sel  = st.selectbox("Model", options=_main_opts, index=_main_idx, key="ai_model_main")
-
-    if _main_sel == "More models  →":
-        # Open submenu, rerun so main box snaps back to showing current model
-        st.session_state["_model_show_sub"] = True
-        st.rerun()
-    elif _main_sel != _cur_m:
-        # User picked one of the 3 best — close sub if open
+    # Main dropdown — only the 3 best models, always shows active model
+    _main_idx = _best_names.index(_cur_m) if _cur_m in _best_names else 0
+    _main_sel = st.selectbox("Model", options=_best_names, index=_main_idx, key="ai_model_main")
+    if _main_sel != _cur_m:
+        st.session_state["ai_provider"]     = _all_model_map.get(_main_sel, DEFAULT_PROVIDER)
+        st.session_state["ai_model"]        = _main_sel
         st.session_state["_model_show_sub"] = False
-        st.session_state["ai_provider"] = _all_model_map.get(_main_sel, DEFAULT_PROVIDER)
-        st.session_state["ai_model"]    = _main_sel
         st.rerun()
 
-    # Sub-dropdown appears below when open
-    if _show_sub:
+    # "More models →" as a small link-style button below the main dropdown
+    if not _show_sub:
+        if st.button("More models →", key="ai_more_btn", use_container_width=False):
+            st.session_state["_model_show_sub"] = True
+            st.rerun()
+    else:
+        # Second dropdown appears while first stays intact
         _sub_idx = _extra_names.index(_cur_m) if _cur_m in _extra_names else 0
         _sub_sel = st.selectbox(
             "More models",
@@ -686,9 +683,12 @@ with st.sidebar:
             label_visibility="collapsed",
         )
         if _sub_sel != _cur_m:
+            st.session_state["ai_provider"]     = _all_model_map.get(_sub_sel, DEFAULT_PROVIDER)
+            st.session_state["ai_model"]        = _sub_sel
+            st.session_state["_model_show_sub"] = True
+            st.rerun()
+        if st.button("← Hide", key="ai_hide_btn", use_container_width=False):
             st.session_state["_model_show_sub"] = False
-            st.session_state["ai_provider"] = _all_model_map.get(_sub_sel, DEFAULT_PROVIDER)
-            st.session_state["ai_model"]    = _sub_sel
             st.rerun()
 
     # ------ Admin-only: API key management ------
