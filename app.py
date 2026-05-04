@@ -761,18 +761,27 @@ with st.sidebar:
         st.session_state["draw_map_version"] = 1
     _draw_map_version = st.session_state["draw_map_version"]
     _draw_result = st_folium(_draw_map, width="100%", height=320,
-                             returned_objects=["last_active_drawing", "all_drawings"],
                              key=f"draw_tool_map_{_draw_map_version}")
 
-    # Confirm button — click after drawing to register the shape
+    # Confirm button — user clicks after drawing to register the shape
     _confirm_clicked = st.button("📍 Confirm drawn area", key="confirm_draw_btn", use_container_width=True)
 
-    _drawn = (_draw_result or {}).get("last_active_drawing")
-    # Fallback: use all_drawings if last_active_drawing is empty
+    # Extract drawing from all possible return keys (varies by streamlit-folium version)
+    _dr = _draw_result or {}
+    _drawn = _dr.get("last_active_drawing")
     if not _drawn:
-        _all_drawings = (_draw_result or {}).get("all_drawings") or []
-        if _all_drawings:
-            _drawn = _all_drawings[-1]
+        _all = _dr.get("all_drawings") or []
+        if isinstance(_all, list) and _all:
+            _drawn = _all[-1]
+        elif isinstance(_all, dict):
+            _feats = _all.get("features") or []
+            if _feats:
+                _drawn = _feats[-1]
+
+    # Save drawing to session state so confirm button can access it on rerun
+    if _drawn:
+        st.session_state["_pending_drawing"] = _drawn
+    _drawn = _drawn or st.session_state.get("_pending_drawing")
 
     # Process on automatic draw event OR when confirm button is clicked
     if (_drawn and not st.session_state.get("_bbox_cleared")) or (_confirm_clicked and _drawn):
@@ -833,7 +842,8 @@ with st.sidebar:
             st.rerun()
 
     # Reset cleared flag after one rerun
-    st.session_state.pop("_bbox_cleared", None)
+    if st.session_state.pop("_bbox_cleared", None):
+        st.session_state.pop("_pending_drawing", None)
 
     if st.session_state.get("draw_bbox"):
         _b = st.session_state["draw_bbox"]
