@@ -795,9 +795,8 @@ with st.sidebar:
         key="lang_select",
         label_visibility="collapsed",
     )
-    if _lang != st.session_state.get("_lang", "English"):
-        st.session_state["_lang"] = _lang
-        st.rerun()
+    # Save without rerun — avoids resetting the draw map widget
+    st.session_state["_lang"] = _lang
 
     # ------------------------------------------------------------------
     # Compare two areas
@@ -834,15 +833,6 @@ with st.sidebar:
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             use_container_width=True, key="export_chat_btn",
         )
-        _encoded_chat = st.query_params.get("c", "")
-        if _encoded_chat:
-            try:
-                _base = st.get_option("server.baseUrlPath") or ""
-            except Exception:
-                _base = ""
-            _full_url = f"{_base}?c={_encoded_chat}"
-            st.text_input("🔗 Share link", value=_full_url, key="share_link_box", label_visibility="collapsed")
-            st.caption("Copy the link above to share this conversation.")
 
     # ------------------------------------------------------------------
     # Admin dashboard (behind PIN)
