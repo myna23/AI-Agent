@@ -819,20 +819,6 @@ with st.sidebar:
         else:
             st.warning("Fill in both areas and a topic.")
 
-    # ------------------------------------------------------------------
-    # Chat export + copy link
-    # ------------------------------------------------------------------
-    st.markdown("---")
-    st.markdown("#### 💾 Chat")
-    _chat_msgs = st.session_state.get("messages", [])
-    if _chat_msgs:
-        _exp_docx = _export_chat_docx(_chat_msgs)
-        st.download_button(
-            "⬇️ Export chat (.docx)", _exp_docx,
-            file_name="zambia_geohub_chat.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            use_container_width=True, key="export_chat_btn",
-        )
 
     # ------------------------------------------------------------------
     # Admin dashboard (behind PIN)
