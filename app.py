@@ -74,6 +74,56 @@ _CONTEXT_LAYERS = _load_context_layers()
 _WATER_LAYER = _load_water_layer()
 
 
+# ---------------------------------------------------------------------------
+# Language support — suffix appended to AI prompts
+# ---------------------------------------------------------------------------
+_LANG_INSTRUCTIONS = {
+    "English":  "",
+    "Nyanja":   " Please respond in Chichewa/Nyanja language.",
+    "Bemba":    " Please respond in Bemba language.",
+    "Tonga":    " Please respond in Tonga language.",
+}
+
+# ---------------------------------------------------------------------------
+# Export full chat history as a Word document
+# ---------------------------------------------------------------------------
+def _export_chat_docx(messages: list) -> bytes:
+    """Convert chat history to a formatted Word document and return bytes."""
+    import io as _io
+    from docx import Document as _Doc
+    from docx.shared import Pt, RGBColor
+    _doc = _Doc()
+    _doc.add_heading("Zambia GeoHub AI — Chat Export", 0)
+    import datetime as _dt2
+    _doc.add_paragraph(f"Exported: {_dt2.datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    _doc.add_paragraph()
+    for m in messages:
+        role = m.get("role", "")
+        content = m.get("content", "")
+        if role == "user":
+            p = _doc.add_paragraph()
+            r = p.add_run("You:  ")
+            r.bold = True
+            r.font.color.rgb = RGBColor(0x1A, 0x3C, 0x5E)
+            p.add_run(content)
+        elif role == "assistant":
+            p = _doc.add_paragraph()
+            r = p.add_run("Assistant:  ")
+            r.bold = True
+            r.font.color.rgb = RGBColor(0x2E, 0x86, 0xAB)
+            p.add_run(content[:4000] if len(content) > 4000 else content)
+            # Data source citation if present
+            if m.get("data_source_url"):
+                src_p = _doc.add_paragraph()
+                src_r = src_p.add_run(f"  Source: {m.get('ds_name','Dataset')} — {m['data_source_url']}")
+                src_r.font.size = Pt(8)
+                src_r.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
+        _doc.add_paragraph()
+    buf = _io.BytesIO()
+    _doc.save(buf)
+    return buf.getvalue()
+
+
 def _map(geojson: dict, name: str, with_context: bool = False, highlight_location: str = "", draw_bbox: dict = None) -> object:
     """Wrapper: adds district + road context layers for point datasets."""
     ctx = _CONTEXT_LAYERS if with_context else None
@@ -941,6 +991,91 @@ with st.sidebar:
                 st.session_state.pop("uploaded_img_name", None)
                 st.rerun()
 
+    # ------------------------------------------------------------------
+    # Language selector
+    # ------------------------------------------------------------------
+    st.markdown("---")
+    st.markdown("#### 🌍 Language")
+    _lang = st.selectbox(
+        "Response language",
+        options=list(_LANG_INSTRUCTIONS.keys()),
+        index=list(_LANG_INSTRUCTIONS.keys()).index(st.session_state.get("_lang", "English")),
+        key="lang_select",
+        label_visibility="collapsed",
+    )
+    if _lang != st.session_state.get("_lang", "English"):
+        st.session_state["_lang"] = _lang
+        st.rerun()
+
+    # ------------------------------------------------------------------
+    # Compare two areas
+    # ------------------------------------------------------------------
+    st.markdown("---")
+    st.markdown("#### ⚖️ Compare Two Areas")
+    st.caption("Pick two districts or provinces to compare side by side.")
+    _cmp_col1, _cmp_col2 = st.columns(2)
+    with _cmp_col1:
+        _cmp_a = st.text_input("Area A", placeholder="e.g. Lusaka", key="cmp_area_a", label_visibility="collapsed")
+    with _cmp_col2:
+        _cmp_b = st.text_input("Area B", placeholder="e.g. Kitwe", key="cmp_area_b", label_visibility="collapsed")
+    _cmp_topic = st.text_input("Topic", placeholder="e.g. health facilities", key="cmp_topic", label_visibility="collapsed")
+    if st.button("Compare", key="cmp_btn", use_container_width=True):
+        if _cmp_a.strip() and _cmp_b.strip() and _cmp_topic.strip():
+            _cmp_q = f"Compare {_cmp_a.strip()} and {_cmp_b.strip()} in terms of {_cmp_topic.strip()}"
+            st.session_state.messages.append({"role": "user", "content": _cmp_q})
+            st.session_state._pending_question = _cmp_q
+            st.rerun()
+        else:
+            st.warning("Fill in both areas and a topic.")
+
+    # ------------------------------------------------------------------
+    # Chat export + copy link
+    # ------------------------------------------------------------------
+    st.markdown("---")
+    st.markdown("#### 💾 Chat")
+    _chat_msgs = st.session_state.get("messages", [])
+    if _chat_msgs:
+        _exp_docx = _export_chat_docx(_chat_msgs)
+        st.download_button(
+            "⬇️ Export chat (.docx)", _exp_docx,
+            file_name="zambia_geohub_chat.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True, key="export_chat_btn",
+        )
+        # Copy shareable link
+        try:
+            _share_url = st.get_option("server.baseUrlPath") or ""
+        except Exception:
+            _share_url = ""
+        _encoded_chat = st.query_params.get("c", "")
+        if _encoded_chat:
+            _full_url = f"{_share_url}?c={_encoded_chat}"
+            st.text_input("🔗 Share link", value=_full_url, key="share_link_box", label_visibility="collapsed")
+            st.caption("Copy the link above to share this conversation.")
+
+    # ------------------------------------------------------------------
+    # Admin dashboard (behind PIN)
+    # ------------------------------------------------------------------
+    if st.session_state.get("_admin_unlocked"):
+        st.markdown("---")
+        st.markdown("#### 📊 Admin Dashboard")
+        _dash_provider = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
+        _dash_model    = st.session_state.get("ai_model",    DEFAULT_MODEL)
+        _dash_key      = _resolve_ai_key(_dash_provider) if "_resolve_ai_key" in dir() else ""
+        st.caption(f"**Provider:** {_dash_provider}")
+        st.caption(f"**Model:** {_dash_model}")
+        st.caption(f"**API key:** {'✅ Set' if _dash_key else '❌ Missing'}")
+        _fetch_stats = st.session_state.get("_fetch_stats", {"live": 0, "static": 0})
+        _total_fetches = _fetch_stats["live"] + _fetch_stats["static"]
+        if _total_fetches:
+            st.caption(f"**Data fetches this session:** {_total_fetches} "
+                       f"({_fetch_stats['live']} live, {_fetch_stats['static']} static)")
+        else:
+            st.caption("**Data fetches this session:** 0")
+        _fb_stats = st.session_state.get("_feedback_counts", {"up": 0, "down": 0})
+        st.caption(f"**Response feedback:** 👍 {_fb_stats['up']}  👎 {_fb_stats['down']}")
+        st.caption(f"**Messages this session:** {len(st.session_state.get('messages', []))}")
+
 # ---------------------------------------------------------------------------
 # Context detection — dataset passed from Hub iframe embed
 #
@@ -1296,6 +1431,32 @@ if context_dataset:
 st.markdown("---")
 
 # ---------------------------------------------------------------------------
+# Onboarding — shown only to first-time visitors (no messages yet)
+# ---------------------------------------------------------------------------
+if not st.session_state.get("messages"):
+    with st.expander("👋 Welcome — How to use this assistant", expanded=True):
+        st.markdown(
+            """
+**Ask questions** about Zambia's geospatial data in plain English:
+- *"How many health facilities are in Chipata?"*
+- *"Show me schools in Lusaka Province"*
+- *"What mines are in Copperbelt?"*
+
+**Generate reports:** Say *"generate a report on health facilities in Eastern Province"*
+
+**Summarise a dataset:** Say *"summarise the schools dataset"*
+
+**Draw an area:** Use the 📐 **Draw an Area** panel in the sidebar to filter results to a specific region on the map.
+
+**Upload documents or map images:** Use the 📎 **Attach a File** panel to let the AI analyse your files alongside GeoHub data.
+
+**Compare two areas:** Use the ⚖️ **Compare Two Areas** panel in the sidebar.
+
+*Powered by Zambia GeoHub (ArcGIS Online) + AI*
+            """
+        )
+
+# ---------------------------------------------------------------------------
 # Render chat history
 # ---------------------------------------------------------------------------
 # Index of the last assistant message — only show suggestions there
@@ -1345,13 +1506,25 @@ for i, msg in enumerate(st.session_state.messages):
                     key=f"sum_{i}",
                 )
 
+            # Data source citation
+            if msg.get("data_source_url") and msg.get("ds_name"):
+                st.markdown(
+                    f'<div style="font-size:0.75rem;color:#888;margin-top:4px">'
+                    f'📂 Source: <a href="{msg["data_source_url"]}" target="_blank">'
+                    f'{msg["ds_name"]}</a>'
+                    + (f' &nbsp;·&nbsp; <span style="color:{"#2d9c5c" if msg.get("data_live") else "#e07b00"}">'
+                       f'{"🟢 Live data" if msg.get("data_live") else "🟡 Cached data"}</span>' )
+                    + '</div>',
+                    unsafe_allow_html=True,
+                )
+
             # On-demand panel — map / table / chart buttons for chat answers
             if msg.get("intent", "chat") == "chat" and msg.get("ds_name"):
                 _render_ondemand_panel(i, msg)
 
             # Row 1: compact icon toolbar (left-aligned)
             _prev_q_hist = next((m["content"] for m in reversed(st.session_state.messages[:i]) if m["role"] == "user"), "")
-            _ta, _tb, _tc, _td, _te, _ = st.columns([0.6, 0.6, 0.6, 0.6, 0.6, 10])
+            _ta, _tb, _tc, _td, _te, _tf, _ = st.columns([0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 8])
             with _ta:
                 if st.button("✏️", key=f"edit_{i}", help="Edit question"):
                     st.session_state.edit_idx = i - 1
@@ -1380,6 +1553,28 @@ for i, msg in enumerate(st.session_state.messages):
                     _start = max(0, i - 1)
                     st.session_state.messages = st.session_state.messages[:_start] + st.session_state.messages[i + 1:]
                     st.rerun()
+            with _tf:
+                _fb = msg.get("_feedback", "")
+                if _fb == "up":
+                    st.markdown("👍", help="You liked this")
+                elif _fb == "down":
+                    st.markdown("👎", help="You disliked this")
+                else:
+                    _fc1, _fc2 = st.columns(2)
+                    with _fc1:
+                        if st.button("👍", key=f"fb_up_{i}", help="Good answer"):
+                            msg["_feedback"] = "up"
+                            _fbc = st.session_state.get("_feedback_counts", {"up": 0, "down": 0})
+                            _fbc["up"] += 1
+                            st.session_state["_feedback_counts"] = _fbc
+                            st.rerun()
+                    with _fc2:
+                        if st.button("👎", key=f"fb_dn_{i}", help="Bad answer"):
+                            msg["_feedback"] = "down"
+                            _fbc = st.session_state.get("_feedback_counts", {"up": 0, "down": 0})
+                            _fbc["down"] += 1
+                            st.session_state["_feedback_counts"] = _fbc
+                            st.rerun()
 
             # Row 2: follow-up suggestions — only on the most recent answer
             if i == _last_assistant_idx and msg.get("intent", "chat") == "chat" and _prev_q_hist:
@@ -1751,6 +1946,7 @@ def process_question(question: str):
 
                         if live_feats and "error" not in _gjson:
                             geojson = _gjson
+                            st.session_state["_last_fetch_was_live"] = True
                             # Spatially assign district/province to features that lack them
                             if _CONTEXT_LAYERS:
                                 assign_districts(live_feats, _CONTEXT_LAYERS[0]["geojson"])
@@ -2021,6 +2217,7 @@ def process_question(question: str):
                     map_geojson = {"type": "FeatureCollection", "features": loc_feats[:50]}
                     if _static_candidate:
                         datasets = [_static_candidate] + [d for d in datasets if d != _static_candidate]
+                    st.session_state["_last_fetch_was_live"] = False
                     st.info(f"📦 Showing {len(loc_feats)} pre-loaded records for {_location} (live server unavailable).")
 
             # 3. Location not found anywhere
@@ -2092,6 +2289,7 @@ def process_question(question: str):
 
         # Last resort: static fallback
         if not sample_features:
+            st.session_state["_last_fetch_was_live"] = False
             _static_data, _static_candidate = _find_static(question.lower())
             if _static_data and _static_data.get("features"):
                 _static_feats = _static_data["features"]
@@ -2356,8 +2554,9 @@ def process_question(question: str):
 
             with st.spinner("Generating report (~15 seconds)..."):
                 stats = summarize_geojson(map_geojson) if map_geojson else {"feature_count": 0, "geometry_type": "Unknown", "fields": [], "numeric_stats": {}, "exceeded_limit": False}
+                _lang_sfx = _LANG_INSTRUCTIONS.get(st.session_state.get("_lang", "English"), "")
                 rpt_text = claude.ask(
-                    system=report_system_prompt(),
+                    system=report_system_prompt() + _lang_sfx,
                     user=report_prompt(ds["name"], ds["description"], ds.get("fields", []), stats, sample_features),
                     max_tokens=3000,
                 )
@@ -2513,8 +2712,11 @@ def process_question(question: str):
             _sess_buf_key = id(st.session_state)
             _STREAM_BUFFERS[_sess_buf_key] = ""
 
+            _lang_suffix = _LANG_INSTRUCTIONS.get(st.session_state.get("_lang", "English"), "")
+            _chat_system = chatbot_system_prompt() + _lang_suffix
+
             def _stoppable_stream():
-                for chunk in claude.stream_with_history(chatbot_system_prompt(), history, max_tokens=1500):
+                for chunk in claude.stream_with_history(_chat_system, history, max_tokens=1500):
                     if st.session_state.get("stop_streaming"):
                         break
                     _STREAM_BUFFERS[_sess_buf_key] = _STREAM_BUFFERS.get(_sess_buf_key, "") + chunk
@@ -2548,6 +2750,15 @@ def process_question(question: str):
                             st.markdown(f"- **{d['name']}**  \n  {d['description'][:180]}")
                         st.markdown("[Browse all datasets on Zambia GeoHub ↗](https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb)")
 
+            # Track live vs static fetch stats
+            _fs = st.session_state.get("_fetch_stats", {"live": 0, "static": 0})
+            if geojson and not _ai_error:
+                if st.session_state.get("_last_fetch_was_live", False):
+                    _fs["live"] += 1
+                else:
+                    _fs["static"] += 1
+            st.session_state["_fetch_stats"] = _fs
+
             # Append message first, then show on-demand panel using the stored message
             _new_msg = {
                 "role": "assistant", "content": response, "intent": intent,
@@ -2557,6 +2768,8 @@ def process_question(question: str):
                 "buffer_center": _buffer_center,
                 "buffer_radius_km": _radius_km,
                 "draw_bbox": _draw_bbox,
+                "data_source_url": ds.get("url", "") if not _ai_error else "",
+                "data_live": st.session_state.get("_last_fetch_was_live", False),
             }
             st.session_state.messages.append(_new_msg)
 
