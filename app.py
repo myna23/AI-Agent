@@ -784,6 +784,86 @@ with st.sidebar:
                 st.rerun()
 
     # ------------------------------------------------------------------
+    # Language selector
+    # ------------------------------------------------------------------
+    st.markdown("---")
+    st.markdown("#### 🌍 Language")
+    _lang = st.selectbox(
+        "Response language",
+        options=list(_LANG_INSTRUCTIONS.keys()),
+        index=list(_LANG_INSTRUCTIONS.keys()).index(st.session_state.get("_lang", "English")),
+        key="lang_select",
+        label_visibility="collapsed",
+    )
+    if _lang != st.session_state.get("_lang", "English"):
+        st.session_state["_lang"] = _lang
+        st.rerun()
+
+    # ------------------------------------------------------------------
+    # Compare two areas
+    # ------------------------------------------------------------------
+    st.markdown("---")
+    st.markdown("#### ⚖️ Compare Two Areas")
+    st.caption("Pick two districts or provinces to compare side by side.")
+    _cmp_col1, _cmp_col2 = st.columns(2)
+    with _cmp_col1:
+        _cmp_a = st.text_input("Area A", placeholder="e.g. Lusaka", key="cmp_area_a", label_visibility="collapsed")
+    with _cmp_col2:
+        _cmp_b = st.text_input("Area B", placeholder="e.g. Kitwe", key="cmp_area_b", label_visibility="collapsed")
+    _cmp_topic = st.text_input("Topic", placeholder="e.g. health facilities", key="cmp_topic", label_visibility="collapsed")
+    if st.button("Compare", key="cmp_btn", use_container_width=True):
+        if _cmp_a.strip() and _cmp_b.strip() and _cmp_topic.strip():
+            _cmp_q = f"Compare {_cmp_a.strip()} and {_cmp_b.strip()} in terms of {_cmp_topic.strip()}"
+            st.session_state.messages.append({"role": "user", "content": _cmp_q})
+            st.session_state._pending_question = _cmp_q
+            st.rerun()
+        else:
+            st.warning("Fill in both areas and a topic.")
+
+    # ------------------------------------------------------------------
+    # Chat export + copy link
+    # ------------------------------------------------------------------
+    st.markdown("---")
+    st.markdown("#### 💾 Chat")
+    _chat_msgs = st.session_state.get("messages", [])
+    if _chat_msgs:
+        _exp_docx = _export_chat_docx(_chat_msgs)
+        st.download_button(
+            "⬇️ Export chat (.docx)", _exp_docx,
+            file_name="zambia_geohub_chat.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True, key="export_chat_btn",
+        )
+        _encoded_chat = st.query_params.get("c", "")
+        if _encoded_chat:
+            try:
+                _base = st.get_option("server.baseUrlPath") or ""
+            except Exception:
+                _base = ""
+            _full_url = f"{_base}?c={_encoded_chat}"
+            st.text_input("🔗 Share link", value=_full_url, key="share_link_box", label_visibility="collapsed")
+            st.caption("Copy the link above to share this conversation.")
+
+    # ------------------------------------------------------------------
+    # Admin dashboard (behind PIN)
+    # ------------------------------------------------------------------
+    if st.session_state.get("_admin_unlocked"):
+        st.markdown("---")
+        st.markdown("#### 📊 Admin Dashboard")
+        _dash_provider = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
+        _dash_model    = st.session_state.get("ai_model",    DEFAULT_MODEL)
+        _dash_key      = _resolve_ai_key(_dash_provider)
+        st.caption(f"**Provider:** {_dash_provider}")
+        st.caption(f"**Model:** {_dash_model}")
+        st.caption(f"**API key:** {'✅ Set' if _dash_key else '❌ Missing'}")
+        _fetch_stats = st.session_state.get("_fetch_stats", {"live": 0, "static": 0})
+        _total_fetches = _fetch_stats["live"] + _fetch_stats["static"]
+        st.caption(f"**Data fetches:** {_total_fetches} ({_fetch_stats['live']} live, {_fetch_stats['static']} cached)")
+        _fb_stats = st.session_state.get("_feedback_counts", {"up": 0, "down": 0})
+        st.caption(f"**Feedback:** 👍 {_fb_stats['up']}  👎 {_fb_stats['down']}")
+        st.caption(f"**Messages:** {len(st.session_state.get('messages', []))}")
+
+    # ------------------------------------------------------------------
     # Draw tool — compact map in sidebar, always visible
     # ------------------------------------------------------------------
     st.markdown("---")
@@ -990,91 +1070,6 @@ with st.sidebar:
                 st.session_state.pop("uploaded_img_mime", None)
                 st.session_state.pop("uploaded_img_name", None)
                 st.rerun()
-
-    # ------------------------------------------------------------------
-    # Language selector
-    # ------------------------------------------------------------------
-    st.markdown("---")
-    st.markdown("#### 🌍 Language")
-    _lang = st.selectbox(
-        "Response language",
-        options=list(_LANG_INSTRUCTIONS.keys()),
-        index=list(_LANG_INSTRUCTIONS.keys()).index(st.session_state.get("_lang", "English")),
-        key="lang_select",
-        label_visibility="collapsed",
-    )
-    if _lang != st.session_state.get("_lang", "English"):
-        st.session_state["_lang"] = _lang
-        st.rerun()
-
-    # ------------------------------------------------------------------
-    # Compare two areas
-    # ------------------------------------------------------------------
-    st.markdown("---")
-    st.markdown("#### ⚖️ Compare Two Areas")
-    st.caption("Pick two districts or provinces to compare side by side.")
-    _cmp_col1, _cmp_col2 = st.columns(2)
-    with _cmp_col1:
-        _cmp_a = st.text_input("Area A", placeholder="e.g. Lusaka", key="cmp_area_a", label_visibility="collapsed")
-    with _cmp_col2:
-        _cmp_b = st.text_input("Area B", placeholder="e.g. Kitwe", key="cmp_area_b", label_visibility="collapsed")
-    _cmp_topic = st.text_input("Topic", placeholder="e.g. health facilities", key="cmp_topic", label_visibility="collapsed")
-    if st.button("Compare", key="cmp_btn", use_container_width=True):
-        if _cmp_a.strip() and _cmp_b.strip() and _cmp_topic.strip():
-            _cmp_q = f"Compare {_cmp_a.strip()} and {_cmp_b.strip()} in terms of {_cmp_topic.strip()}"
-            st.session_state.messages.append({"role": "user", "content": _cmp_q})
-            st.session_state._pending_question = _cmp_q
-            st.rerun()
-        else:
-            st.warning("Fill in both areas and a topic.")
-
-    # ------------------------------------------------------------------
-    # Chat export + copy link
-    # ------------------------------------------------------------------
-    st.markdown("---")
-    st.markdown("#### 💾 Chat")
-    _chat_msgs = st.session_state.get("messages", [])
-    if _chat_msgs:
-        _exp_docx = _export_chat_docx(_chat_msgs)
-        st.download_button(
-            "⬇️ Export chat (.docx)", _exp_docx,
-            file_name="zambia_geohub_chat.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            use_container_width=True, key="export_chat_btn",
-        )
-        # Copy shareable link
-        try:
-            _share_url = st.get_option("server.baseUrlPath") or ""
-        except Exception:
-            _share_url = ""
-        _encoded_chat = st.query_params.get("c", "")
-        if _encoded_chat:
-            _full_url = f"{_share_url}?c={_encoded_chat}"
-            st.text_input("🔗 Share link", value=_full_url, key="share_link_box", label_visibility="collapsed")
-            st.caption("Copy the link above to share this conversation.")
-
-    # ------------------------------------------------------------------
-    # Admin dashboard (behind PIN)
-    # ------------------------------------------------------------------
-    if st.session_state.get("_admin_unlocked"):
-        st.markdown("---")
-        st.markdown("#### 📊 Admin Dashboard")
-        _dash_provider = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
-        _dash_model    = st.session_state.get("ai_model",    DEFAULT_MODEL)
-        _dash_key      = _resolve_ai_key(_dash_provider) if "_resolve_ai_key" in dir() else ""
-        st.caption(f"**Provider:** {_dash_provider}")
-        st.caption(f"**Model:** {_dash_model}")
-        st.caption(f"**API key:** {'✅ Set' if _dash_key else '❌ Missing'}")
-        _fetch_stats = st.session_state.get("_fetch_stats", {"live": 0, "static": 0})
-        _total_fetches = _fetch_stats["live"] + _fetch_stats["static"]
-        if _total_fetches:
-            st.caption(f"**Data fetches this session:** {_total_fetches} "
-                       f"({_fetch_stats['live']} live, {_fetch_stats['static']} static)")
-        else:
-            st.caption("**Data fetches this session:** 0")
-        _fb_stats = st.session_state.get("_feedback_counts", {"up": 0, "down": 0})
-        st.caption(f"**Response feedback:** 👍 {_fb_stats['up']}  👎 {_fb_stats['down']}")
-        st.caption(f"**Messages this session:** {len(st.session_state.get('messages', []))}")
 
 # ---------------------------------------------------------------------------
 # Context detection — dataset passed from Hub iframe embed
