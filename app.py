@@ -1552,6 +1552,7 @@ for i, msg in enumerate(st.session_state.messages):
                             _fbc = st.session_state.get("_feedback_counts", {"up": 0, "down": 0})
                             _fbc["up"] += 1
                             st.session_state["_feedback_counts"] = _fbc
+                            st.toast("Thanks for the feedback!", icon="👍")
                             st.rerun()
                     with _fc2:
                         if st.button("👎", key=f"fb_dn_{i}", help="Bad answer"):
@@ -1559,6 +1560,7 @@ for i, msg in enumerate(st.session_state.messages):
                             _fbc = st.session_state.get("_feedback_counts", {"up": 0, "down": 0})
                             _fbc["down"] += 1
                             st.session_state["_feedback_counts"] = _fbc
+                            st.toast("Thanks, we'll use this to improve.", icon="👎")
                             st.rerun()
 
             # Row 2: follow-up suggestions — only on the most recent answer
