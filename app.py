@@ -952,14 +952,18 @@ with st.sidebar:
                 ("🏥 Health facilities", "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_HealthFac_v01beta/FeatureServer/0",                                                                              ["Facility_N", "Name", "FacilityNa", "facility_name", "NAME"], "Type"),
                 ("🏫 Schools",           "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_School_v01beta/FeatureServer/0",                                                                                ["School_Nam", "Name", "school_name", "NAME"], "School_Typ"),
                 ("🛣️ Roads",             "https://services3.arcgis.com/t6lYS2Pmd8iVx1fy/arcgis/rest/services/glc_ZMB_trs_roads_major_b_view/FeatureServer/0",                                                                          ["name", "Name", "road_name", "NAME"], "type"),
-                ("⛏️ Mines (needs token)", "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/zmb_mines_osm_20251009py/FeatureServer/0",                                                                            ["name", "Name", "mine_name", "NAME"], "type"),
-                ("🌊 Dams (needs token)",  "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/zmb_dams_20251009/FeatureServer/0",                                                                                      ["name", "Name", "dam_name", "NAME"], "dam_type"),
+                ("⛏️ Mines",             "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/zmb_mines_osm_20251009py/FeatureServer/0",                                                                                ["name", "Name", "mine_name", "NAME"], "type"),
+                ("🌊 Dams",              "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/zmb_dams_20251009/FeatureServer/0",                                                                                        ["name", "Name", "dam_name", "NAME"], "dam_type"),
                 ("🏘️ Settlements",       "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_Zambia_Operational_Settlement_Points_and_Names_Version01/FeatureServer/0",                                          ["Settlement", "name", "Name", "NAME"], "Type"),
             ]
             import requests as _req
             _counts = {}
             _details = {}  # feature names + subtypes
-            _hdr = {"Referer": "https://zmb-geowb.hub.arcgis.com"}
+            _hdr = {
+                "Referer": "https://zmb-geowb.hub.arcgis.com",
+                "Origin":  "https://zmb-geowb.hub.arcgis.com",
+                "Accept":  "application/json",
+            }
 
             # Compute area for density calculation
             _area_km2_draw = (
