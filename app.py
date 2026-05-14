@@ -952,8 +952,6 @@ with st.sidebar:
                 ("🏥 Health facilities", "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_HealthFac_v01beta/FeatureServer/0",                                                                              ["Facility_N", "Name", "FacilityNa", "facility_name", "NAME"], "Type"),
                 ("🏫 Schools",           "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_School_v01beta/FeatureServer/0",                                                                                ["School_Nam", "Name", "school_name", "NAME"], "School_Typ"),
                 ("🛣️ Roads",             "https://services3.arcgis.com/t6lYS2Pmd8iVx1fy/arcgis/rest/services/glc_ZMB_trs_roads_major_b_view/FeatureServer/0",                                                                          ["name", "Name", "road_name", "NAME"], "type"),
-                ("⛏️ Mines",             "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/zmb_mines_osm_20251009py/FeatureServer/0",                                                                                ["name", "Name", "mine_name", "NAME"], "type"),
-                ("🌊 Dams",              "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/zmb_dams_20251009/FeatureServer/0",                                                                                        ["name", "Name", "dam_name", "NAME"], "dam_type"),
                 ("🏘️ Settlements",       "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_Zambia_Operational_Settlement_Points_and_Names_Version01/FeatureServer/0",                                          ["Settlement", "name", "Name", "NAME"], "Type"),
             ]
             import requests as _req
@@ -1039,6 +1037,74 @@ with st.sidebar:
                 except Exception:
                     _counts[_label] = "—"
                     _details[_label] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+
+            # Mines + Dams fallback via OpenStreetMap Overpass API (always public)
+            import urllib.request as _urlreq, urllib.parse as _urlparse
+            _s, _w, _n, _e = _b["min_lat"], _b["min_lon"], _b["max_lat"], _b["max_lon"]
+            _osm_bbox = f"({_s},{_w},{_n},{_e})"
+            def _overpass_count(osm_tags_query):
+                try:
+                    _q = f"[out:json];({osm_tags_query}{_osm_bbox};);out count;"
+                    _d = _urlparse.urlencode({"data": _q}).encode()
+                    _rq = _urlreq.Request("https://overpass-api.de/api/interpreter", data=_d)
+                    _rq.add_header("User-Agent", "ZambiaGeoHubAI/1.0")
+                    _rs = _urlreq.urlopen(_rq, timeout=15)
+                    _js = _json_mod.loads(_rs.read().decode())
+                    _el = _js.get("elements", [{}])
+                    _tags = _el[0].get("tags", {}) if _el else {}
+                    return int(_tags.get("total", 0))
+                except Exception:
+                    return None
+
+            def _overpass_features(osm_tags_query, limit=20):
+                """Fetch names of OSM features matching query in bbox."""
+                try:
+                    _q = f"[out:json];({osm_tags_query}{_osm_bbox};);out body {limit};"
+                    _d = _urlparse.urlencode({"data": _q}).encode()
+                    _rq = _urlreq.Request("https://overpass-api.de/api/interpreter", data=_d)
+                    _rq.add_header("User-Agent", "ZambiaGeoHubAI/1.0")
+                    _rs = _urlreq.urlopen(_rq, timeout=15)
+                    _js = _json_mod.loads(_rs.read().decode())
+                    _names = []
+                    _nearest_name = None
+                    _nearest_dist = float("inf")
+                    for _el in _js.get("elements", []):
+                        _tgs = _el.get("tags", {})
+                        _nm = _tgs.get("name") or _tgs.get("operator") or _tgs.get("mine:name")
+                        if _nm:
+                            _names.append(_nm)
+                        _elat = _el.get("lat") or (_el.get("center", {}) or {}).get("lat")
+                        _elon = _el.get("lon") or (_el.get("center", {}) or {}).get("lon")
+                        if _elat and _elon:
+                            _d2 = haversine_km(_ctr_lat, _ctr_lon, _elat, _elon)
+                            if _d2 < _nearest_dist:
+                                _nearest_dist = _d2
+                                _nearest_name = _nm or "Unnamed"
+                    return _names, _nearest_name, _nearest_dist if _nearest_dist < float("inf") else None
+                except Exception:
+                    return [], None, None
+
+            # Mines via OSM
+            _mine_query = 'node["industrial"="mine"];way["industrial"="mine"];node["landuse"="quarry"];way["landuse"="quarry"];'
+            _mine_count = _overpass_count(_mine_query)
+            if _mine_count is not None:
+                _counts["⛏️ Mines"] = _mine_count
+                if _mine_count > 0:
+                    _mnames, _mnear, _mndist = _overpass_features(_mine_query)
+                    _details["⛏️ Mines"] = {"names": _mnames, "subtypes": {}, "nearest_name": _mnear, "nearest_dist": _mndist}
+                else:
+                    _details["⛏️ Mines"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+
+            # Dams via OSM
+            _dam_query = 'node["waterway"="dam"];way["waterway"="dam"];node["man_made"="dam"];way["man_made"="dam"];'
+            _dam_count = _overpass_count(_dam_query)
+            if _dam_count is not None:
+                _counts["🌊 Dams"] = _dam_count
+                if _dam_count > 0:
+                    _dnames, _dnear, _dndist = _overpass_features(_dam_query)
+                    _details["🌊 Dams"] = {"names": _dnames, "subtypes": {}, "nearest_name": _dnear, "nearest_dist": _dndist}
+                else:
+                    _details["🌊 Dams"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
 
             # District overlap from context layers
             _overlap_districts = []
