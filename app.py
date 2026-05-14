@@ -1055,13 +1055,27 @@ with st.sidebar:
                         if not _dn:
                             continue
                         _dg = _df.get("geometry") or {}
+                        _dg_type = _dg.get("type", "")
+                        _dg_coords = _dg.get("coordinates", [])
+                        # Get list of rings to test
+                        _rings = []
+                        if _dg_type == "Polygon" and _dg_coords:
+                            _rings = [_dg_coords[0]]
+                        elif _dg_type == "MultiPolygon":
+                            _rings = [p[0] for p in _dg_coords if p]
+                        _hit = False
                         for (_tlat, _tlon) in _corners:
-                            if _point_in_polygon(_tlat, _tlon, _dg):
-                                if _dn and _dn not in _overlap_districts:
-                                    _overlap_districts.append(_dn)
-                                if _pn and _pn not in _overlap_provinces:
-                                    _overlap_provinces.append(_pn)
+                            for _ring in _rings:
+                                if _ring and _point_in_polygon(_tlat, _tlon, _ring):
+                                    _hit = True
+                                    break
+                            if _hit:
                                 break
+                        if _hit:
+                            if _dn and _dn not in _overlap_districts:
+                                _overlap_districts.append(_dn)
+                            if _pn and _pn not in _overlap_provinces:
+                                _overlap_provinces.append(_pn)
 
             st.session_state["_draw_counts"] = _counts
             st.session_state["_draw_details"] = _details
