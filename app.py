@@ -1038,8 +1038,7 @@ with st.sidebar:
                     _counts[_label] = "—"
                     _details[_label] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
 
-            # Mines + Dams fallback via OpenStreetMap Overpass API (always public)
-            import urllib.request as _urlreq, urllib.parse as _urlparse
+            # Mines + Dams via OpenStreetMap Overpass API
             _s, _w, _n, _e = _b["min_lat"], _b["min_lon"], _b["max_lat"], _b["max_lon"]
             _osm_bbox = f"({_s},{_w},{_n},{_e})"
             _OVERPASS_MIRRORS = [
@@ -1047,74 +1046,64 @@ with st.sidebar:
                 "https://overpass-api.de/api/interpreter",
                 "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
             ]
-            def _overpass_query(query_str, timeout=25):
-                _d = _urlparse.urlencode({"data": query_str}).encode()
+
+            def _overpass_req(query_str):
                 for _mirror in _OVERPASS_MIRRORS:
                     try:
-                        _rq = _urlreq.Request(_mirror, data=_d)
-                        _rq.add_header("User-Agent", "ZambiaGeoHubAI/1.0")
-                        _rs = _urlreq.urlopen(_rq, timeout=timeout)
-                        return _json_mod.loads(_rs.read().decode())
+                        _r2 = _req.post(_mirror, data={"data": query_str},
+                                        headers={"User-Agent": "ZambiaGeoHubAI/1.0"}, timeout=20)
+                        if _r2.status_code == 200:
+                            return _r2.json()
                     except Exception:
                         continue
                 return None
 
-            def _overpass_count(osm_tags_query):
-                try:
-                    _q = f"[out:json][timeout:25];({osm_tags_query}{_osm_bbox};);out count;"
-                    _js = _overpass_query(_q)
-                    if not _js:
-                        return None
-                    _el = _js.get("elements", [{}])
-                    _tags = _el[0].get("tags", {}) if _el else {}
-                    return int(_tags.get("total", 0))
-                except Exception:
-                    return None
-
-            def _overpass_features(osm_tags_query, limit=20):
-                """Fetch names of OSM features matching query in bbox."""
-                try:
-                    _q = f"[out:json][timeout:25];({osm_tags_query}{_osm_bbox};);out body {limit};"
-                    _js = _overpass_query(_q)
-                    if not _js:
-                        return [], None, None
-                    _names = []
-                    _nearest_name = None
-                    _nearest_dist = float("inf")
-                    for _el in _js.get("elements", []):
-                        _tgs = _el.get("tags", {})
-                        _nm = _tgs.get("name") or _tgs.get("operator") or _tgs.get("mine:name")
-                        if _nm:
-                            _names.append(_nm)
-                        _elat = _el.get("lat") or (_el.get("center", {}) or {}).get("lat")
-                        _elon = _el.get("lon") or (_el.get("center", {}) or {}).get("lon")
-                        if _elat and _elon:
-                            _d2 = haversine_km(_ctr_lat, _ctr_lon, _elat, _elon)
-                            if _d2 < _nearest_dist:
-                                _nearest_dist = _d2
-                                _nearest_name = _nm or "Unnamed"
-                    return _names, _nearest_name, _nearest_dist if _nearest_dist < float("inf") else None
-                except Exception:
-                    return [], None, None
-
-            # Mines via OSM
-            _mine_query = 'node["industrial"="mine"];way["industrial"="mine"];node["landuse"="quarry"];way["landuse"="quarry"];'
-            _mine_count = _overpass_count(_mine_query)
-            _counts["⛏️ Mines"] = _mine_count if _mine_count is not None else "—"
-            if _mine_count and _mine_count > 0:
-                _mnames, _mnear, _mndist = _overpass_features(_mine_query)
-                _details["⛏️ Mines"] = {"names": _mnames, "subtypes": {}, "nearest_name": _mnear, "nearest_dist": _mndist}
+            # Mines
+            _mq = f"[out:json][timeout:20];(node[\"industrial\"=\"mine\"]{_osm_bbox};way[\"industrial\"=\"mine\"]{_osm_bbox};node[\"landuse\"=\"quarry\"]{_osm_bbox};way[\"landuse\"=\"quarry\"]{_osm_bbox};);out count;"
+            _mjs = _overpass_req(_mq)
+            if _mjs:
+                _mine_count = int((_mjs.get("elements") or [{}])[0].get("tags", {}).get("total", 0))
+                _counts["⛏️ Mines"] = _mine_count
+                if _mine_count > 0:
+                    _mfq = f"[out:json][timeout:20];(node[\"industrial\"=\"mine\"]{_osm_bbox};way[\"industrial\"=\"mine\"]{_osm_bbox};node[\"landuse\"=\"quarry\"]{_osm_bbox};);out body 20;"
+                    _mfjs = _overpass_req(_mfq)
+                    _mnames, _mnear, _mndist = [], None, float("inf")
+                    for _mel in (_mfjs or {}).get("elements", []):
+                        _mnm = (_mel.get("tags") or {}).get("name") or (_mel.get("tags") or {}).get("operator")
+                        if _mnm: _mnames.append(_mnm)
+                        _mlat = _mel.get("lat"); _mlon = _mel.get("lon")
+                        if _mlat and _mlon:
+                            _md = haversine_km(_ctr_lat, _ctr_lon, _mlat, _mlon)
+                            if _md < _mndist: _mndist = _md; _mnear = _mnm or "Unnamed mine"
+                    _details["⛏️ Mines"] = {"names": _mnames, "subtypes": {}, "nearest_name": _mnear, "nearest_dist": _mndist if _mndist < float("inf") else None}
+                else:
+                    _details["⛏️ Mines"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
             else:
+                _counts["⛏️ Mines"] = "—"
                 _details["⛏️ Mines"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
 
-            # Dams via OSM
-            _dam_query = 'node["waterway"="dam"];way["waterway"="dam"];node["man_made"="dam"];way["man_made"="dam"];'
-            _dam_count = _overpass_count(_dam_query)
-            _counts["🌊 Dams"] = _dam_count if _dam_count is not None else "—"
-            if _dam_count and _dam_count > 0:
-                _dnames, _dnear, _dndist = _overpass_features(_dam_query)
-                _details["🌊 Dams"] = {"names": _dnames, "subtypes": {}, "nearest_name": _dnear, "nearest_dist": _dndist}
+            # Dams
+            _dq = f"[out:json][timeout:20];(node[\"waterway\"=\"dam\"]{_osm_bbox};way[\"waterway\"=\"dam\"]{_osm_bbox};node[\"man_made\"=\"dam\"]{_osm_bbox};way[\"man_made\"=\"dam\"]{_osm_bbox};);out count;"
+            _djs = _overpass_req(_dq)
+            if _djs:
+                _dam_count = int((_djs.get("elements") or [{}])[0].get("tags", {}).get("total", 0))
+                _counts["🌊 Dams"] = _dam_count
+                if _dam_count > 0:
+                    _dfq = f"[out:json][timeout:20];(node[\"waterway\"=\"dam\"]{_osm_bbox};way[\"waterway\"=\"dam\"]{_osm_bbox};);out body 20;"
+                    _dfjs = _overpass_req(_dfq)
+                    _dnames, _dnear, _dndist = [], None, float("inf")
+                    for _del in (_dfjs or {}).get("elements", []):
+                        _dnm = (_del.get("tags") or {}).get("name")
+                        if _dnm: _dnames.append(_dnm)
+                        _dlat = _del.get("lat"); _dlon = _del.get("lon")
+                        if _dlat and _dlon:
+                            _dd = haversine_km(_ctr_lat, _ctr_lon, _dlat, _dlon)
+                            if _dd < _dndist: _dndist = _dd; _dnear = _dnm or "Unnamed dam"
+                    _details["🌊 Dams"] = {"names": _dnames, "subtypes": {}, "nearest_name": _dnear, "nearest_dist": _dndist if _dndist < float("inf") else None}
+                else:
+                    _details["🌊 Dams"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
             else:
+                _counts["🌊 Dams"] = "—"
                 _details["🌊 Dams"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
 
             # District overlap from context layers
