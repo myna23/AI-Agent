@@ -1087,24 +1087,22 @@ with st.sidebar:
             # Mines via OSM
             _mine_query = 'node["industrial"="mine"];way["industrial"="mine"];node["landuse"="quarry"];way["landuse"="quarry"];'
             _mine_count = _overpass_count(_mine_query)
-            if _mine_count is not None:
-                _counts["⛏️ Mines"] = _mine_count
-                if _mine_count > 0:
-                    _mnames, _mnear, _mndist = _overpass_features(_mine_query)
-                    _details["⛏️ Mines"] = {"names": _mnames, "subtypes": {}, "nearest_name": _mnear, "nearest_dist": _mndist}
-                else:
-                    _details["⛏️ Mines"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+            _counts["⛏️ Mines"] = _mine_count if _mine_count is not None else "—"
+            if _mine_count and _mine_count > 0:
+                _mnames, _mnear, _mndist = _overpass_features(_mine_query)
+                _details["⛏️ Mines"] = {"names": _mnames, "subtypes": {}, "nearest_name": _mnear, "nearest_dist": _mndist}
+            else:
+                _details["⛏️ Mines"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
 
             # Dams via OSM
             _dam_query = 'node["waterway"="dam"];way["waterway"="dam"];node["man_made"="dam"];way["man_made"="dam"];'
             _dam_count = _overpass_count(_dam_query)
-            if _dam_count is not None:
-                _counts["🌊 Dams"] = _dam_count
-                if _dam_count > 0:
-                    _dnames, _dnear, _dndist = _overpass_features(_dam_query)
-                    _details["🌊 Dams"] = {"names": _dnames, "subtypes": {}, "nearest_name": _dnear, "nearest_dist": _dndist}
-                else:
-                    _details["🌊 Dams"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+            _counts["🌊 Dams"] = _dam_count if _dam_count is not None else "—"
+            if _dam_count and _dam_count > 0:
+                _dnames, _dnear, _dndist = _overpass_features(_dam_query)
+                _details["🌊 Dams"] = {"names": _dnames, "subtypes": {}, "nearest_name": _dnear, "nearest_dist": _dndist}
+            else:
+                _details["🌊 Dams"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
 
             # District overlap from context layers
             _overlap_districts = []
