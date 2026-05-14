@@ -1042,14 +1042,29 @@ with st.sidebar:
             import urllib.request as _urlreq, urllib.parse as _urlparse
             _s, _w, _n, _e = _b["min_lat"], _b["min_lon"], _b["max_lat"], _b["max_lon"]
             _osm_bbox = f"({_s},{_w},{_n},{_e})"
+            _OVERPASS_MIRRORS = [
+                "https://overpass.kumi.systems/api/interpreter",
+                "https://overpass-api.de/api/interpreter",
+                "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+            ]
+            def _overpass_query(query_str, timeout=25):
+                _d = _urlparse.urlencode({"data": query_str}).encode()
+                for _mirror in _OVERPASS_MIRRORS:
+                    try:
+                        _rq = _urlreq.Request(_mirror, data=_d)
+                        _rq.add_header("User-Agent", "ZambiaGeoHubAI/1.0")
+                        _rs = _urlreq.urlopen(_rq, timeout=timeout)
+                        return _json_mod.loads(_rs.read().decode())
+                    except Exception:
+                        continue
+                return None
+
             def _overpass_count(osm_tags_query):
                 try:
-                    _q = f"[out:json];({osm_tags_query}{_osm_bbox};);out count;"
-                    _d = _urlparse.urlencode({"data": _q}).encode()
-                    _rq = _urlreq.Request("https://overpass-api.de/api/interpreter", data=_d)
-                    _rq.add_header("User-Agent", "ZambiaGeoHubAI/1.0")
-                    _rs = _urlreq.urlopen(_rq, timeout=15)
-                    _js = _json_mod.loads(_rs.read().decode())
+                    _q = f"[out:json][timeout:25];({osm_tags_query}{_osm_bbox};);out count;"
+                    _js = _overpass_query(_q)
+                    if not _js:
+                        return None
                     _el = _js.get("elements", [{}])
                     _tags = _el[0].get("tags", {}) if _el else {}
                     return int(_tags.get("total", 0))
@@ -1059,12 +1074,10 @@ with st.sidebar:
             def _overpass_features(osm_tags_query, limit=20):
                 """Fetch names of OSM features matching query in bbox."""
                 try:
-                    _q = f"[out:json];({osm_tags_query}{_osm_bbox};);out body {limit};"
-                    _d = _urlparse.urlencode({"data": _q}).encode()
-                    _rq = _urlreq.Request("https://overpass-api.de/api/interpreter", data=_d)
-                    _rq.add_header("User-Agent", "ZambiaGeoHubAI/1.0")
-                    _rs = _urlreq.urlopen(_rq, timeout=15)
-                    _js = _json_mod.loads(_rs.read().decode())
+                    _q = f"[out:json][timeout:25];({osm_tags_query}{_osm_bbox};);out body {limit};"
+                    _js = _overpass_query(_q)
+                    if not _js:
+                        return [], None, None
                     _names = []
                     _nearest_name = None
                     _nearest_dist = float("inf")
