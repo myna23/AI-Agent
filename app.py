@@ -943,24 +943,36 @@ with st.sidebar:
             st.session_state["draw_map_version"] = _draw_map_version + 1
             st.rerun()
 
-        # --- Feature count within drawn area ---
+        # --- Feature count + details within drawn area ---
         if st.button("📊 Count features in area", use_container_width=True, key="count_features_btn"):
             _bbx_str = (f"{_b['min_lon']},{_b['min_lat']},"
                         f"{_b['max_lon']},{_b['max_lat']}")
             _tok = _hub_client_module._ARCGIS_TOKEN
             _count_datasets = [
-                ("🏥 Health facilities", "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_HealthFac_v01beta/FeatureServer/0"),
-                ("🏫 Schools",           "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_School_v01beta/FeatureServer/0"),
-                ("🛣️ Roads",             "https://services6.arcgis.com/Do88DoK2xjTUCXd1/arcgis/rest/services/OSM_Roads_Zambia/FeatureServer/0"),
-                ("⛏️ Mines",             "https://services.arcgis.com/iQ1dY19aHwbSDYIF/ArcGIS/rest/services/zmb_mines_osm/FeatureServer/12"),
-                ("🌊 Dams",              "https://services.arcgis.com/iQ1dY19aHwbSDYIF/ArcGIS/rest/services/zmb_dams_20251009/FeatureServer/0"),
-                ("🏘️ Settlements",       "https://services.arcgis.com/iQ1dY19aHwbSDYIF/ArcGIS/rest/services/zmb_dre_settlement_points/FeatureServer/0"),
+                ("🏥 Health facilities", "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_HealthFac_v01beta/FeatureServer/0",   ["Facility_N", "Name", "FacilityNa", "facility_name", "NAME"], "Type"),
+                ("🏫 Schools",           "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_School_v01beta/FeatureServer/0",        ["School_Nam", "Name", "school_name", "NAME"], "School_Typ"),
+                ("🛣️ Roads",             "https://services6.arcgis.com/Do88DoK2xjTUCXd1/arcgis/rest/services/OSM_Roads_Zambia/FeatureServer/0",               ["name", "Name", "road_name", "NAME"], "highway"),
+                ("⛏️ Mines",             "https://services.arcgis.com/iQ1dY19aHwbSDYIF/ArcGIS/rest/services/zmb_mines_osm/FeatureServer/12",                 ["name", "Name", "mine_name", "NAME"], None),
+                ("🌊 Dams",              "https://services.arcgis.com/iQ1dY19aHwbSDYIF/ArcGIS/rest/services/zmb_dams_20251009/FeatureServer/0",               ["name", "Name", "dam_name", "NAME"], None),
+                ("🏘️ Settlements",       "https://services.arcgis.com/iQ1dY19aHwbSDYIF/ArcGIS/rest/services/zmb_dre_settlement_points/FeatureServer/0",       ["name", "Name", "settlement", "NAME"], "type"),
             ]
             import requests as _req
             _counts = {}
+            _details = {}  # feature names + subtypes
             _hdr = {"Referer": "https://zmb-geowb.hub.arcgis.com"}
-            for _label, _url in _count_datasets:
+
+            # Compute area for density calculation
+            _area_km2_draw = (
+                haversine_km(_b["min_lat"], _b["min_lon"], _b["min_lat"], _b["max_lon"]) *
+                haversine_km(_b["min_lat"], _b["min_lon"], _b["max_lat"], _b["min_lon"])
+            )
+            # Centroid of drawn area
+            _ctr_lat = (_b["min_lat"] + _b["max_lat"]) / 2
+            _ctr_lon = (_b["min_lon"] + _b["max_lon"]) / 2
+
+            for _label, _url, _name_fields, _type_field in _count_datasets:
                 try:
+                    # 1. Count only
                     _p = {"geometry": _bbx_str, "geometryType": "esriGeometryEnvelope",
                           "spatialRel": "esriSpatialRelIntersects",
                           "returnCountOnly": "true", "f": "json"}
@@ -969,14 +981,138 @@ with st.sidebar:
                     _r = _req.get(f"{_url}/query", params=_p, headers=_hdr, timeout=10)
                     _c = _r.json().get("count", 0)
                     _counts[_label] = _c
+
+                    # 2. Fetch feature names + types (up to 20)
+                    if _c and _c != "—" and _c > 0:
+                        _fields = "*"
+                        _fp = {"geometry": _bbx_str, "geometryType": "esriGeometryEnvelope",
+                               "spatialRel": "esriSpatialRelIntersects",
+                               "outFields": _fields, "resultRecordCount": 20,
+                               "returnGeometry": "true", "f": "json"}
+                        if _tok:
+                            _fp["token"] = _tok
+                        _fr = _req.get(f"{_url}/query", params=_fp, headers=_hdr, timeout=12)
+                        _fdata = _fr.json()
+                        _feats = _fdata.get("features", [])
+                        _names = []
+                        _subtypes = {}
+                        _nearest_name = None
+                        _nearest_dist = float("inf")
+                        for _feat in _feats:
+                            _props = _feat.get("attributes") or {}
+                            # Get name
+                            _nm = None
+                            for _nf in _name_fields:
+                                _nm = _props.get(_nf)
+                                if _nm and str(_nm).strip() not in ("None", "null", "", "0"):
+                                    break
+                            if _nm:
+                                _names.append(str(_nm).strip())
+                            # Subtype breakdown
+                            if _type_field:
+                                _st = _props.get(_type_field)
+                                if _st and str(_st).strip() not in ("None", "null", ""):
+                                    _st = str(_st).strip()
+                                    _subtypes[_st] = _subtypes.get(_st, 0) + 1
+                            # Nearest to centroid
+                            _geom = _feat.get("geometry") or {}
+                            _fx = _geom.get("x")
+                            _fy = _geom.get("y")
+                            if _fx and _fy:
+                                _d = haversine_km(_ctr_lat, _ctr_lon, _fy, _fx)
+                                if _d < _nearest_dist:
+                                    _nearest_dist = _d
+                                    _nearest_name = str(_nm).strip() if _nm else None
+
+                        _details[_label] = {
+                            "names": _names,
+                            "subtypes": _subtypes,
+                            "nearest_name": _nearest_name,
+                            "nearest_dist": _nearest_dist if _nearest_dist < float("inf") else None,
+                        }
+                    else:
+                        _details[_label] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
                 except Exception:
                     _counts[_label] = "—"
+                    _details[_label] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+
+            # District overlap from context layers
+            _overlap_districts = []
+            _overlap_provinces = []
+            if _CONTEXT_LAYERS:
+                _corners = [
+                    (_b["min_lat"], _b["min_lon"]), (_b["min_lat"], _b["max_lon"]),
+                    (_b["max_lat"], _b["min_lon"]), (_b["max_lat"], _b["max_lon"]),
+                    (_ctr_lat, _ctr_lon),
+                ]
+                for _cl in _CONTEXT_LAYERS:
+                    if _cl.get("type") != "boundary":
+                        continue
+                    for _df in _cl["geojson"].get("features", []):
+                        _dp = _df.get("properties") or {}
+                        _dn = (_dp.get("ADM2_EN") or _dp.get("DISTRICT") or _dp.get("District") or "").strip()
+                        _pn = (_dp.get("ADM1_EN") or _dp.get("PROVINCE") or _dp.get("Province") or "").strip()
+                        if not _dn:
+                            continue
+                        _dg = _df.get("geometry") or {}
+                        for (_tlat, _tlon) in _corners:
+                            if _point_in_polygon(_tlat, _tlon, _dg):
+                                if _dn and _dn not in _overlap_districts:
+                                    _overlap_districts.append(_dn)
+                                if _pn and _pn not in _overlap_provinces:
+                                    _overlap_provinces.append(_pn)
+                                break
+
             st.session_state["_draw_counts"] = _counts
+            st.session_state["_draw_details"] = _details
+            st.session_state["_draw_area_km2"] = _area_km2_draw
+            st.session_state["_draw_overlap_districts"] = _overlap_districts
+            st.session_state["_draw_overlap_provinces"] = _overlap_provinces
+            st.session_state["_draw_centroid"] = (_ctr_lat, _ctr_lon)
 
         if st.session_state.get("_draw_counts"):
+            _dc = st.session_state["_draw_counts"]
+            _dd = st.session_state.get("_draw_details", {})
+            _da = st.session_state.get("_draw_area_km2", 0)
+            _od = st.session_state.get("_draw_overlap_districts", [])
+            _op = st.session_state.get("_draw_overlap_provinces", [])
+            _ctr = st.session_state.get("_draw_centroid", (_ctr_lat, _ctr_lon))
+
+            # District overlap (Feature 3)
+            if _od:
+                st.markdown(f"**Districts touched:** {', '.join(_od)}")
+            if _op:
+                st.markdown(f"**Provinces:** {', '.join(_op)}")
+
             st.markdown("**Features in this area:**")
-            for _lbl, _cnt in st.session_state["_draw_counts"].items():
-                st.markdown(f"{_lbl}: **{_cnt}**")
+            for _lbl, _cnt in _dc.items():
+                _info = _dd.get(_lbl, {})
+                _names = _info.get("names", [])
+                _subtypes = _info.get("subtypes", {})
+                _nearest = _info.get("nearest_name")
+                _ndist = _info.get("nearest_dist")
+
+                # Count + density (Features 1 & 2)
+                if isinstance(_cnt, int) and _da and _da > 0:
+                    _density = _cnt / _da * 100  # per 100 km²
+                    st.markdown(f"{_lbl}: **{_cnt}** &nbsp;·&nbsp; *{_density:.1f} per 100 km²*")
+                else:
+                    st.markdown(f"{_lbl}: **{_cnt}**")
+
+                # Nearest feature (Feature 4)
+                if _nearest and _ndist is not None:
+                    st.caption(f"↳ Nearest: {_nearest} ({_ndist:.1f} km from centre)")
+
+                # Subtype breakdown (Feature 5)
+                if _subtypes:
+                    _sub_str = " · ".join(f"{k}: {v}" for k, v in sorted(_subtypes.items(), key=lambda x: -x[1])[:4])
+                    st.caption(f"↳ Types: {_sub_str}")
+
+                # Feature names list (Feature 1 expanded)
+                if _names:
+                    with st.expander(f"View names ({len(_names)} shown)"):
+                        for _n in _names[:20]:
+                            st.markdown(f"• {_n}")
 
     else:
         st.caption("No area selected — draw on the map above.")
