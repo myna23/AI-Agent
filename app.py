@@ -949,12 +949,12 @@ with st.sidebar:
                         f"{_b['max_lon']},{_b['max_lat']}")
             _tok = _hub_client_module._ARCGIS_TOKEN
             _count_datasets = [
-                ("🏥 Health facilities", "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_HealthFac_v01beta/FeatureServer/0",   ["Facility_N", "Name", "FacilityNa", "facility_name", "NAME"], "Type"),
-                ("🏫 Schools",           "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_School_v01beta/FeatureServer/0",        ["School_Nam", "Name", "school_name", "NAME"], "School_Typ"),
-                ("🛣️ Roads",             "https://services6.arcgis.com/Do88DoK2xjTUCXd1/arcgis/rest/services/OSM_Roads_Zambia/FeatureServer/0",               ["name", "Name", "road_name", "NAME"], "highway"),
-                ("⛏️ Mines",             "https://services.arcgis.com/iQ1dY19aHwbSDYIF/ArcGIS/rest/services/zmb_mines_osm/FeatureServer/12",                 ["name", "Name", "mine_name", "NAME"], None),
-                ("🌊 Dams",              "https://services.arcgis.com/iQ1dY19aHwbSDYIF/ArcGIS/rest/services/zmb_dams_20251009/FeatureServer/0",               ["name", "Name", "dam_name", "NAME"], None),
-                ("🏘️ Settlements",       "https://services.arcgis.com/iQ1dY19aHwbSDYIF/ArcGIS/rest/services/zmb_dre_settlement_points/FeatureServer/0",       ["name", "Name", "settlement", "NAME"], "type"),
+                ("🏥 Health facilities", "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_HealthFac_v01beta/FeatureServer/0",                                                                              ["Facility_N", "Name", "FacilityNa", "facility_name", "NAME"], "Type"),
+                ("🏫 Schools",           "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_School_v01beta/FeatureServer/0",                                                                                ["School_Nam", "Name", "school_name", "NAME"], "School_Typ"),
+                ("🛣️ Roads",             "https://services3.arcgis.com/t6lYS2Pmd8iVx1fy/arcgis/rest/services/glc_ZMB_trs_roads_major_b_view/FeatureServer/0",                                                                          ["name", "Name", "road_name", "NAME"], "type"),
+                ("⛏️ Mines",             "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/AGO_COD_ZMB_Mines_pt/FeatureServer/2",                                                                                    ["name", "Name", "mine_name", "NAME"], "type"),
+                ("🌊 Dams",              "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/zmb_dams_20251009/FeatureServer/0",                                                                                        ["name", "Name", "dam_name", "NAME"], None),
+                ("🏘️ Settlements",       "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_Zambia_Operational_Settlement_Points_and_Names_Version01/FeatureServer/0",                                          ["Settlement", "name", "Name", "NAME"], "Type"),
             ]
             import requests as _req
             _counts = {}
