@@ -1233,14 +1233,14 @@ with st.sidebar:
                     _sub_str = " · ".join(f"{k}: {v}" for k, v in sorted(_subtypes.items(), key=lambda x: -x[1])[:4])
                     st.caption(f"↳ Types: {_sub_str}")
 
-                # Feature names list + data source link
+                # Feature names list + data source link (only when count > 0)
                 if _names:
                     with st.expander(f"View names ({len(_names)} shown)"):
                         for _n in _names[:20]:
                             st.markdown(f"• {_n}")
                         if _ds_link:
                             st.markdown(f"[🔗 View full dataset on GeoHub]({_ds_link})")
-                elif _ds_link:
+                elif _ds_link and isinstance(_cnt, int) and _cnt > 0:
                     st.caption(f"[🔗 View dataset source]({_ds_link})")
 
     else:
