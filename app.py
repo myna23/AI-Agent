@@ -1234,18 +1234,6 @@ with st.sidebar:
             _op = st.session_state.get("_draw_overlap_provinces", [])
             _ctr = st.session_state.get("_draw_centroid", (_ctr_lat, _ctr_lon))
 
-            # Data source links mapped to each dataset
-            _DS_LINKS = {
-                "🏥 Health facilities": "https://zmb-geowb.hub.arcgis.com/datasets/BU6Aadhn6tbBEdyk::grid3-zmb-health-facilities",
-                "🏫 Schools":           "https://zmb-geowb.hub.arcgis.com/datasets/BU6Aadhn6tbBEdyk::grid3-zmb-schools",
-                "🛣️ Roads":             "https://zmb-geowb.hub.arcgis.com/datasets/t6lYS2Pmd8iVx1fy::zambia-major-roads",
-                "⛏️ Mines":             "https://www.openstreetmap.org/search?query=mines+zambia",
-                "🌊 Dams":              "https://www.openstreetmap.org/search?query=dams+zambia",
-                "⛪ Churches":          "https://www.openstreetmap.org/search?query=church+zambia",
-                "🕌 Mosques":           "https://www.openstreetmap.org/search?query=mosque+zambia",
-                "🛒 Markets & shops":   "https://www.openstreetmap.org/search?query=market+zambia",
-                "🏘️ Settlements":       "https://zmb-geowb.hub.arcgis.com/datasets/BU6Aadhn6tbBEdyk::grid3-zambia-settlement-points",
-            }
 
             # District overlap
             if _od:
@@ -1290,7 +1278,6 @@ with st.sidebar:
                 _subtypes = _info.get("subtypes", {})
                 _nearest = _info.get("nearest_name")
                 _ndist = _info.get("nearest_dist")
-                _ds_link = _DS_LINKS.get(_lbl, "")
 
                 # Count + density
                 if isinstance(_cnt, int) and _da and _da > 0:
@@ -1308,15 +1295,14 @@ with st.sidebar:
                     _sub_str = " · ".join(f"{k}: {v}" for k, v in sorted(_subtypes.items(), key=lambda x: -x[1])[:4])
                     st.caption(f"↳ Types: {_sub_str}")
 
-                # Feature names list + data source link (only when count > 0)
+                # Feature names list
                 if _names:
                     with st.expander(f"View names ({len(_names)} shown)"):
                         for _n in _names[:20]:
                             st.markdown(f"• {_n}")
-                        if _ds_link:
-                            st.markdown(f"[🔗 View full dataset on GeoHub]({_ds_link})")
-                elif _ds_link and isinstance(_cnt, int) and _cnt > 0:
-                    st.caption(f"[🔗 View dataset source]({_ds_link})")
+
+            # Single link to the full GeoHub
+            st.caption("[🔗 Explore all datasets on Zambia GeoHub](https://zmb-geowb.hub.arcgis.com)")
 
     else:
         st.caption("No area selected — draw on the map above.")
