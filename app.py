@@ -1174,14 +1174,11 @@ with st.sidebar:
             else:
                 _area_class = "🌾 Rural"
 
-            # Show analytics panel
+            # Show analytics panel — always show all 5 lines
             st.markdown("**Area Analytics:**")
-            if _pop_est:
-                st.caption(f"👥 Est. population: ~{_pop_est:,} people ({_settle_cnt} settlements × 6)")
-            if _health_ratio is not None:
-                st.caption(f"🏥 Healthcare access: {_health_ratio} facilities per 10,000 people")
-            if _school_ratio is not None:
-                st.caption(f"🏫 School coverage: {_school_ratio} schools per settlement")
+            st.caption(f"👥 Est. population: ~{_pop_est:,} people ({_settle_cnt} settlements × 6)")
+            st.caption(f"🏥 Healthcare access: {_health_ratio if _health_ratio is not None else 'N/A'} facilities per 10,000 people")
+            st.caption(f"🏫 School coverage: {_school_ratio if _school_ratio is not None else 'N/A'} schools per settlement")
             st.caption(f"🗺️ Area classification: {_area_class} ({_settle_density:.1f} settlements per 100 km²)")
 
             st.markdown("**Features in this area:**")
