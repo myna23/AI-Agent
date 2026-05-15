@@ -1106,6 +1106,78 @@ with st.sidebar:
                 _counts["🌊 Dams"] = "—"
                 _details["🌊 Dams"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
 
+            # Churches
+            _chq = f"[out:json][timeout:20];(node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"christian\"]{_osm_bbox};way[\"amenity\"=\"place_of_worship\"][\"religion\"=\"christian\"]{_osm_bbox};);out count;"
+            _chjs = _overpass_req(_chq)
+            if _chjs:
+                _church_count = int((_chjs.get("elements") or [{}])[0].get("tags", {}).get("total", 0))
+                _counts["⛪ Churches"] = _church_count
+                if _church_count > 0:
+                    _chfq = f"[out:json][timeout:20];(node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"christian\"]{_osm_bbox};);out body 20;"
+                    _chfjs = _overpass_req(_chfq)
+                    _chnames, _chnear, _chndist = [], None, float("inf")
+                    for _chel in (_chfjs or {}).get("elements", []):
+                        _chnm = (_chel.get("tags") or {}).get("name")
+                        if _chnm: _chnames.append(_chnm)
+                        _chlat = _chel.get("lat"); _chlon = _chel.get("lon")
+                        if _chlat and _chlon:
+                            _chd = haversine_km(_ctr_lat, _ctr_lon, _chlat, _chlon)
+                            if _chd < _chndist: _chndist = _chd; _chnear = _chnm or "Unnamed church"
+                    _details["⛪ Churches"] = {"names": _chnames, "subtypes": {}, "nearest_name": _chnear, "nearest_dist": _chndist if _chndist < float("inf") else None}
+                else:
+                    _details["⛪ Churches"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+            else:
+                _counts["⛪ Churches"] = "—"
+                _details["⛪ Churches"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+
+            # Mosques
+            _msq = f"[out:json][timeout:20];(node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"]{_osm_bbox};way[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"]{_osm_bbox};);out count;"
+            _msjs = _overpass_req(_msq)
+            if _msjs:
+                _mosque_count = int((_msjs.get("elements") or [{}])[0].get("tags", {}).get("total", 0))
+                _counts["🕌 Mosques"] = _mosque_count
+                if _mosque_count > 0:
+                    _msfq = f"[out:json][timeout:20];(node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"]{_osm_bbox};);out body 20;"
+                    _msfjs = _overpass_req(_msfq)
+                    _msnames, _msnear, _msndist = [], None, float("inf")
+                    for _msel in (_msfjs or {}).get("elements", []):
+                        _msnm = (_msel.get("tags") or {}).get("name")
+                        if _msnm: _msnames.append(_msnm)
+                        _mslat = _msel.get("lat"); _mslon = _msel.get("lon")
+                        if _mslat and _mslon:
+                            _msd = haversine_km(_ctr_lat, _ctr_lon, _mslat, _mslon)
+                            if _msd < _msndist: _msndist = _msd; _msnear = _msnm or "Unnamed mosque"
+                    _details["🕌 Mosques"] = {"names": _msnames, "subtypes": {}, "nearest_name": _msnear, "nearest_dist": _msndist if _msndist < float("inf") else None}
+                else:
+                    _details["🕌 Mosques"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+            else:
+                _counts["🕌 Mosques"] = "—"
+                _details["🕌 Mosques"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+
+            # Markets & commercial (marketplaces + supermarkets + shops)
+            _mkq = f"[out:json][timeout:20];(node[\"amenity\"=\"marketplace\"]{_osm_bbox};way[\"amenity\"=\"marketplace\"]{_osm_bbox};node[\"shop\"~\"supermarket|mall|convenience|general\"]{_osm_bbox};);out count;"
+            _mkjs = _overpass_req(_mkq)
+            if _mkjs:
+                _market_count = int((_mkjs.get("elements") or [{}])[0].get("tags", {}).get("total", 0))
+                _counts["🛒 Markets & shops"] = _market_count
+                if _market_count > 0:
+                    _mkfq = f"[out:json][timeout:20];(node[\"amenity\"=\"marketplace\"]{_osm_bbox};node[\"shop\"~\"supermarket|mall|convenience|general\"]{_osm_bbox};);out body 20;"
+                    _mkfjs = _overpass_req(_mkfq)
+                    _mknames, _mknear, _mkndist = [], None, float("inf")
+                    for _mkel in (_mkfjs or {}).get("elements", []):
+                        _mknm = (_mkel.get("tags") or {}).get("name")
+                        if _mknm: _mknames.append(_mknm)
+                        _mklat = _mkel.get("lat"); _mklon = _mkel.get("lon")
+                        if _mklat and _mklon:
+                            _mkd = haversine_km(_ctr_lat, _ctr_lon, _mklat, _mklon)
+                            if _mkd < _mkndist: _mkndist = _mkd; _mknear = _mknm or "Unnamed market"
+                    _details["🛒 Markets & shops"] = {"names": _mknames, "subtypes": {}, "nearest_name": _mknear, "nearest_dist": _mkndist if _mkndist < float("inf") else None}
+                else:
+                    _details["🛒 Markets & shops"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+            else:
+                _counts["🛒 Markets & shops"] = "—"
+                _details["🛒 Markets & shops"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+
             # District overlap from context layers
             _overlap_districts = []
             _overlap_provinces = []
@@ -1169,6 +1241,9 @@ with st.sidebar:
                 "🛣️ Roads":             "https://zmb-geowb.hub.arcgis.com/datasets/t6lYS2Pmd8iVx1fy::zambia-major-roads",
                 "⛏️ Mines":             "https://www.openstreetmap.org/search?query=mines+zambia",
                 "🌊 Dams":              "https://www.openstreetmap.org/search?query=dams+zambia",
+                "⛪ Churches":          "https://www.openstreetmap.org/search?query=church+zambia",
+                "🕌 Mosques":           "https://www.openstreetmap.org/search?query=mosque+zambia",
+                "🛒 Markets & shops":   "https://www.openstreetmap.org/search?query=market+zambia",
                 "🏘️ Settlements":       "https://zmb-geowb.hub.arcgis.com/datasets/BU6Aadhn6tbBEdyk::grid3-zambia-settlement-points",
             }
 
