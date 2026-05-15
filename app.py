@@ -972,73 +972,54 @@ with st.sidebar:
             _ctr_lat = (_b["min_lat"] + _b["max_lat"]) / 2
             _ctr_lon = (_b["min_lon"] + _b["max_lon"]) / 2
 
-            for _label, _url, _name_fields, _type_field in _count_datasets:
+            import concurrent.futures as _cf
+
+            # Helper: fetch one ArcGIS dataset in parallel
+            def _fetch_arcgis(args):
+                _label, _url, _name_fields, _type_field = args
                 try:
-                    # 1. Count only
                     _p = {"geometry": _bbx_str, "geometryType": "esriGeometryEnvelope",
                           "spatialRel": "esriSpatialRelIntersects",
                           "returnCountOnly": "true", "f": "json"}
-                    if _tok:
-                        _p["token"] = _tok
+                    if _tok: _p["token"] = _tok
                     _r = _req.get(f"{_url}/query", params=_p, headers=_hdr, timeout=10)
                     _c = _r.json().get("count", 0)
-                    _counts[_label] = _c
-
-                    # 2. Fetch feature names + types (up to 20)
-                    if _c and _c != "—" and _c > 0:
-                        _fields = "*"
+                    if _c and _c > 0:
                         _fp = {"geometry": _bbx_str, "geometryType": "esriGeometryEnvelope",
                                "spatialRel": "esriSpatialRelIntersects",
-                               "outFields": _fields, "resultRecordCount": 20,
+                               "outFields": "*", "resultRecordCount": 20,
                                "returnGeometry": "true", "f": "json"}
-                        if _tok:
-                            _fp["token"] = _tok
+                        if _tok: _fp["token"] = _tok
                         _fr = _req.get(f"{_url}/query", params=_fp, headers=_hdr, timeout=12)
-                        _fdata = _fr.json()
-                        _feats = _fdata.get("features", [])
-                        _names = []
-                        _subtypes = {}
-                        _nearest_name = None
-                        _nearest_dist = float("inf")
+                        _feats = _fr.json().get("features", [])
+                        _names, _subtypes, _nearest_name, _nearest_dist = [], {}, None, float("inf")
                         for _feat in _feats:
                             _props = _feat.get("attributes") or {}
-                            # Get name
                             _nm = None
                             for _nf in _name_fields:
                                 _nm = _props.get(_nf)
-                                if _nm and str(_nm).strip() not in ("None", "null", "", "0"):
-                                    break
-                            if _nm:
-                                _names.append(str(_nm).strip())
-                            # Subtype breakdown
+                                if _nm and str(_nm).strip() not in ("None", "null", "", "0"): break
+                            if _nm: _names.append(str(_nm).strip())
                             if _type_field:
                                 _st = _props.get(_type_field)
                                 if _st and str(_st).strip() not in ("None", "null", ""):
                                     _st = str(_st).strip()
                                     _subtypes[_st] = _subtypes.get(_st, 0) + 1
-                            # Nearest to centroid
                             _geom = _feat.get("geometry") or {}
-                            _fx = _geom.get("x")
-                            _fy = _geom.get("y")
+                            _fx = _geom.get("x"); _fy = _geom.get("y")
                             if _fx and _fy:
                                 _d = haversine_km(_ctr_lat, _ctr_lon, _fy, _fx)
                                 if _d < _nearest_dist:
                                     _nearest_dist = _d
                                     _nearest_name = str(_nm).strip() if _nm else None
-
-                        _details[_label] = {
-                            "names": _names,
-                            "subtypes": _subtypes,
-                            "nearest_name": _nearest_name,
-                            "nearest_dist": _nearest_dist if _nearest_dist < float("inf") else None,
-                        }
-                    else:
-                        _details[_label] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+                        return _label, _c, {"names": _names, "subtypes": _subtypes,
+                                            "nearest_name": _nearest_name,
+                                            "nearest_dist": _nearest_dist if _nearest_dist < float("inf") else None}
+                    return _label, _c, {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
                 except Exception:
-                    _counts[_label] = "—"
-                    _details[_label] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+                    return _label, "—", {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
 
-            # Mines + Dams via OpenStreetMap Overpass API
+            # Overpass helpers
             _s, _w, _n, _e = _b["min_lat"], _b["min_lon"], _b["max_lat"], _b["max_lon"]
             _osm_bbox = f"({_s},{_w},{_n},{_e})"
             _OVERPASS_MIRRORS = [
@@ -1046,137 +1027,69 @@ with st.sidebar:
                 "https://overpass-api.de/api/interpreter",
                 "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
             ]
-
             def _overpass_req(query_str):
                 for _mirror in _OVERPASS_MIRRORS:
                     try:
                         _r2 = _req.post(_mirror, data={"data": query_str},
                                         headers={"User-Agent": "ZambiaGeoHubAI/1.0"}, timeout=20)
-                        if _r2.status_code == 200:
-                            return _r2.json()
-                    except Exception:
-                        continue
+                        if _r2.status_code == 200: return _r2.json()
+                    except Exception: continue
                 return None
 
-            # Mines
-            _mq = f"[out:json][timeout:20];(node[\"industrial\"=\"mine\"]{_osm_bbox};way[\"industrial\"=\"mine\"]{_osm_bbox};node[\"landuse\"=\"quarry\"]{_osm_bbox};way[\"landuse\"=\"quarry\"]{_osm_bbox};);out count;"
-            _mjs = _overpass_req(_mq)
-            if _mjs:
-                _mine_count = int((_mjs.get("elements") or [{}])[0].get("tags", {}).get("total", 0))
-                _counts["⛏️ Mines"] = _mine_count
-                if _mine_count > 0:
-                    _mfq = f"[out:json][timeout:20];(node[\"industrial\"=\"mine\"]{_osm_bbox};way[\"industrial\"=\"mine\"]{_osm_bbox};node[\"landuse\"=\"quarry\"]{_osm_bbox};);out body 20;"
-                    _mfjs = _overpass_req(_mfq)
-                    _mnames, _mnear, _mndist = [], None, float("inf")
-                    for _mel in (_mfjs or {}).get("elements", []):
-                        _mnm = (_mel.get("tags") or {}).get("name") or (_mel.get("tags") or {}).get("operator")
-                        if _mnm: _mnames.append(_mnm)
-                        _mlat = _mel.get("lat"); _mlon = _mel.get("lon")
-                        if _mlat and _mlon:
-                            _md = haversine_km(_ctr_lat, _ctr_lon, _mlat, _mlon)
-                            if _md < _mndist: _mndist = _md; _mnear = _mnm or "Unnamed mine"
-                    _details["⛏️ Mines"] = {"names": _mnames, "subtypes": {}, "nearest_name": _mnear, "nearest_dist": _mndist if _mndist < float("inf") else None}
-                else:
-                    _details["⛏️ Mines"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
-            else:
-                _counts["⛏️ Mines"] = "—"
-                _details["⛏️ Mines"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+            def _fetch_osm(label, count_q, detail_q, name_tags, default_name):
+                try:
+                    _js = _overpass_req(count_q)
+                    if not _js:
+                        return label, "—", {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+                    _cnt = int((_js.get("elements") or [{}])[0].get("tags", {}).get("total", 0))
+                    if _cnt == 0:
+                        return label, 0, {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+                    _fjs = _overpass_req(detail_q)
+                    _names, _near, _ndist = [], None, float("inf")
+                    for _el in (_fjs or {}).get("elements", []):
+                        _tags = _el.get("tags") or {}
+                        _nm = next((_tags.get(t) for t in name_tags if _tags.get(t)), None)
+                        if _nm: _names.append(_nm)
+                        _lat = _el.get("lat"); _lon = _el.get("lon")
+                        if _lat and _lon:
+                            _d = haversine_km(_ctr_lat, _ctr_lon, _lat, _lon)
+                            if _d < _ndist: _ndist = _d; _near = _nm or default_name
+                    return label, _cnt, {"names": _names, "subtypes": {}, "nearest_name": _near,
+                                         "nearest_dist": _ndist if _ndist < float("inf") else None}
+                except Exception:
+                    return label, "—", {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
 
-            # Dams
-            _dq = f"[out:json][timeout:20];(node[\"waterway\"=\"dam\"]{_osm_bbox};way[\"waterway\"=\"dam\"]{_osm_bbox};node[\"man_made\"=\"dam\"]{_osm_bbox};way[\"man_made\"=\"dam\"]{_osm_bbox};);out count;"
-            _djs = _overpass_req(_dq)
-            if _djs:
-                _dam_count = int((_djs.get("elements") or [{}])[0].get("tags", {}).get("total", 0))
-                _counts["🌊 Dams"] = _dam_count
-                if _dam_count > 0:
-                    _dfq = f"[out:json][timeout:20];(node[\"waterway\"=\"dam\"]{_osm_bbox};way[\"waterway\"=\"dam\"]{_osm_bbox};);out body 20;"
-                    _dfjs = _overpass_req(_dfq)
-                    _dnames, _dnear, _dndist = [], None, float("inf")
-                    for _del in (_dfjs or {}).get("elements", []):
-                        _dnm = (_del.get("tags") or {}).get("name")
-                        if _dnm: _dnames.append(_dnm)
-                        _dlat = _del.get("lat"); _dlon = _del.get("lon")
-                        if _dlat and _dlon:
-                            _dd = haversine_km(_ctr_lat, _ctr_lon, _dlat, _dlon)
-                            if _dd < _dndist: _dndist = _dd; _dnear = _dnm or "Unnamed dam"
-                    _details["🌊 Dams"] = {"names": _dnames, "subtypes": {}, "nearest_name": _dnear, "nearest_dist": _dndist if _dndist < float("inf") else None}
-                else:
-                    _details["🌊 Dams"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
-            else:
-                _counts["🌊 Dams"] = "—"
-                _details["🌊 Dams"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+            _osm_tasks = [
+                ("⛏️ Mines",
+                 f"[out:json][timeout:20];(node[\"industrial\"=\"mine\"]{_osm_bbox};way[\"industrial\"=\"mine\"]{_osm_bbox};node[\"landuse\"=\"quarry\"]{_osm_bbox};way[\"landuse\"=\"quarry\"]{_osm_bbox};);out count;",
+                 f"[out:json][timeout:20];(node[\"industrial\"=\"mine\"]{_osm_bbox};way[\"industrial\"=\"mine\"]{_osm_bbox};node[\"landuse\"=\"quarry\"]{_osm_bbox};);out body 20;",
+                 ["name", "operator"], "Unnamed mine"),
+                ("🌊 Dams",
+                 f"[out:json][timeout:20];(node[\"waterway\"=\"dam\"]{_osm_bbox};way[\"waterway\"=\"dam\"]{_osm_bbox};node[\"man_made\"=\"dam\"]{_osm_bbox};way[\"man_made\"=\"dam\"]{_osm_bbox};);out count;",
+                 f"[out:json][timeout:20];(node[\"waterway\"=\"dam\"]{_osm_bbox};way[\"waterway\"=\"dam\"]{_osm_bbox};);out body 20;",
+                 ["name"], "Unnamed dam"),
+                ("⛪ Churches",
+                 f"[out:json][timeout:20];(node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"christian\"]{_osm_bbox};way[\"amenity\"=\"place_of_worship\"][\"religion\"=\"christian\"]{_osm_bbox};);out count;",
+                 f"[out:json][timeout:20];(node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"christian\"]{_osm_bbox};);out body 20;",
+                 ["name"], "Unnamed church"),
+                ("🕌 Mosques",
+                 f"[out:json][timeout:20];(node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"]{_osm_bbox};way[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"]{_osm_bbox};);out count;",
+                 f"[out:json][timeout:20];(node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"]{_osm_bbox};);out body 20;",
+                 ["name"], "Unnamed mosque"),
+                ("🛒 Markets & shops",
+                 f"[out:json][timeout:20];(node[\"amenity\"=\"marketplace\"]{_osm_bbox};way[\"amenity\"=\"marketplace\"]{_osm_bbox};node[\"shop\"~\"supermarket|mall|convenience|general\"]{_osm_bbox};);out count;",
+                 f"[out:json][timeout:20];(node[\"amenity\"=\"marketplace\"]{_osm_bbox};node[\"shop\"~\"supermarket|mall|convenience|general\"]{_osm_bbox};);out body 20;",
+                 ["name"], "Unnamed market"),
+            ]
 
-            # Churches
-            _chq = f"[out:json][timeout:20];(node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"christian\"]{_osm_bbox};way[\"amenity\"=\"place_of_worship\"][\"religion\"=\"christian\"]{_osm_bbox};);out count;"
-            _chjs = _overpass_req(_chq)
-            if _chjs:
-                _church_count = int((_chjs.get("elements") or [{}])[0].get("tags", {}).get("total", 0))
-                _counts["⛪ Churches"] = _church_count
-                if _church_count > 0:
-                    _chfq = f"[out:json][timeout:20];(node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"christian\"]{_osm_bbox};);out body 20;"
-                    _chfjs = _overpass_req(_chfq)
-                    _chnames, _chnear, _chndist = [], None, float("inf")
-                    for _chel in (_chfjs or {}).get("elements", []):
-                        _chnm = (_chel.get("tags") or {}).get("name")
-                        if _chnm: _chnames.append(_chnm)
-                        _chlat = _chel.get("lat"); _chlon = _chel.get("lon")
-                        if _chlat and _chlon:
-                            _chd = haversine_km(_ctr_lat, _ctr_lon, _chlat, _chlon)
-                            if _chd < _chndist: _chndist = _chd; _chnear = _chnm or "Unnamed church"
-                    _details["⛪ Churches"] = {"names": _chnames, "subtypes": {}, "nearest_name": _chnear, "nearest_dist": _chndist if _chndist < float("inf") else None}
-                else:
-                    _details["⛪ Churches"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
-            else:
-                _counts["⛪ Churches"] = "—"
-                _details["⛪ Churches"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
-
-            # Mosques
-            _msq = f"[out:json][timeout:20];(node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"]{_osm_bbox};way[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"]{_osm_bbox};);out count;"
-            _msjs = _overpass_req(_msq)
-            if _msjs:
-                _mosque_count = int((_msjs.get("elements") or [{}])[0].get("tags", {}).get("total", 0))
-                _counts["🕌 Mosques"] = _mosque_count
-                if _mosque_count > 0:
-                    _msfq = f"[out:json][timeout:20];(node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"]{_osm_bbox};);out body 20;"
-                    _msfjs = _overpass_req(_msfq)
-                    _msnames, _msnear, _msndist = [], None, float("inf")
-                    for _msel in (_msfjs or {}).get("elements", []):
-                        _msnm = (_msel.get("tags") or {}).get("name")
-                        if _msnm: _msnames.append(_msnm)
-                        _mslat = _msel.get("lat"); _mslon = _msel.get("lon")
-                        if _mslat and _mslon:
-                            _msd = haversine_km(_ctr_lat, _ctr_lon, _mslat, _mslon)
-                            if _msd < _msndist: _msndist = _msd; _msnear = _msnm or "Unnamed mosque"
-                    _details["🕌 Mosques"] = {"names": _msnames, "subtypes": {}, "nearest_name": _msnear, "nearest_dist": _msndist if _msndist < float("inf") else None}
-                else:
-                    _details["🕌 Mosques"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
-            else:
-                _counts["🕌 Mosques"] = "—"
-                _details["🕌 Mosques"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
-
-            # Markets & commercial (marketplaces + supermarkets + shops)
-            _mkq = f"[out:json][timeout:20];(node[\"amenity\"=\"marketplace\"]{_osm_bbox};way[\"amenity\"=\"marketplace\"]{_osm_bbox};node[\"shop\"~\"supermarket|mall|convenience|general\"]{_osm_bbox};);out count;"
-            _mkjs = _overpass_req(_mkq)
-            if _mkjs:
-                _market_count = int((_mkjs.get("elements") or [{}])[0].get("tags", {}).get("total", 0))
-                _counts["🛒 Markets & shops"] = _market_count
-                if _market_count > 0:
-                    _mkfq = f"[out:json][timeout:20];(node[\"amenity\"=\"marketplace\"]{_osm_bbox};node[\"shop\"~\"supermarket|mall|convenience|general\"]{_osm_bbox};);out body 20;"
-                    _mkfjs = _overpass_req(_mkfq)
-                    _mknames, _mknear, _mkndist = [], None, float("inf")
-                    for _mkel in (_mkfjs or {}).get("elements", []):
-                        _mknm = (_mkel.get("tags") or {}).get("name")
-                        if _mknm: _mknames.append(_mknm)
-                        _mklat = _mkel.get("lat"); _mklon = _mkel.get("lon")
-                        if _mklat and _mklon:
-                            _mkd = haversine_km(_ctr_lat, _ctr_lon, _mklat, _mklon)
-                            if _mkd < _mkndist: _mkndist = _mkd; _mknear = _mknm or "Unnamed market"
-                    _details["🛒 Markets & shops"] = {"names": _mknames, "subtypes": {}, "nearest_name": _mknear, "nearest_dist": _mkndist if _mkndist < float("inf") else None}
-                else:
-                    _details["🛒 Markets & shops"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
-            else:
-                _counts["🛒 Markets & shops"] = "—"
-                _details["🛒 Markets & shops"] = {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+            # Run ArcGIS + OSM queries in parallel
+            with _cf.ThreadPoolExecutor(max_workers=9) as _pool:
+                _arcgis_futs = [_pool.submit(_fetch_arcgis, ds) for ds in _count_datasets]
+                _osm_futs    = [_pool.submit(_fetch_osm, *t) for t in _osm_tasks]
+                for _fut in _arcgis_futs + _osm_futs:
+                    _lbl, _cnt, _det = _fut.result()
+                    _counts[_lbl] = _cnt
+                    _details[_lbl] = _det
 
             # District overlap from context layers
             _overlap_districts = []
