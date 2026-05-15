@@ -1162,11 +1162,51 @@ with st.sidebar:
             _op = st.session_state.get("_draw_overlap_provinces", [])
             _ctr = st.session_state.get("_draw_centroid", (_ctr_lat, _ctr_lon))
 
-            # District overlap (Feature 3)
+            # Data source links mapped to each dataset
+            _DS_LINKS = {
+                "🏥 Health facilities": "https://zmb-geowb.hub.arcgis.com/datasets/BU6Aadhn6tbBEdyk::grid3-zmb-health-facilities",
+                "🏫 Schools":           "https://zmb-geowb.hub.arcgis.com/datasets/BU6Aadhn6tbBEdyk::grid3-zmb-schools",
+                "🛣️ Roads":             "https://zmb-geowb.hub.arcgis.com/datasets/t6lYS2Pmd8iVx1fy::zambia-major-roads",
+                "⛏️ Mines":             "https://www.openstreetmap.org/search?query=mines+zambia",
+                "🌊 Dams":              "https://www.openstreetmap.org/search?query=dams+zambia",
+                "🏘️ Settlements":       "https://zmb-geowb.hub.arcgis.com/datasets/BU6Aadhn6tbBEdyk::grid3-zambia-settlement-points",
+            }
+
+            # District overlap
             if _od:
                 st.markdown(f"**Districts touched:** {', '.join(_od)}")
             if _op:
                 st.markdown(f"**Provinces:** {', '.join(_op)}")
+
+            # --- Derived analytics ---
+            _health_cnt  = _dc.get("🏥 Health facilities", 0) if isinstance(_dc.get("🏥 Health facilities"), int) else 0
+            _school_cnt  = _dc.get("🏫 Schools", 0)           if isinstance(_dc.get("🏫 Schools"), int) else 0
+            _settle_cnt  = _dc.get("🏘️ Settlements", 0)       if isinstance(_dc.get("🏘️ Settlements"), int) else 0
+
+            # 1. Population estimate (avg 6 people per settlement/household)
+            _pop_est = _settle_cnt * 6
+            # 2. Healthcare access ratio
+            _health_ratio = round(_health_cnt / _pop_est * 10000, 1) if _pop_est > 0 else None
+            # 3. School-age coverage (schools per settlement)
+            _school_ratio = round(_school_cnt / _settle_cnt, 2) if _settle_cnt > 0 else None
+            # 5. Area classification based on settlement density per 100 km²
+            _settle_density = (_settle_cnt / _da * 100) if _da and _da > 0 else 0
+            if _settle_density >= 50:
+                _area_class = "🏙️ Urban"
+            elif _settle_density >= 15:
+                _area_class = "🏘️ Peri-urban"
+            else:
+                _area_class = "🌾 Rural"
+
+            # Show analytics panel
+            st.markdown("**Area Analytics:**")
+            if _pop_est:
+                st.caption(f"👥 Est. population: ~{_pop_est:,} people ({_settle_cnt} settlements × 6)")
+            if _health_ratio is not None:
+                st.caption(f"🏥 Healthcare access: {_health_ratio} facilities per 10,000 people")
+            if _school_ratio is not None:
+                st.caption(f"🏫 School coverage: {_school_ratio} schools per settlement")
+            st.caption(f"🗺️ Area classification: {_area_class} ({_settle_density:.1f} settlements per 100 km²)")
 
             st.markdown("**Features in this area:**")
             for _lbl, _cnt in _dc.items():
@@ -1175,28 +1215,33 @@ with st.sidebar:
                 _subtypes = _info.get("subtypes", {})
                 _nearest = _info.get("nearest_name")
                 _ndist = _info.get("nearest_dist")
+                _ds_link = _DS_LINKS.get(_lbl, "")
 
-                # Count + density (Features 1 & 2)
+                # Count + density
                 if isinstance(_cnt, int) and _da and _da > 0:
-                    _density = _cnt / _da * 100  # per 100 km²
+                    _density = _cnt / _da * 100
                     st.markdown(f"{_lbl}: **{_cnt}** &nbsp;·&nbsp; *{_density:.1f} per 100 km²*")
                 else:
                     st.markdown(f"{_lbl}: **{_cnt}**")
 
-                # Nearest feature (Feature 4)
+                # Nearest feature
                 if _nearest and _ndist is not None:
                     st.caption(f"↳ Nearest: {_nearest} ({_ndist:.1f} km from centre)")
 
-                # Subtype breakdown (Feature 5)
+                # Subtype breakdown
                 if _subtypes:
                     _sub_str = " · ".join(f"{k}: {v}" for k, v in sorted(_subtypes.items(), key=lambda x: -x[1])[:4])
                     st.caption(f"↳ Types: {_sub_str}")
 
-                # Feature names list (Feature 1 expanded)
+                # Feature names list + data source link
                 if _names:
                     with st.expander(f"View names ({len(_names)} shown)"):
                         for _n in _names[:20]:
                             st.markdown(f"• {_n}")
+                        if _ds_link:
+                            st.markdown(f"[🔗 View full dataset on GeoHub]({_ds_link})")
+                elif _ds_link:
+                    st.caption(f"[🔗 View dataset source]({_ds_link})")
 
     else:
         st.caption("No area selected — draw on the map above.")
