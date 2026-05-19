@@ -155,6 +155,125 @@ class ModelClient:
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
+    def ask_with_tools(self, system: str, user: str, max_tokens: int = 4096) -> dict:
+        """
+        Agentic tool-use mode (Anthropic only for now).
+
+        The AI decides which GeoHub tools to call, calls them automatically,
+        and returns a final grounded answer.  Tools come from hub.mcp_server.TOOLS.
+
+        Returns:
+            {
+              "text":         final answer string,
+              "tool_calls":   list of {tool, input, result} — audit trail,
+              "verified_facts": list of numbers/counts that came from live API calls
+            }
+        """
+        if self.provider != "Anthropic (Claude)":
+            # Fallback: non-Anthropic providers use the standard ask() path
+            return {"text": self.ask(system, user, max_tokens), "tool_calls": [], "verified_facts": []}
+        return self._anthropic_ask_with_tools(system, user, max_tokens)
+
+    def _anthropic_ask_with_tools(self, system: str, user: str, max_tokens: int) -> dict:
+        """
+        Full agentic loop for Anthropic:
+        1. Send message + tools to Claude
+        2. If Claude calls a tool → execute it via hub.mcp_server.execute_tool()
+        3. Feed result back to Claude as a tool_result message
+        4. Repeat until Claude produces a final text response (no more tool calls)
+
+        Capped at 8 tool rounds to prevent infinite loops.
+        """
+        import anthropic
+        import json as _json
+        from hub.mcp_server import TOOLS, execute_tool
+
+        client = self._anthropic_client()
+        messages = [{"role": "user", "content": user}]
+        tool_calls_log = []
+        verified_facts = []
+        max_rounds = 8
+
+        for _round in range(max_rounds):
+            try:
+                response = client.messages.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    system=system,
+                    tools=TOOLS,
+                    messages=messages,
+                )
+            except anthropic.APIStatusError as e:
+                if e.status_code in (429, 529):
+                    time.sleep(6)
+                    continue
+                raise
+
+            # If stop_reason is "end_turn" — Claude is done, return final text
+            if response.stop_reason == "end_turn":
+                text = "".join(
+                    block.text for block in response.content
+                    if hasattr(block, "text")
+                )
+                return {"text": text, "tool_calls": tool_calls_log, "verified_facts": verified_facts}
+
+            # If stop_reason is "tool_use" — execute all tool calls in this turn
+            if response.stop_reason == "tool_use":
+                # Add Claude's response (with tool_use blocks) to message history
+                messages.append({"role": "assistant", "content": response.content})
+
+                # Execute each tool call and collect results
+                tool_results = []
+                for block in response.content:
+                    if block.type != "tool_use":
+                        continue
+
+                    tool_name  = block.name
+                    tool_input = block.input
+                    tool_id    = block.id
+
+                    # Execute the tool
+                    result = execute_tool(tool_name, tool_input)
+
+                    # Log for audit trail
+                    tool_calls_log.append({
+                        "tool":   tool_name,
+                        "input":  tool_input,
+                        "result": result,
+                    })
+
+                    # Track verified counts (Proof-Carrying Numbers concept)
+                    if result.get("verified") and result.get("count") is not None:
+                        verified_facts.append({
+                            "tool":     tool_name,
+                            "count":    result["count"],
+                            "location": result.get("location", tool_input.get("district") or tool_input.get("province") or ""),
+                        })
+
+                    tool_results.append({
+                        "type":        "tool_result",
+                        "tool_use_id": tool_id,
+                        "content":     _json.dumps(result),
+                    })
+
+                # Feed all tool results back to Claude in one user message
+                messages.append({"role": "user", "content": tool_results})
+                continue
+
+            # Any other stop reason — extract text and return
+            text = "".join(
+                block.text for block in response.content
+                if hasattr(block, "text")
+            )
+            return {"text": text, "tool_calls": tool_calls_log, "verified_facts": verified_facts}
+
+        # If we hit max rounds, return whatever text Claude last produced
+        text = "".join(
+            block.text for block in response.content
+            if hasattr(block, "text")
+        )
+        return {"text": text, "tool_calls": tool_calls_log, "verified_facts": verified_facts}
+
     # ------------------------------------------------------------------
     # Anthropic
     # ------------------------------------------------------------------
