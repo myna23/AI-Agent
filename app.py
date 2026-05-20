@@ -686,16 +686,30 @@ claude = get_ai_client(_ai_provider, _ai_model, _ai_key)
 import datetime as _dt
 
 with st.sidebar:
-    st.markdown("### Zambia GeoHub")
+    st.markdown("### Zambia GeoHub AI")
 
     # ------------------------------------------------------------------
     # AI Model Settings
     # ------------------------------------------------------------------
     import os as _os
-    st.markdown("#### ⚙️ AI Model")
+    st.markdown("#### 🤖 AI Model")
 
     _cur_p = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
     _cur_m = st.session_state.get("ai_model",    DEFAULT_MODEL)
+
+    # Friendly display names for models in the dropdown
+    _FRIENDLY = {
+        "claude-sonnet-4-5":         "Claude Sonnet  ✦ Recommended",
+        "claude-opus-4-5":           "Claude Opus  (most powerful)",
+        "claude-haiku-4-5":          "Claude Haiku  (fastest)",
+        "claude-opus-4-7":           "Claude Opus  ✦ Recommended",
+        "claude-sonnet-4-6":         "Claude Sonnet  (balanced)",
+        "claude-haiku-4-5-20251001": "Claude Haiku  (fastest)",
+        "gpt-4o":                    "GPT-4o  ✦ Recommended",
+        "gpt-4o-mini":               "GPT-4o mini  (fast & cheap)",
+        "gemini-2.0-flash":          "Gemini Flash  ✦ Recommended",
+        "gemini-1.5-pro":            "Gemini Pro  (advanced)",
+    }
 
     # Build full model→provider lookup
     _all_model_map = {}
@@ -704,84 +718,115 @@ with st.sidebar:
         for _mod in _live:
             _all_model_map[_mod] = _prov
 
-    # Dropdown — 3 best models only (one per provider)
-    _best_names = [_m for _p, _m in BEST_MODELS]
-    _best_idx   = _best_names.index(_cur_m) if _cur_m in _best_names else 0
-    _sel_model  = st.selectbox("Model", options=_best_names, index=_best_idx,
-                               key="ai_model_select")
+    # Check if WB mAI Factory is pre-configured via env (Posit Connect)
+    _mai_configured = bool(_os.getenv("MAI_FACTORY_TOKEN", ""))
+
+    # Filter BEST_MODELS: on Posit Connect show only mAI Factory options;
+    # locally show all options so developer can switch providers.
+    if _mai_configured:
+        _shown_best = [(p, m) for p, m in BEST_MODELS if "mAI Factory" in p]
+    else:
+        _shown_best = [(p, m) for p, m in BEST_MODELS if "mAI Factory" not in p]
+
+    _best_ids    = [m for _, m in _shown_best]
+    _best_labels = [_FRIENDLY.get(m, m) for m in _best_ids]
+    _best_idx    = _best_ids.index(_cur_m) if _cur_m in _best_ids else 0
+
+    _sel_label = st.selectbox(
+        "Select AI model",
+        options=_best_labels,
+        index=_best_idx,
+        key="ai_model_select",
+        label_visibility="collapsed",
+    )
+    _sel_model = _best_ids[_best_labels.index(_sel_label)]
     if _sel_model != _cur_m:
         st.session_state["ai_provider"] = _all_model_map.get(_sel_model, DEFAULT_PROVIDER)
         st.session_state["ai_model"]    = _sel_model
         st.rerun()
 
-    # ------ Admin-only: API key management ------
-    _admin_pin    = _os.getenv("ADMIN_PIN", "zambia2025")
-    _admin_open   = st.session_state.get("_admin_unlocked", False)
+    # Active provider badge
+    _badge_prov = _all_model_map.get(_sel_model, _cur_p)
+    if "mAI Factory" in _badge_prov:
+        st.caption("🏦 **World Bank mAI Factory** · secure internal gateway")
+    elif "Anthropic" in _badge_prov:
+        st.caption("🔵 Anthropic API")
+    elif "OpenAI" in _badge_prov:
+        st.caption("🟢 OpenAI API")
+    elif "Google" in _badge_prov:
+        st.caption("🔴 Google AI API")
 
-    if not _admin_open:
-        _pc, _bc = st.columns([3, 1])
-        with _pc:
-            _pin_val = st.text_input(
-                "Admin PIN", type="password",
-                placeholder="Admin PIN…", label_visibility="collapsed",
-                key="admin_pin_input",
+    # ------ Admin-only: API key management ------
+    # Hidden when mAI Factory is pre-configured (Posit Connect) — no manual
+    # keys needed because the gateway token is set in the environment.
+    _admin_pin  = _os.getenv("ADMIN_PIN", "zambia2025")
+    _admin_open = st.session_state.get("_admin_unlocked", False)
+
+    if not _mai_configured:
+        if not _admin_open:
+            _pc, _bc = st.columns([3, 1])
+            with _pc:
+                _pin_val = st.text_input(
+                    "Admin PIN", type="password",
+                    placeholder="Admin PIN…", label_visibility="collapsed",
+                    key="admin_pin_input",
+                )
+            with _bc:
+                if st.button("🔓", key="admin_unlock_btn", use_container_width=True):
+                    if _pin_val == _admin_pin:
+                        st.session_state["_admin_unlocked"] = True
+                        st.rerun()
+                    else:
+                        st.error("Wrong PIN")
+        else:
+            st.caption("🔓 Admin — API Key Management")
+            _adm_prov  = _cur_p
+            _adm_env   = PROVIDERS[_adm_prov]["env_key"]
+            _adm_docs  = PROVIDERS[_adm_prov]["docs_url"]
+            _adm_ss    = f"ai_key_{_adm_prov}"
+            _adm_key   = st.text_input(
+                f"API Key ({_adm_env})",
+                value=st.session_state.get(_adm_ss, ""),
+                type="password",
+                placeholder="Paste key here…",
+                key=f"ai_key_input_{_adm_prov}",
             )
-        with _bc:
-            if st.button("🔓", key="admin_unlock_btn", use_container_width=True):
-                if _pin_val == _admin_pin:
-                    st.session_state["_admin_unlocked"] = True
-                    st.rerun()
-                else:
-                    st.error("Wrong PIN")
-    else:
-        st.caption("🔓 Admin — API Key Management")
-        _adm_prov  = _cur_p
-        _adm_env   = PROVIDERS[_adm_prov]["env_key"]
-        _adm_docs  = PROVIDERS[_adm_prov]["docs_url"]
-        _adm_ss    = f"ai_key_{_adm_prov}"
-        _adm_key   = st.text_input(
-            f"API Key ({_adm_env})",
-            value=st.session_state.get(_adm_ss, ""),
-            type="password",
-            placeholder="Paste key here…",
-            key=f"ai_key_input_{_adm_prov}",
-        )
-        st.markdown(f"[Get key ↗]({_adm_docs})")
-        _c1, _c2 = st.columns(2)
-        with _c1:
-            if st.button("Apply & Refresh", use_container_width=True, key="ai_apply_btn"):
-                if not _adm_key.strip():
-                    st.warning("Enter a key first.")
-                else:
-                    st.session_state[_adm_ss] = _adm_key.strip()
-                    # Fetch live model list for this provider
-                    _live = fetch_available_models(_adm_prov, _adm_key.strip())
-                    st.session_state[f"_models_{_adm_prov}"] = _live
-                    # Persist key to .env
-                    _env_path = _os.path.join(_os.path.dirname(__file__), ".env")
-                    try:
+            st.markdown(f"[Get key ↗]({_adm_docs})")
+            _c1, _c2 = st.columns(2)
+            with _c1:
+                if st.button("Apply & Refresh", use_container_width=True, key="ai_apply_btn"):
+                    if not _adm_key.strip():
+                        st.warning("Enter a key first.")
+                    else:
+                        st.session_state[_adm_ss] = _adm_key.strip()
+                        # Fetch live model list for this provider
+                        _live = fetch_available_models(_adm_prov, _adm_key.strip())
+                        st.session_state[f"_models_{_adm_prov}"] = _live
+                        # Persist key to .env
+                        _env_path = _os.path.join(_os.path.dirname(__file__), ".env")
                         try:
-                            with open(_env_path) as _f:
-                                _ec = _f.read()
-                        except FileNotFoundError:
-                            _ec = ""
-                        if f"{_adm_env}=" in _ec:
-                            _ec = "\n".join(
-                                f"{_adm_env}={_adm_key.strip()}" if _l.startswith(f"{_adm_env}=") else _l
-                                for _l in _ec.splitlines()
-                            ) + "\n"
-                        else:
-                            _ec = _ec.rstrip() + f"\n{_adm_env}={_adm_key.strip()}\n"
-                        with open(_env_path, "w") as _f:
-                            _f.write(_ec)
-                    except Exception:
-                        pass
-                    st.success(f"✅ {len(_live)} models loaded")
+                            try:
+                                with open(_env_path) as _f:
+                                    _ec = _f.read()
+                            except FileNotFoundError:
+                                _ec = ""
+                            if f"{_adm_env}=" in _ec:
+                                _ec = "\n".join(
+                                    f"{_adm_env}={_adm_key.strip()}" if _l.startswith(f"{_adm_env}=") else _l
+                                    for _l in _ec.splitlines()
+                                ) + "\n"
+                            else:
+                                _ec = _ec.rstrip() + f"\n{_adm_env}={_adm_key.strip()}\n"
+                            with open(_env_path, "w") as _f:
+                                _f.write(_ec)
+                        except Exception:
+                            pass
+                        st.success(f"✅ {len(_live)} models loaded")
+                        st.rerun()
+            with _c2:
+                if st.button("🔒 Lock", use_container_width=True, key="admin_lock_btn"):
+                    st.session_state["_admin_unlocked"] = False
                     st.rerun()
-        with _c2:
-            if st.button("🔒 Lock", use_container_width=True, key="admin_lock_btn"):
-                st.session_state["_admin_unlocked"] = False
-                st.rerun()
 
     # ------------------------------------------------------------------
     # Language selector
@@ -1641,6 +1686,17 @@ st.markdown("---")
 # Onboarding — shown only to first-time visitors (no messages yet)
 # ---------------------------------------------------------------------------
 if not st.session_state.get("messages"):
+    # Nudge user to set an API key when none is configured (local dev only)
+    import os as _os_welcome
+    _welcome_key = _resolve_ai_key(st.session_state.get("ai_provider", DEFAULT_PROVIDER))
+    if not _welcome_key:
+        st.info(
+            "**No API key detected.** Open the sidebar, enter your Admin PIN, "
+            "and paste an API key to enable AI responses. "
+            "On World Bank Posit Connect the key is pre-configured — nothing to do.",
+            icon="🔑",
+        )
+
     with st.expander("👋 Welcome — How to use this assistant", expanded=True):
         st.markdown(
             """
