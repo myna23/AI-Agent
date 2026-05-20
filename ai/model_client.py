@@ -17,8 +17,28 @@ import time
 # Provider catalogue — shown in the settings UI
 # ---------------------------------------------------------------------------
 PROVIDERS = {
+    # ── World Bank mAI Factory (primary for WB deployment) ──────────────
+    # Single token from mAI Factory replaces all individual provider keys.
+    # Routes to Claude, GPT, and Gemini through the WB internal gateway.
+    # Set MAI_FACTORY_TOKEN + MAI_FACTORY_BASE_URL in .env / Posit Connect.
+    "WB mAI Factory (Claude)": {
+        "best":    "claude-sonnet-4-5",
+        "models":  ["claude-opus-4-5", "claude-sonnet-4-5", "claude-haiku-4-5"],
+        "env_key": "MAI_FACTORY_TOKEN",
+        "package": "anthropic",
+        "docs_url": "https://ai.worldbank.org/platform/documentation",
+        "base_url_env": "MAI_FACTORY_BASE_URL",  # e.g. https://ai.worldbank.org/anthropic
+    },
+    "WB mAI Factory (GPT)": {
+        "best":    "gpt-4o",
+        "models":  ["gpt-4o", "gpt-4o-mini"],
+        "env_key": "MAI_FACTORY_TOKEN",
+        "package": "openai",
+        "docs_url": "https://ai.worldbank.org/platform/documentation",
+        "base_url_env": "MAI_FACTORY_BASE_URL",
+    },
+    # ── Direct provider keys (fallback / local dev) ──────────────────────
     "Anthropic (Claude)": {
-        # Best model shown by default; rest available under "More models"
         "best":   "claude-opus-4-7",
         "models": [
             "claude-opus-4-7",
@@ -51,46 +71,69 @@ PROVIDERS = {
     },
 }
 
-# The three best models — one per provider — shown by default
+# Default: use WB mAI Factory if token is set, otherwise Anthropic direct
+import os as _os
+_mai_token = _os.getenv("MAI_FACTORY_TOKEN", "")
+DEFAULT_PROVIDER = "WB mAI Factory (Claude)" if _mai_token else "Anthropic (Claude)"
+DEFAULT_MODEL    = "claude-sonnet-4-5"        if _mai_token else "claude-opus-4-7"
+
+# Best models shown in the quick selector (one per meaningful provider)
 BEST_MODELS = [
-    ("Anthropic (Claude)", "claude-opus-4-7"),
-    ("OpenAI (GPT)",        "gpt-4o"),
-    ("Google (Gemini)",     "gemini-2.0-flash"),
+    ("WB mAI Factory (Claude)", "claude-sonnet-4-5"),
+    ("WB mAI Factory (GPT)",    "gpt-4o"),
+    ("Anthropic (Claude)",      "claude-opus-4-7"),
+    ("OpenAI (GPT)",            "gpt-4o"),
+    ("Google (Gemini)",         "gemini-2.0-flash"),
 ]
 
-DEFAULT_PROVIDER = "Anthropic (Claude)"
-DEFAULT_MODEL    = "claude-opus-4-7"
 
-
-def fetch_available_models(provider, api_key):
+def fetch_available_models(provider: str, api_key: str) -> list:
     """
-    Try to fetch the live model list from the provider API.
-    Falls back to the hardcoded list in PROVIDERS if the call fails or
-    the library is not installed.
+    Fetch the live model list from the provider API so new models
+    (GPT-5, Claude 5, etc.) appear automatically without code changes.
+    Falls back to the hardcoded list in PROVIDERS on any error.
     """
-    fallback = PROVIDERS[provider]["models"]
+    fallback = PROVIDERS.get(provider, {}).get("models", [])
     if not api_key:
         return fallback
+
+    pinfo    = PROVIDERS.get(provider, {})
+    base_url = _os.getenv(pinfo.get("base_url_env", ""), "").strip() or None
+
     try:
-        if provider == "Anthropic (Claude)":
+        # ── WB mAI Factory (Claude) or direct Anthropic ──────────────
+        if pinfo.get("package") == "anthropic":
             import anthropic
-            client = anthropic.Anthropic(api_key=api_key)
-            data = client.models.list(limit=50)
-            ids = [m.id for m in data.data]
+            kwargs = {"api_key": api_key}
+            if base_url:
+                kwargs["base_url"] = base_url
+            client = anthropic.Anthropic(**kwargs)
+            data   = client.models.list(limit=50)
+            ids    = [m.id for m in data.data]
             return ids if ids else fallback
 
-        if provider == "OpenAI (GPT)":
+        # ── WB mAI Factory (GPT) or direct OpenAI ────────────────────
+        if pinfo.get("package") == "openai":
             import openai
-            client = openai.OpenAI(api_key=api_key)
+            if base_url:
+                # Azure-style endpoint (mAI Factory / Azure OpenAI)
+                client = openai.AzureOpenAI(
+                    api_key=api_key,
+                    azure_endpoint=base_url,
+                    api_version="2024-12-01-preview",
+                )
+            else:
+                client = openai.OpenAI(api_key=api_key)
             data = client.models.list()
-            # Keep only chat/GPT models, newest first
-            ids = sorted(
-                [m.id for m in data.data if m.id.startswith(("gpt-4", "gpt-3.5", "o1", "o3"))],
+            ids  = sorted(
+                [m.id for m in data.data
+                 if m.id.startswith(("gpt-4", "gpt-3.5", "gpt-5", "o1", "o3", "o4"))],
                 reverse=True,
             )
-            return ids[:15] if ids else fallback
+            return ids[:20] if ids else fallback
 
-        if provider == "Google (Gemini)":
+        # ── Google Gemini ─────────────────────────────────────────────
+        if pinfo.get("package") == "google-generativeai":
             import google.generativeai as genai
             genai.configure(api_key=api_key)
             ids = [
@@ -118,6 +161,19 @@ class ModelClient:
         self.provider = provider
         self.model    = model
         self.api_key  = api_key.strip()
+        # Pick up optional base URL for mAI Factory / Azure routing
+        pinfo = PROVIDERS[provider]
+        base_url_env = pinfo.get("base_url_env", "")
+        self.base_url = _os.getenv(base_url_env, "").strip() if base_url_env else ""
+
+    def _is_anthropic(self):
+        return PROVIDERS[self.provider].get("package") == "anthropic"
+
+    def _is_openai(self):
+        return PROVIDERS[self.provider].get("package") == "openai"
+
+    def _is_gemini(self):
+        return PROVIDERS[self.provider].get("package") == "google-generativeai"
 
     # ------------------------------------------------------------------
     # Public interface
@@ -125,19 +181,19 @@ class ModelClient:
 
     def ask(self, system: str, user: str, max_tokens: int = 2048) -> str:
         """Send a single-turn message and return the full response text."""
-        if self.provider == "Anthropic (Claude)":
+        if self._is_anthropic():
             return self._anthropic_ask(system, user, max_tokens)
-        if self.provider == "OpenAI (GPT)":
+        if self._is_openai():
             return self._openai_ask(system, user, max_tokens)
-        if self.provider == "Google (Gemini)":
+        if self._is_gemini():
             return self._gemini_ask(system, user, max_tokens)
         raise ValueError(f"Unsupported provider: {self.provider}")
 
     def stream(self, system: str, user: str, max_tokens: int = 2048):
         """Stream response as text chunks (compatible with st.write_stream)."""
-        if self.provider == "Anthropic (Claude)":
+        if self._is_anthropic():
             yield from self._anthropic_stream(system, user, max_tokens)
-        elif self.provider == "OpenAI (GPT)":
+        elif self._is_openai():
             yield from self._openai_stream(system, user, max_tokens)
         elif self.provider == "Google (Gemini)":
             yield from self._gemini_stream(system, user, max_tokens)
@@ -146,11 +202,11 @@ class ModelClient:
 
     def stream_with_history(self, system: str, messages: list, max_tokens: int = 2048):
         """Multi-turn streaming chat. messages is a list of {role, content} dicts."""
-        if self.provider == "Anthropic (Claude)":
+        if self._is_anthropic():
             yield from self._anthropic_stream_history(system, messages, max_tokens)
-        elif self.provider == "OpenAI (GPT)":
+        elif self._is_openai():
             yield from self._openai_stream_history(system, messages, max_tokens)
-        elif self.provider == "Google (Gemini)":
+        elif self._is_gemini():
             yield from self._gemini_stream_history(system, messages, max_tokens)
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
@@ -169,7 +225,7 @@ class ModelClient:
               "verified_facts": list of numbers/counts that came from live API calls
             }
         """
-        if self.provider != "Anthropic (Claude)":
+        if not self._is_anthropic():
             # Fallback: non-Anthropic providers use the standard ask() path
             return {"text": self.ask(system, user, max_tokens), "tool_calls": [], "verified_facts": []}
         return self._anthropic_ask_with_tools(system, user, max_tokens)
@@ -283,7 +339,10 @@ class ModelClient:
             import anthropic
         except ImportError:
             raise ImportError("Install the 'anthropic' package: pip install anthropic")
-        return anthropic.Anthropic(api_key=self.api_key)
+        kwargs = {"api_key": self.api_key}
+        if self.base_url:
+            kwargs["base_url"] = self.base_url  # routes via mAI Factory
+        return anthropic.Anthropic(**kwargs)
 
     def _anthropic_ask(self, system, user, max_tokens):
         import anthropic
