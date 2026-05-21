@@ -819,15 +819,15 @@ with st.sidebar:
 
     # Friendly display names for models in the dropdown
     _FRIENDLY = {
-        "claude-sonnet-4-5":         "Claude Sonnet  ✦ Recommended",
+        "claude-sonnet-4-5":         "Claude Sonnet",
         "claude-opus-4-5":           "Claude Opus  (most powerful)",
         "claude-haiku-4-5":          "Claude Haiku  (fastest)",
-        "claude-opus-4-7":           "Claude Opus  ✦ Recommended",
+        "claude-opus-4-7":           "Claude Opus",
         "claude-sonnet-4-6":         "Claude Sonnet  (balanced)",
         "claude-haiku-4-5-20251001": "Claude Haiku  (fastest)",
-        "gpt-4o":                    "GPT-4o  ✦ Recommended",
+        "gpt-4o":                    "GPT-4o",
         "gpt-4o-mini":               "GPT-4o mini  (fast & cheap)",
-        "gemini-2.0-flash":          "Gemini Flash  ✦ Recommended",
+        "gemini-2.0-flash":          "Gemini Flash",
         "gemini-1.5-pro":            "Gemini Pro  (advanced)",
     }
 
