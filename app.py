@@ -865,16 +865,10 @@ with st.sidebar:
         st.session_state["ai_model"]    = _sel_model
         st.rerun()
 
-    # Active provider badge
+    # Active provider badge — only show on WB deployment
     _badge_prov = _all_model_map.get(_sel_model, _cur_p)
     if "mAI Factory" in _badge_prov:
         st.caption("🏦 **World Bank mAI Factory** · secure internal gateway")
-    elif "Anthropic" in _badge_prov:
-        st.caption("🔵 Anthropic API")
-    elif "OpenAI" in _badge_prov:
-        st.caption("🟢 OpenAI API")
-    elif "Google" in _badge_prov:
-        st.caption("🔴 Google AI API")
 
     # API keys are managed via environment variables only (.env locally,
     # Posit Connect Vars tab on deployment). Nothing shown in the sidebar.
@@ -1252,14 +1246,15 @@ with st.sidebar:
             else:
                 _area_class = "🌾 Rural"
 
-            # Show analytics panel — always show all 5 lines
-            st.markdown("**Area Analytics:**")
-            st.caption(f"👥 Est. population: ~{_pop_est:,} people ({_settle_cnt} settlements × 6)")
-            st.caption(f"🏥 Healthcare access: {_health_ratio if _health_ratio is not None else 'N/A'} facilities per 10,000 people")
-            st.caption(f"🏫 School coverage: {_school_ratio if _school_ratio is not None else 'N/A'} schools per settlement")
-            st.caption(f"🗺️ Area classification: {_area_class} ({_settle_density:.1f} settlements per 100 km²)")
+            # Analytics — collapsed by default
+            with st.expander("📊 Area Analytics", expanded=False):
+                st.caption(f"👥 Est. population: ~{_pop_est:,} people ({_settle_cnt} settlements × 6)")
+                st.caption(f"🏥 Healthcare access: {_health_ratio if _health_ratio is not None else 'N/A'} facilities per 10,000 people")
+                st.caption(f"🏫 School coverage: {_school_ratio if _school_ratio is not None else 'N/A'} schools per settlement")
+                st.caption(f"🗺️ Area classification: {_area_class} ({_settle_density:.1f} settlements per 100 km²)")
 
-            st.markdown("**Features in this area:**")
+            # Each feature category as its own collapsible row
+            st.markdown("**Features in this area** — click to expand:")
             for _lbl, _cnt in _dc.items():
                 _info = _dd.get(_lbl, {})
                 _names = _info.get("names", [])
@@ -1267,27 +1262,25 @@ with st.sidebar:
                 _nearest = _info.get("nearest_name")
                 _ndist = _info.get("nearest_dist")
 
-                # Count + density
+                # Summary label for the expander header
                 if isinstance(_cnt, int) and _da and _da > 0:
                     _density = _cnt / _da * 100
-                    st.markdown(f"{_lbl}: **{_cnt}** &nbsp;·&nbsp; *{_density:.1f} per 100 km²*")
+                    _exp_label = f"{_lbl}  —  **{_cnt}** &nbsp;·&nbsp; {_density:.1f}/100 km²"
                 else:
-                    st.markdown(f"{_lbl}: **{_cnt}**")
+                    _exp_label = f"{_lbl}  —  **{_cnt}**"
 
-                # Nearest feature
-                if _nearest and _ndist is not None:
-                    st.caption(f"↳ Nearest: {_nearest} ({_ndist:.1f} km from centre)")
-
-                # Subtype breakdown
-                if _subtypes:
-                    _sub_str = " · ".join(f"{k}: {v}" for k, v in sorted(_subtypes.items(), key=lambda x: -x[1])[:4])
-                    st.caption(f"↳ Types: {_sub_str}")
-
-                # Feature names list
-                if _names:
-                    with st.expander(f"View names ({len(_names)} shown)"):
+                with st.expander(_exp_label, expanded=False):
+                    if _nearest and _ndist is not None:
+                        st.caption(f"📍 Nearest: {_nearest} ({_ndist:.1f} km from centre)")
+                    if _subtypes:
+                        _sub_str = " · ".join(f"{k}: {v}" for k, v in sorted(_subtypes.items(), key=lambda x: -x[1])[:4])
+                        st.caption(f"🏷️ Types: {_sub_str}")
+                    if _names:
+                        st.markdown("**Locations:**")
                         for _n in _names[:20]:
                             st.markdown(f"• {_n}")
+                    if not _nearest and not _subtypes and not _names:
+                        st.caption("No additional details available.")
 
             # Single link to the full GeoHub
             st.caption("[🔗 Explore all datasets on Zambia GeoHub](https://zmb-geowb.hub.arcgis.com)")
