@@ -658,11 +658,51 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
 
 /* ── Sidebar polish ─────────────────────────────────────────────────── */
 [data-testid="stSidebar"] {
-    background: #f7f9fc;
-    border-right: 1px solid #e4eaf2;
+    background: #0e1a2b !important;
+    border-right: 1px solid #1d3557;
 }
-[data-testid="stSidebar"] h3, [data-testid="stSidebar"] h4 {
-    color: #1d3557;
+[data-testid="stSidebar"] * {
+    color: #e8edf3 !important;
+}
+[data-testid="stSidebar"] h3 {
+    color: #ffffff !important;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+[data-testid="stSidebar"] h4 {
+    color: #a8c4e0 !important;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-top: 4px;
+}
+[data-testid="stSidebar"] .stSelectbox label,
+[data-testid="stSidebar"] .stTextInput label {
+    color: #a8c4e0 !important;
+}
+[data-testid="stSidebar"] [data-baseweb="select"] > div {
+    background: #1a2d45 !important;
+    border-color: #2d4a6a !important;
+    color: #e8edf3 !important;
+}
+[data-testid="stSidebar"] input {
+    background: #1a2d45 !important;
+    border-color: #2d4a6a !important;
+    color: #e8edf3 !important;
+}
+[data-testid="stSidebar"] hr {
+    border-color: #1d3557 !important;
+}
+[data-testid="stSidebar"] .stButton > button {
+    background: #1d3557 !important;
+    color: white !important;
+    border: 1px solid #2d4a6a !important;
+    border-radius: 8px !important;
+}
+[data-testid="stSidebar"] .stButton > button:hover {
+    background: #2a6496 !important;
 }
 </style>
 
