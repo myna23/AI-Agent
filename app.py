@@ -1308,7 +1308,7 @@ with st.sidebar:
     st.markdown("### Attach a File")
     st.caption("PDF, Word, TXT or map image — AI will use it alongside GeoHub data.")
 
-    _upload_tab_doc, _upload_tab_img = st.tabs(["📄 Document", "🗺️ Map Image"])
+    _upload_tab_doc, _upload_tab_img = st.tabs(["Document", "Map Image"])
 
     with _upload_tab_doc:
         _uploaded_file = st.file_uploader(
@@ -1704,13 +1704,13 @@ def _filter_by_location(features: list, location: str, loc_type: str) -> list:
 # ---------------------------------------------------------------------------
 st.markdown("""
 <div class="zmb-hero">
-  <h1>🗺️ Zambia GeoHub AI Assistant</h1>
+  <h1>Zambia GeoHub AI Assistant</h1>
   <p>Ask questions about Zambia's geospatial data in plain English — get live counts, maps, and downloadable reports.</p>
-  <span class="zmb-hero-badge">🏥 Health</span>
-  <span class="zmb-hero-badge">🏫 Education</span>
-  <span class="zmb-hero-badge">🏗️ Infrastructure</span>
-  <span class="zmb-hero-badge">🌍 Environment</span>
-  <span class="zmb-hero-badge">📊 Reports</span>
+  <span class="zmb-hero-badge">Health</span>
+  <span class="zmb-hero-badge">Education</span>
+  <span class="zmb-hero-badge">Infrastructure</span>
+  <span class="zmb-hero-badge">Environment</span>
+  <span class="zmb-hero-badge">Reports</span>
 </div>
 """, unsafe_allow_html=True)
 
