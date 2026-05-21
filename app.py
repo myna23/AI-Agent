@@ -1764,22 +1764,6 @@ if not st.session_state.get("messages"):
 </div>
 """, unsafe_allow_html=True)
 
-    # Clickable suggestion chips
-    st.markdown("**Try asking:**")
-    _suggestions = [
-        "How many health facilities are in Chipata?",
-        "Show me schools in Lusaka Province",
-        "What mines are in Copperbelt?",
-        "Generate a report on water access in Southern Province",
-        "Summarise the schools dataset",
-        "What data is available?",
-    ]
-    _chip_cols = st.columns(3)
-    for _si, _sug in enumerate(_suggestions):
-        with _chip_cols[_si % 3]:
-            if st.button(_sug, key=f"_suggestion_{_si}", use_container_width=True):
-                st.session_state.messages.append({"role": "user", "content": _sug})
-                st.rerun()
 
 # ---------------------------------------------------------------------------
 # Render chat history
