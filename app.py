@@ -850,16 +850,31 @@ with st.sidebar:
 
     _best_ids    = [m for _, m in _shown_best]
     _best_labels = [_FRIENDLY.get(m, m) for m in _best_ids]
-    _best_idx    = _best_ids.index(_cur_m) if _cur_m in _best_ids else 0
+
+    # Prepend "Auto" — always the first option, maps to the default model
+    _auto_label   = "🤖 Auto"
+    _dropdown_labels = [_auto_label] + _best_labels
+    _dropdown_ids    = [DEFAULT_MODEL]  + _best_ids
+
+    # If current model is the default, show "Auto"; otherwise show the specific model
+    if _cur_m == DEFAULT_MODEL or _cur_m not in _best_ids:
+        _best_idx = 0
+    else:
+        _best_idx = _dropdown_ids.index(_cur_m)
 
     _sel_label = st.selectbox(
         "Select AI model",
-        options=_best_labels,
+        options=_dropdown_labels,
         index=_best_idx,
         key="ai_model_select",
         label_visibility="collapsed",
     )
-    _sel_model = _best_ids[_best_labels.index(_sel_label)]
+    _sel_model = _dropdown_ids[_dropdown_labels.index(_sel_label)]
+
+    # Show what "Auto" resolves to
+    if _sel_label == _auto_label:
+        st.caption(f"Using {_FRIENDLY.get(DEFAULT_MODEL, DEFAULT_MODEL)}")
+
     if _sel_model != _cur_m:
         st.session_state["ai_provider"] = _all_model_map.get(_sel_model, DEFAULT_PROVIDER)
         st.session_state["ai_model"]    = _sel_model
