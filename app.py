@@ -543,7 +543,78 @@ st.set_page_config(
 # ---------------------------------------------------------------------------
 st.markdown("""
 <style>
-/* Floating chat bubble (for Hub iframe embed) */
+/* ── Global font & base ─────────────────────────────────────────────── */
+html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
+
+/* ── Hero header banner ─────────────────────────────────────────────── */
+.zmb-hero {
+    background: linear-gradient(135deg, #1d3557 0%, #2a6496 60%, #1a6b3c 100%);
+    border-radius: 16px;
+    padding: 28px 36px 22px 36px;
+    margin-bottom: 4px;
+    color: white;
+}
+.zmb-hero h1 {
+    margin: 0 0 6px 0;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: white !important;
+}
+.zmb-hero p {
+    margin: 0;
+    font-size: 0.95rem;
+    opacity: 0.85;
+    line-height: 1.5;
+}
+.zmb-hero-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 3px 12px;
+    margin-right: 6px;
+    margin-top: 10px;
+}
+
+/* ── Suggestion chips ───────────────────────────────────────────────── */
+.zmb-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 4px 0; }
+.zmb-chip {
+    background: #f0f4f9;
+    border: 1px solid #d0dbe8;
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-size: 0.82rem;
+    color: #1d3557;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-weight: 500;
+}
+.zmb-chip:hover { background: #1d3557; color: white; border-color: #1d3557; }
+
+/* ── Feature cards (welcome grid) ───────────────────────────────────── */
+.zmb-card-grid { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
+.zmb-card {
+    flex: 1; min-width: 180px;
+    background: white;
+    border: 1px solid #e4eaf2;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.zmb-card-icon { font-size: 1.6rem; margin-bottom: 8px; }
+.zmb-card-title { font-weight: 600; font-size: 0.88rem; color: #1d3557; margin-bottom: 4px; }
+.zmb-card-desc { font-size: 0.78rem; color: #5a6a7a; line-height: 1.4; }
+
+/* ── Chat messages ──────────────────────────────────────────────────── */
+[data-testid="stChatMessage"] {
+    border-radius: 12px !important;
+    padding: 4px 0 !important;
+}
+
+/* ── Floating chat bubble (Hub iframe embed) ────────────────────────── */
 #zmb-chat-btn {
     position: fixed; bottom: 28px; right: 28px;
     width: 58px; height: 58px; border-radius: 50%;
@@ -576,7 +647,7 @@ st.markdown("""
 .zmb-msg-user { background: #1d3557; color: white; border-radius: 12px 12px 2px 12px; padding: 8px 12px; margin: 6px 0 6px 30px; font-size: 13px; }
 .zmb-msg-ai { background: white; border: 1px solid #dde; border-radius: 12px 12px 12px 2px; padding: 8px 12px; margin: 6px 30px 6px 0; font-size: 13px; }
 
-/* Intent badge */
+/* ── Intent badge ───────────────────────────────────────────────────── */
 .intent-badge {
     display: inline-block; font-size: 11px; font-weight: 600;
     padding: 2px 10px; border-radius: 20px; margin-bottom: 6px;
@@ -584,6 +655,15 @@ st.markdown("""
 .intent-chat    { background: #e8f4fd; color: #1d3557; }
 .intent-report  { background: #e8f8f0; color: #1a6b3c; }
 .intent-summary { background: #fff4e6; color: #7a4800; }
+
+/* ── Sidebar polish ─────────────────────────────────────────────────── */
+[data-testid="stSidebar"] {
+    background: #f7f9fc;
+    border-right: 1px solid #e4eaf2;
+}
+[data-testid="stSidebar"] h3, [data-testid="stSidebar"] h4 {
+    color: #1d3557;
+}
 </style>
 
 <button id="zmb-chat-btn" title="Ask the Zambia GeoHub AI">🗺️</button>
@@ -1661,16 +1741,19 @@ def _filter_by_location(features: list, location: str, loc_type: str) -> list:
     return result
 
 # ---------------------------------------------------------------------------
-# Header
+# Header — hero banner
 # ---------------------------------------------------------------------------
-col_logo, col_title = st.columns([1, 8])
-with col_title:
-    st.markdown("## Zambia GeoHub AI Assistant")
-    st.caption(
-        "Ask questions about Zambia's geospatial data • Say **'generate a report on...'** for Word/PDF reports "
-        "• Say **'summarise...'** for dataset summaries • Ask **'what data is available?'** to explore the Hub"
-        " • v2.1-district-filter"
-    )
+st.markdown("""
+<div class="zmb-hero">
+  <h1>🗺️ Zambia GeoHub AI Assistant</h1>
+  <p>Ask questions about Zambia's geospatial data in plain English — get live counts, maps, and downloadable reports.</p>
+  <span class="zmb-hero-badge">🏥 Health</span>
+  <span class="zmb-hero-badge">🏫 Education</span>
+  <span class="zmb-hero-badge">🏗️ Infrastructure</span>
+  <span class="zmb-hero-badge">🌍 Environment</span>
+  <span class="zmb-hero-badge">📊 Reports</span>
+</div>
+""", unsafe_allow_html=True)
 
 # Context banner — shown when a dataset is passed from the Hub page
 if context_dataset:
@@ -1697,27 +1780,48 @@ if not st.session_state.get("messages"):
             icon="🔑",
         )
 
-    with st.expander("👋 Welcome — How to use this assistant", expanded=True):
-        st.markdown(
-            """
-**Ask questions** about Zambia's geospatial data in plain English:
-- *"How many health facilities are in Chipata?"*
-- *"Show me schools in Lusaka Province"*
-- *"What mines are in Copperbelt?"*
+    # Feature cards
+    st.markdown("""
+<div class="zmb-card-grid">
+  <div class="zmb-card">
+    <div class="zmb-card-icon">💬</div>
+    <div class="zmb-card-title">Ask anything</div>
+    <div class="zmb-card-desc">Ask questions about health, education, roads, or any Zambia dataset in plain English.</div>
+  </div>
+  <div class="zmb-card">
+    <div class="zmb-card-icon">📄</div>
+    <div class="zmb-card-title">Generate reports</div>
+    <div class="zmb-card-desc">Say <em>"generate a report on health facilities in Eastern Province"</em> to get a Word/PDF report.</div>
+  </div>
+  <div class="zmb-card">
+    <div class="zmb-card-icon">📐</div>
+    <div class="zmb-card-title">Draw an area</div>
+    <div class="zmb-card-desc">Draw a rectangle on the sidebar map to count features within any custom region.</div>
+  </div>
+  <div class="zmb-card">
+    <div class="zmb-card-icon">⚖️</div>
+    <div class="zmb-card-title">Compare areas</div>
+    <div class="zmb-card-desc">Use <strong>Compare Two Areas</strong> in the sidebar to compare districts side by side.</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
-**Generate reports:** Say *"generate a report on health facilities in Eastern Province"*
-
-**Summarise a dataset:** Say *"summarise the schools dataset"*
-
-**Draw an area:** Use the 📐 **Draw an Area** panel in the sidebar to filter results to a specific region on the map.
-
-**Upload documents or map images:** Use the 📎 **Attach a File** panel to let the AI analyse your files alongside GeoHub data.
-
-**Compare two areas:** Use the ⚖️ **Compare Two Areas** panel in the sidebar.
-
-*Powered by Zambia GeoHub (ArcGIS Online) + AI*
-            """
-        )
+    # Clickable suggestion chips
+    st.markdown("**Try asking:**")
+    _suggestions = [
+        "How many health facilities are in Chipata?",
+        "Show me schools in Lusaka Province",
+        "What mines are in Copperbelt?",
+        "Generate a report on water access in Southern Province",
+        "Summarise the schools dataset",
+        "What data is available?",
+    ]
+    _chip_cols = st.columns(3)
+    for _si, _sug in enumerate(_suggestions):
+        with _chip_cols[_si % 3]:
+            if st.button(_sug, key=f"_suggestion_{_si}", use_container_width=True):
+                st.session_state.messages.append({"role": "user", "content": _sug})
+                st.rerun()
 
 # ---------------------------------------------------------------------------
 # Render chat history
