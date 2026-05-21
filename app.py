@@ -812,23 +812,23 @@ with st.sidebar:
     # AI Model Settings
     # ------------------------------------------------------------------
     import os as _os
-    st.markdown("#### 🤖 AI Model")
+    st.markdown("#### Model")
 
     _cur_p = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
     _cur_m = st.session_state.get("ai_model",    DEFAULT_MODEL)
 
-    # Friendly display names for models in the dropdown
+    # Friendly display names
     _FRIENDLY = {
         "claude-sonnet-4-5":         "Claude Sonnet",
-        "claude-opus-4-5":           "Claude Opus  (most powerful)",
-        "claude-haiku-4-5":          "Claude Haiku  (fastest)",
+        "claude-opus-4-5":           "Claude Opus",
+        "claude-haiku-4-5":          "Claude Haiku",
         "claude-opus-4-7":           "Claude Opus",
-        "claude-sonnet-4-6":         "Claude Sonnet  (balanced)",
-        "claude-haiku-4-5-20251001": "Claude Haiku  (fastest)",
+        "claude-sonnet-4-6":         "Claude Sonnet",
+        "claude-haiku-4-5-20251001": "Claude Haiku",
         "gpt-4o":                    "GPT-4o",
-        "gpt-4o-mini":               "GPT-4o mini  (fast & cheap)",
+        "gpt-4o-mini":               "GPT-4o mini",
         "gemini-2.0-flash":          "Gemini Flash",
-        "gemini-1.5-pro":            "Gemini Pro  (advanced)",
+        "gemini-1.5-pro":            "Gemini Pro",
     }
 
     # Build full model→provider lookup
@@ -841,8 +841,6 @@ with st.sidebar:
     # Check if WB mAI Factory is pre-configured via env (Posit Connect)
     _mai_configured = bool(_os.getenv("MAI_FACTORY_TOKEN", ""))
 
-    # Filter BEST_MODELS: on Posit Connect show only mAI Factory options;
-    # locally show all options so developer can switch providers.
     if _mai_configured:
         _shown_best = [(p, m) for p, m in BEST_MODELS if "mAI Factory" in p]
     else:
@@ -851,39 +849,39 @@ with st.sidebar:
     _best_ids    = [m for _, m in _shown_best]
     _best_labels = [_FRIENDLY.get(m, m) for m in _best_ids]
 
-    # Prepend "Auto" — always the first option, maps to the default model
-    _auto_label   = "🤖 Auto"
-    _dropdown_labels = [_auto_label] + _best_labels
-    _dropdown_ids    = [DEFAULT_MODEL]  + _best_ids
+    # Default = Auto (use DEFAULT_MODEL); user can expand to pick a specific one
+    _is_auto = _cur_m == DEFAULT_MODEL or _cur_m not in _best_ids
+    _auto_friendly = _FRIENDLY.get(DEFAULT_MODEL, DEFAULT_MODEL)
 
-    # If current model is the default, show "Auto"; otherwise show the specific model
-    if _cur_m == DEFAULT_MODEL or _cur_m not in _best_ids:
-        _best_idx = 0
+    # Show "Auto" as the current state with a toggle to reveal the picker
+    if _is_auto:
+        st.caption(f"Auto — {_auto_friendly}")
     else:
-        _best_idx = _dropdown_ids.index(_cur_m)
+        st.caption(f"Manual — {_FRIENDLY.get(_cur_m, _cur_m)}")
 
-    _sel_label = st.selectbox(
-        "Select AI model",
-        options=_dropdown_labels,
-        index=_best_idx,
-        key="ai_model_select",
-        label_visibility="collapsed",
-    )
-    _sel_model = _dropdown_ids[_dropdown_labels.index(_sel_label)]
+    _show_picker = st.toggle("Choose a specific model", value=not _is_auto, key="model_picker_toggle")
 
-    # Show what "Auto" resolves to
-    if _sel_label == _auto_label:
-        st.caption(f"Using {_FRIENDLY.get(DEFAULT_MODEL, DEFAULT_MODEL)}")
+    if _show_picker:
+        _cur_idx = _best_ids.index(_cur_m) if _cur_m in _best_ids else 0
+        _sel_label = st.selectbox(
+            "Model",
+            options=_best_labels,
+            index=_cur_idx,
+            key="ai_model_select",
+            label_visibility="collapsed",
+        )
+        _sel_model = _best_ids[_best_labels.index(_sel_label)]
+    else:
+        _sel_model = DEFAULT_MODEL
 
     if _sel_model != _cur_m:
         st.session_state["ai_provider"] = _all_model_map.get(_sel_model, DEFAULT_PROVIDER)
         st.session_state["ai_model"]    = _sel_model
         st.rerun()
 
-    # Active provider badge — only show on WB deployment
-    _badge_prov = _all_model_map.get(_sel_model, _cur_p)
-    if "mAI Factory" in _badge_prov:
-        st.caption("🏦 **World Bank mAI Factory** · secure internal gateway")
+    # WB gateway badge — only on Posit Connect
+    if _mai_configured:
+        st.caption("World Bank mAI Factory")
 
     # API keys are managed via environment variables only (.env locally,
     # Posit Connect Vars tab on deployment). Nothing shown in the sidebar.
@@ -892,7 +890,7 @@ with st.sidebar:
     # Language selector
     # ------------------------------------------------------------------
     st.markdown("---")
-    st.markdown("#### 🌍 Language")
+    st.markdown("#### Language")
     _lang = st.selectbox(
         "Response language",
         options=list(_LANG_INSTRUCTIONS.keys()),
@@ -907,7 +905,7 @@ with st.sidebar:
     # Compare two areas
     # ------------------------------------------------------------------
     st.markdown("---")
-    st.markdown("#### ⚖️ Compare Two Areas")
+    st.markdown("#### Compare Two Areas")
     st.caption("Pick two districts or provinces to compare side by side.")
     _cmp_col1, _cmp_col2 = st.columns(2)
     with _cmp_col1:
@@ -930,7 +928,7 @@ with st.sidebar:
     # Draw tool — compact map in sidebar, always visible
     # ------------------------------------------------------------------
     st.markdown("---")
-    st.markdown("### 🗺️ Draw an Area")
+    st.markdown("### Draw an Area")
     st.caption("Draw a rectangle or polygon on the map — coordinates and area appear automatically.")
 
     import folium as _folium_draw_mod
@@ -1307,7 +1305,7 @@ with st.sidebar:
     # Document / Image upload for AI analysis
     # ------------------------------------------------------------------
     st.markdown("---")
-    st.markdown("### 📎 Attach a File")
+    st.markdown("### Attach a File")
     st.caption("PDF, Word, TXT or map image — AI will use it alongside GeoHub data.")
 
     _upload_tab_doc, _upload_tab_img = st.tabs(["📄 Document", "🗺️ Map Image"])
