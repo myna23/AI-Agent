@@ -876,77 +876,8 @@ with st.sidebar:
     elif "Google" in _badge_prov:
         st.caption("🔴 Google AI API")
 
-    # ------ Admin-only: API key management ------
-    # Hidden when mAI Factory is pre-configured (Posit Connect) — no manual
-    # keys needed because the gateway token is set in the environment.
-    _admin_pin  = _os.getenv("ADMIN_PIN", "zambia2025")
-    _admin_open = st.session_state.get("_admin_unlocked", False)
-
-    if not _mai_configured:
-        if not _admin_open:
-            _pc, _bc = st.columns([3, 1])
-            with _pc:
-                _pin_val = st.text_input(
-                    "Admin PIN", type="password",
-                    placeholder="Admin PIN…", label_visibility="collapsed",
-                    key="admin_pin_input",
-                )
-            with _bc:
-                if st.button("🔓", key="admin_unlock_btn", use_container_width=True):
-                    if _pin_val == _admin_pin:
-                        st.session_state["_admin_unlocked"] = True
-                        st.rerun()
-                    else:
-                        st.error("Wrong PIN")
-        else:
-            st.caption("🔓 Admin — API Key Management")
-            _adm_prov  = _cur_p
-            _adm_env   = PROVIDERS[_adm_prov]["env_key"]
-            _adm_docs  = PROVIDERS[_adm_prov]["docs_url"]
-            _adm_ss    = f"ai_key_{_adm_prov}"
-            _adm_key   = st.text_input(
-                f"API Key ({_adm_env})",
-                value=st.session_state.get(_adm_ss, ""),
-                type="password",
-                placeholder="Paste key here…",
-                key=f"ai_key_input_{_adm_prov}",
-            )
-            st.markdown(f"[Get key ↗]({_adm_docs})")
-            _c1, _c2 = st.columns(2)
-            with _c1:
-                if st.button("Apply & Refresh", use_container_width=True, key="ai_apply_btn"):
-                    if not _adm_key.strip():
-                        st.warning("Enter a key first.")
-                    else:
-                        st.session_state[_adm_ss] = _adm_key.strip()
-                        # Fetch live model list for this provider
-                        _live = fetch_available_models(_adm_prov, _adm_key.strip())
-                        st.session_state[f"_models_{_adm_prov}"] = _live
-                        # Persist key to .env
-                        _env_path = _os.path.join(_os.path.dirname(__file__), ".env")
-                        try:
-                            try:
-                                with open(_env_path) as _f:
-                                    _ec = _f.read()
-                            except FileNotFoundError:
-                                _ec = ""
-                            if f"{_adm_env}=" in _ec:
-                                _ec = "\n".join(
-                                    f"{_adm_env}={_adm_key.strip()}" if _l.startswith(f"{_adm_env}=") else _l
-                                    for _l in _ec.splitlines()
-                                ) + "\n"
-                            else:
-                                _ec = _ec.rstrip() + f"\n{_adm_env}={_adm_key.strip()}\n"
-                            with open(_env_path, "w") as _f:
-                                _f.write(_ec)
-                        except Exception:
-                            pass
-                        st.success(f"✅ {len(_live)} models loaded")
-                        st.rerun()
-            with _c2:
-                if st.button("🔒 Lock", use_container_width=True, key="admin_lock_btn"):
-                    st.session_state["_admin_unlocked"] = False
-                    st.rerun()
+    # API keys are managed via environment variables only (.env locally,
+    # Posit Connect Vars tab on deployment). Nothing shown in the sidebar.
 
     # ------------------------------------------------------------------
     # Language selector
@@ -986,24 +917,6 @@ with st.sidebar:
 
 
     # ------------------------------------------------------------------
-    # Admin dashboard (behind PIN)
-    # ------------------------------------------------------------------
-    if st.session_state.get("_admin_unlocked"):
-        st.markdown("---")
-        st.markdown("#### 📊 Admin Dashboard")
-        _dash_provider = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
-        _dash_model    = st.session_state.get("ai_model",    DEFAULT_MODEL)
-        _dash_key      = _resolve_ai_key(_dash_provider)
-        st.caption(f"**Provider:** {_dash_provider}")
-        st.caption(f"**Model:** {_dash_model}")
-        st.caption(f"**API key:** {'✅ Set' if _dash_key else '❌ Missing'}")
-        _fetch_stats = st.session_state.get("_fetch_stats", {"live": 0, "static": 0})
-        _total_fetches = _fetch_stats["live"] + _fetch_stats["static"]
-        st.caption(f"**Data fetches:** {_total_fetches} ({_fetch_stats['live']} live, {_fetch_stats['static']} cached)")
-        _fb_stats = st.session_state.get("_feedback_counts", {"up": 0, "down": 0})
-        st.caption(f"**Feedback:** 👍 {_fb_stats['up']}  👎 {_fb_stats['down']}")
-        st.caption(f"**Messages:** {len(st.session_state.get('messages', []))}")
-
     # ------------------------------------------------------------------
     # Draw tool — compact map in sidebar, always visible
     # ------------------------------------------------------------------
@@ -1814,9 +1727,8 @@ if not st.session_state.get("messages"):
     _welcome_key = _resolve_ai_key(st.session_state.get("ai_provider", DEFAULT_PROVIDER))
     if not _welcome_key:
         st.info(
-            "**No API key detected.** Open the sidebar, enter your Admin PIN, "
-            "and paste an API key to enable AI responses. "
-            "On World Bank Posit Connect the key is pre-configured — nothing to do.",
+            "**No API key detected.** Add your API key to the `.env` file to enable AI responses. "
+            "On World Bank Posit Connect the key is set in the Vars tab — nothing to do here.",
             icon="🔑",
         )
 
