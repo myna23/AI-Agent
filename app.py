@@ -859,45 +859,65 @@ with st.sidebar:
     _mai_configured = bool(_os.getenv("MAI_FACTORY_TOKEN", ""))
 
     # ------------------------------------------------------------------
-    # Model selector — compact single dropdown
+    # New Chat button + Recent Chats
     # ------------------------------------------------------------------
-    _cur_m = st.session_state.get("ai_model", DEFAULT_MODEL)
-    _cur_p = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
+    import datetime as _dt_chat
+    import uuid as _uuid
 
-    # Options depend on what's available
-    if _mai_configured:
-        _model_opts = [
-            ("Claude Sonnet",  "WB mAI Factory (Claude)", "claude-sonnet-4-5"),
-            ("Claude Haiku",   "WB mAI Factory (Claude)", "claude-haiku-4-5"),
-            ("GPT-4o",         "WB mAI Factory (GPT)",    "gpt-4o"),
-            ("GPT-4o mini",    "WB mAI Factory (GPT)",    "gpt-4o-mini"),
-        ]
-    else:
-        _model_opts = [
-            ("Claude Sonnet",  "Anthropic (Claude)", "claude-sonnet-4-6"),
-            ("Claude Opus",    "Anthropic (Claude)", "claude-opus-4-6"),
-            ("GPT-4o",         "OpenAI (GPT)",       "gpt-4o"),
-            ("Gemini Flash",   "Google (Gemini)",    "gemini-2.0-flash"),
-        ]
+    def _save_current_chat():
+        """Save the active conversation to history before starting a new one."""
+        _msgs = st.session_state.get("messages", [])
+        if not _msgs:
+            return
+        # Title = first user message, truncated
+        _title = next((m["content"][:50] for m in _msgs if m["role"] == "user"), "Chat")
+        _title = (_title + "…") if len(_title) == 50 else _title
+        _existing_ids = [s["id"] for s in st.session_state.chat_sessions]
+        _cid = st.session_state.get("_current_chat_id", str(_uuid.uuid4()))
+        if _cid in _existing_ids:
+            # Update existing entry
+            for _s in st.session_state.chat_sessions:
+                if _s["id"] == _cid:
+                    _s["messages"] = list(_msgs)
+                    _s["title"] = _title
+        else:
+            st.session_state.chat_sessions.insert(0, {
+                "id": _cid, "title": _title, "messages": list(_msgs),
+                "time": _dt_chat.datetime.now().strftime("%b %d, %H:%M"),
+            })
+        # Keep only last 20
+        st.session_state.chat_sessions = st.session_state.chat_sessions[:20]
 
-    _opt_labels = [o[0] for o in _model_opts]
-    _opt_models = [o[2] for o in _model_opts]
-    _cur_idx    = _opt_models.index(_cur_m) if _cur_m in _opt_models else 0
-
-    _sel_label = st.selectbox(
-        "Model", options=_opt_labels, index=_cur_idx,
-        key="model_select_simple", label_visibility="visible",
-    )
-    _sel_opt = _model_opts[_opt_labels.index(_sel_label)]
-    if _sel_opt[2] != _cur_m:
-        st.session_state["ai_provider"] = _sel_opt[1]
-        st.session_state["ai_model"]    = _sel_opt[2]
+    if st.button("＋  New Chat", key="new_chat_btn", use_container_width=True):
+        _save_current_chat()
+        st.session_state.messages = []
+        st.session_state["_current_chat_id"] = str(_uuid.uuid4())
+        st.session_state.pop("draw_bbox", None)
+        st.session_state.pop("_draw_counts", None)
+        st.session_state.pop("_draw_details", None)
+        st.session_state.pop("_area_sel_name", None)
+        st.session_state.pop("uploaded_doc_text", None)
+        st.session_state.pop("uploaded_doc_name", None)
+        st.session_state.pop("uploaded_img_b64", None)
+        st.session_state.pop("uploaded_img_name", None)
         st.rerun()
+
+    if st.session_state.chat_sessions:
+        st.markdown("**Recent**")
+        for _cs in st.session_state.chat_sessions[:15]:
+            _is_active = _cs["id"] == st.session_state.get("_current_chat_id")
+            _btn_label = ("▶ " if _is_active else "") + _cs["title"]
+            if st.button(_btn_label, key=f"hist_{_cs['id']}", use_container_width=True):
+                _save_current_chat()
+                st.session_state.messages = list(_cs["messages"])
+                st.session_state["_current_chat_id"] = _cs["id"]
+                st.rerun()
+
+    st.markdown("---")
 
     # ------------------------------------------------------------------
     # Language selector
     # ------------------------------------------------------------------
-    st.markdown("---")
     st.markdown("#### Language")
     _lang = st.selectbox(
         "Response language",
@@ -1312,6 +1332,8 @@ if "stop_streaming" not in st.session_state:
     st.session_state.stop_streaming = False
 if "is_generating" not in st.session_state:
     st.session_state.is_generating = False
+if "chat_sessions" not in st.session_state:
+    st.session_state.chat_sessions = []  # list of {"id", "title", "messages"}
 
 # ---------------------------------------------------------------------------
 # Fixed-bottom stop button — shown while AI is generating (matches Claude UI)
@@ -2934,6 +2956,47 @@ if hasattr(st.session_state, "_pending_question") and st.session_state._pending_
 
 
 # ---------------------------------------------------------------------------
+# Model pill — right-aligned row just above the chat input
+# ---------------------------------------------------------------------------
+_FRIENDLY_SHORT = {
+    "claude-sonnet-4-5": "Claude Sonnet",
+    "claude-haiku-4-5":  "Claude Haiku",
+    "claude-sonnet-4-6": "Claude Sonnet",
+    "claude-opus-4-6":   "Claude Opus",
+    "gpt-4o":            "GPT-4o",
+    "gpt-4o-mini":       "GPT-4o mini",
+    "gemini-2.0-flash":  "Gemini Flash",
+}
+_active_model_label = _FRIENDLY_SHORT.get(
+    st.session_state.get("ai_model", DEFAULT_MODEL), "Auto"
+)
+_pill_spacer, _pill_col = st.columns([6, 1])
+with _pill_col:
+    if _mai_configured:
+        _pill_opts = ["Claude Sonnet", "Claude Haiku", "GPT-4o", "GPT-4o mini"]
+        _pill_map  = {
+            "Claude Sonnet": ("WB mAI Factory (Claude)", "claude-sonnet-4-5"),
+            "Claude Haiku":  ("WB mAI Factory (Claude)", "claude-haiku-4-5"),
+            "GPT-4o":        ("WB mAI Factory (GPT)",    "gpt-4o"),
+            "GPT-4o mini":   ("WB mAI Factory (GPT)",    "gpt-4o-mini"),
+        }
+    else:
+        _pill_opts = ["Claude Sonnet", "Claude Opus", "GPT-4o", "Gemini Flash"]
+        _pill_map  = {
+            "Claude Sonnet": ("Anthropic (Claude)", "claude-sonnet-4-6"),
+            "Claude Opus":   ("Anthropic (Claude)", "claude-opus-4-6"),
+            "GPT-4o":        ("OpenAI (GPT)",       "gpt-4o"),
+            "Gemini Flash":  ("Google (Gemini)",    "gemini-2.0-flash"),
+        }
+    _pill_idx = _pill_opts.index(_active_model_label) if _active_model_label in _pill_opts else 0
+    _pill_sel = st.selectbox("Model", _pill_opts, index=_pill_idx,
+                              key="model_pill_select", label_visibility="collapsed")
+    if _pill_map[_pill_sel][1] != st.session_state.get("ai_model"):
+        st.session_state["ai_provider"] = _pill_map[_pill_sel][0]
+        st.session_state["ai_model"]    = _pill_map[_pill_sel][1]
+        st.rerun()
+
+# ---------------------------------------------------------------------------
 # Chat input — paperclip icon built into the bar (Streamlit 1.41+)
 # ---------------------------------------------------------------------------
 _chat_placeholder = (
@@ -2976,11 +3039,16 @@ if _chat_result:
     question = _chat_result.text or ""
     if question.strip() or st.session_state.get("uploaded_img_b64") or st.session_state.get("uploaded_doc_text"):
         if st.session_state.edit_idx is None:
+            # Assign a chat ID on first message so history works
+            if "_current_chat_id" not in st.session_state:
+                import uuid as _uuid2
+                st.session_state["_current_chat_id"] = str(_uuid2.uuid4())
             _display_q = question.strip() or f"[Attached: {(_chat_result.files or [{}])[0].name if _chat_result.files else 'file'}]"
             st.session_state.messages.append({"role": "user", "content": _display_q})
             with st.chat_message("user"):
                 st.markdown(_display_q)
             process_question(question)
+            _save_current_chat()
             st.session_state["_scroll_to_bottom"] = True
             st.rerun()
 
