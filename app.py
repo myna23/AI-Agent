@@ -856,8 +856,43 @@ with st.sidebar:
     st.markdown("### Zambia GeoHub AI")
 
     import os as _os
-    # Model is auto-selected based on available API keys (mAI Factory on Posit Connect,
-    # or best available locally). No manual picker shown.
+    _mai_configured = bool(_os.getenv("MAI_FACTORY_TOKEN", ""))
+
+    # ------------------------------------------------------------------
+    # Model selector — compact single dropdown
+    # ------------------------------------------------------------------
+    _cur_m = st.session_state.get("ai_model", DEFAULT_MODEL)
+    _cur_p = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
+
+    # Options depend on what's available
+    if _mai_configured:
+        _model_opts = [
+            ("Claude Sonnet",  "WB mAI Factory (Claude)", "claude-sonnet-4-5"),
+            ("Claude Haiku",   "WB mAI Factory (Claude)", "claude-haiku-4-5"),
+            ("GPT-4o",         "WB mAI Factory (GPT)",    "gpt-4o"),
+            ("GPT-4o mini",    "WB mAI Factory (GPT)",    "gpt-4o-mini"),
+        ]
+    else:
+        _model_opts = [
+            ("Claude Sonnet",  "Anthropic (Claude)", "claude-sonnet-4-6"),
+            ("Claude Opus",    "Anthropic (Claude)", "claude-opus-4-6"),
+            ("GPT-4o",         "OpenAI (GPT)",       "gpt-4o"),
+            ("Gemini Flash",   "Google (Gemini)",    "gemini-2.0-flash"),
+        ]
+
+    _opt_labels = [o[0] for o in _model_opts]
+    _opt_models = [o[2] for o in _model_opts]
+    _cur_idx    = _opt_models.index(_cur_m) if _cur_m in _opt_models else 0
+
+    _sel_label = st.selectbox(
+        "Model", options=_opt_labels, index=_cur_idx,
+        key="model_select_simple", label_visibility="visible",
+    )
+    _sel_opt = _model_opts[_opt_labels.index(_sel_label)]
+    if _sel_opt[2] != _cur_m:
+        st.session_state["ai_provider"] = _sel_opt[1]
+        st.session_state["ai_model"]    = _sel_opt[2]
+        st.rerun()
 
     # ------------------------------------------------------------------
     # Language selector
