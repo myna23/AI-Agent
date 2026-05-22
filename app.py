@@ -1006,41 +1006,78 @@ with st.sidebar:
         key="area_selector", label_visibility="collapsed",
     )
 
-    # Mini-map — show all provinces as boxes, highlight selected area
+    # Mini-map — Zambia outline + province centroids, highlight selected area
     if _sel_area != "— Select area —":
         try:
             import matplotlib
             matplotlib.use("Agg")
             import matplotlib.pyplot as _plt
-            import matplotlib.patches as _mpatch
+            from matplotlib.patches import Polygon as _MplPoly
+            from matplotlib.collections import PatchCollection as _PC
             import io as _io
-            _fig, _ax = _plt.subplots(figsize=(2.8, 2.8))
+            import numpy as _np
+
+            # Simplified Zambia border outline (lon, lat)
+            _ZMB = _np.array([
+                (22.0,-17.9),(22.3,-17.5),(23.0,-17.5),(23.5,-17.3),
+                (24.3,-17.5),(25.2,-17.5),(25.7,-18.0),(26.0,-18.0),
+                (26.7,-17.5),(27.5,-17.1),(28.0,-16.8),(28.8,-16.5),
+                (29.8,-15.6),(30.3,-15.6),(30.7,-14.9),(31.2,-14.4),
+                (31.7,-13.8),(32.5,-13.3),(33.0,-12.8),(33.5,-11.5),
+                (33.5,-9.8),(33.0,-9.5),(32.5,-9.2),(32.0,-9.0),
+                (31.5,-8.6),(30.5,-8.2),(29.5,-8.5),(29.0,-8.9),
+                (28.5,-9.3),(28.0,-10.0),(27.5,-10.8),(27.0,-11.0),
+                (26.5,-11.5),(26.0,-11.5),(25.5,-12.0),(24.5,-11.0),
+                (24.0,-11.5),(23.5,-11.0),(23.0,-10.5),(22.5,-11.0),
+                (22.0,-11.5),(21.5,-13.0),(22.0,-13.8),(22.0,-15.0),
+                (22.0,-17.9),
+            ])
+            # Province centroids (lon, lat) for labelling
+            _PROV_CTR = {
+                "Central Province":       (28.3,-14.0),
+                "Copperbelt Province":    (27.8,-12.8),
+                "Eastern Province":       (32.2,-13.5),
+                "Luapula Province":       (29.2,-10.5),
+                "Lusaka Province":        (28.5,-15.2),
+                "Muchinga Province":      (31.5,-11.0),
+                "Northern Province":      (30.5,-10.0),
+                "North-Western Province": (24.0,-12.0),
+                "Southern Province":      (27.2,-16.5),
+                "Western Province":       (23.5,-15.5),
+            }
+            _fig, _ax = _plt.subplots(figsize=(2.6, 2.8))
             _fig.patch.set_facecolor("#0e1a2b")
-            _ax.set_facecolor("#1a2d45")
-            _ax.set_xlim(21, 34); _ax.set_ylim(-19, -7.5)
+            _ax.set_facecolor("#0e1a2b")
+            _ax.set_xlim(20.8, 34.2); _ax.set_ylim(-19.2, -7.2)
             _ax.set_aspect("equal")
-            _PROV_NAMES = [k for k in _AREA_BBOXES if "Province" in k]
-            for _pn in _PROV_NAMES:
-                _pb = _AREA_BBOXES[_pn]
+            # Draw Zambia filled outline
+            _zmb_poly = _MplPoly(_ZMB, closed=True)
+            _pc = _PC([_zmb_poly], facecolor="#1e3a5f", edgecolor="#4a7fa8", linewidth=1.2, alpha=0.9)
+            _ax.add_collection(_pc)
+            # Province centroid dots + short labels
+            for _pn, (_px, _py) in _PROV_CTR.items():
                 _is_sel = (_pn == _sel_area)
-                _ax.add_patch(_mpatch.Rectangle(
-                    (_pb["min_lon"], _pb["min_lat"]),
-                    _pb["max_lon"]-_pb["min_lon"], _pb["max_lat"]-_pb["min_lat"],
-                    linewidth=1, edgecolor="#4a7fa8",
-                    facecolor="#e63946" if _is_sel else "#2d5a87",
-                    alpha=0.7 if _is_sel else 0.35,
-                ))
-            # Always highlight selected area in red (city or province)
-            _sb = _AREA_BBOXES[_sel_area]
-            _ax.add_patch(_mpatch.Rectangle(
-                (_sb["min_lon"], _sb["min_lat"]),
-                _sb["max_lon"]-_sb["min_lon"], _sb["max_lat"]-_sb["min_lat"],
-                linewidth=2, edgecolor="#e63946", facecolor="#e63946", alpha=0.55,
-            ))
-            _ax.tick_params(colors="#4a7fa8", labelsize=5)
-            for _sp in _ax.spines.values(): _sp.set_color("#2d4a6a")
+                _clr = "#e63946" if _is_sel else "#7ab3d4"
+                _sz  = 60 if _is_sel else 18
+                _ax.scatter(_px, _py, s=_sz, color=_clr, zorder=5)
+                if _is_sel:
+                    # Short label for selected province
+                    _short = _pn.replace(" Province","")
+                    _ax.text(_px, _py+0.5, _short, color="#e63946",
+                             fontsize=5.5, ha="center", va="bottom",
+                             fontweight="bold", zorder=6)
+            # For a city/district selection, draw a red star at its centre
+            if "Province" not in _sel_area:
+                _sb = _AREA_BBOXES[_sel_area]
+                _cx = (_sb["min_lon"]+_sb["max_lon"])/2
+                _cy = (_sb["min_lat"]+_sb["max_lat"])/2
+                _ax.scatter(_cx, _cy, s=80, color="#e63946", marker="*", zorder=7)
+                _ax.text(_cx, _cy+0.5, _sel_area, color="#e63946",
+                         fontsize=5.5, ha="center", va="bottom",
+                         fontweight="bold", zorder=8)
+            _ax.axis("off")
             _buf = _io.BytesIO()
-            _fig.savefig(_buf, format="png", bbox_inches="tight", dpi=110, facecolor="#0e1a2b")
+            _fig.savefig(_buf, format="png", bbox_inches="tight", dpi=120, facecolor="#0e1a2b")
             _buf.seek(0); _plt.close(_fig)
             st.image(_buf, use_container_width=True)
         except Exception:
@@ -1259,48 +1296,51 @@ with st.sidebar:
     # ------------------------------------------------------------------
     st.markdown("---")
     st.markdown("### Attach a File")
-    st.caption("PDF, Word, TXT or map image — AI will use it alongside GeoHub data.")
 
-    _upload_tab_doc, _upload_tab_img = st.tabs(["Document", "Map Image"])
+    _upl_type = st.radio("File type", ["Document", "Map Image"],
+                         horizontal=True, key="upload_type_radio",
+                         label_visibility="collapsed")
 
-    with _upload_tab_doc:
+    if _upl_type == "Document":
+        st.caption("PDF, Word, or TXT")
         _uploaded_file = st.file_uploader(
-            "Choose a file", type=["pdf", "docx", "txt"],
+            "Upload document", type=["pdf", "docx", "txt"],
             key="doc_upload", label_visibility="collapsed",
         )
-    if _uploaded_file:
-        try:
-            if _uploaded_file.name.endswith(".pdf"):
-                import pypdf as _pypdf
-                _reader = _pypdf.PdfReader(_uploaded_file)
-                _doc_text = "\n".join(p.extract_text() or "" for p in _reader.pages)
-            elif _uploaded_file.name.endswith(".docx"):
-                import docx as _docx
-                _doc = _docx.Document(_uploaded_file)
-                _doc_text = "\n".join(p.text for p in _doc.paragraphs if p.text.strip())
-            else:
-                _doc_text = _uploaded_file.read().decode("utf-8", errors="ignore")
-            _doc_text = _doc_text.strip()
-            if _doc_text:
-                st.session_state["uploaded_doc_text"] = _doc_text
-                st.session_state["uploaded_doc_name"] = _uploaded_file.name
-                st.success(f"✅ **{_uploaded_file.name}** ready")
-            else:
-                st.warning("No text could be extracted.")
-        except Exception as _ue:
-            st.error(f"Could not read file: {_ue}")
-
-    if st.session_state.get("uploaded_doc_name"):
-        st.info(f"📄 **{st.session_state['uploaded_doc_name']}**")
-        if st.button("Remove", use_container_width=True, key="sidebar_clear_doc"):
-            st.session_state.pop("uploaded_doc_text", None)
-            st.session_state.pop("uploaded_doc_name", None)
-            st.rerun()
-
-    with _upload_tab_img:
-        st.caption("Upload a map screenshot or satellite image. Once uploaded, ask any question in the chat — AI will analyse the map and offer PDF, Word, or table export of the findings.")
+        if _uploaded_file:
+            try:
+                if _uploaded_file.name.endswith(".pdf"):
+                    import pypdf as _pypdf
+                    _reader = _pypdf.PdfReader(_uploaded_file)
+                    _doc_text = "\n".join(p.extract_text() or "" for p in _reader.pages)
+                elif _uploaded_file.name.endswith(".docx"):
+                    import docx as _docx
+                    _doc = _docx.Document(_uploaded_file)
+                    _doc_text = "\n".join(p.text for p in _doc.paragraphs if p.text.strip())
+                else:
+                    _doc_text = _uploaded_file.read().decode("utf-8", errors="ignore")
+                _doc_text = _doc_text.strip()
+                if _doc_text:
+                    st.session_state["uploaded_doc_text"] = _doc_text
+                    st.session_state["uploaded_doc_name"] = _uploaded_file.name
+                    st.success(f"✅ {_uploaded_file.name}")
+                else:
+                    st.warning("No text could be extracted.")
+            except Exception as _ue:
+                st.error(f"Could not read: {_ue}")
+        if st.session_state.get("uploaded_doc_name"):
+            _dc1, _dc2 = st.columns([3, 1])
+            with _dc1:
+                st.caption(f"📄 {st.session_state['uploaded_doc_name']}")
+            with _dc2:
+                if st.button("✕", key="sidebar_clear_doc", use_container_width=True):
+                    st.session_state.pop("uploaded_doc_text", None)
+                    st.session_state.pop("uploaded_doc_name", None)
+                    st.rerun()
+    else:
+        st.caption("PNG, JPG, or WEBP map screenshot")
         _uploaded_img = st.file_uploader(
-            "Choose an image", type=["png", "jpg", "jpeg", "webp"],
+            "Upload image", type=["png", "jpg", "jpeg", "webp"],
             key="img_upload", label_visibility="collapsed",
         )
         if _uploaded_img:
@@ -1311,14 +1351,18 @@ with st.sidebar:
             st.session_state["uploaded_img_b64"] = _img_b64
             st.session_state["uploaded_img_mime"] = _img_mime
             st.session_state["uploaded_img_name"] = _uploaded_img.name
-            st.success(f"✅ **{_uploaded_img.name}** ready")
+            st.success(f"✅ {_uploaded_img.name}")
             st.image(_img_bytes, use_container_width=True)
         if st.session_state.get("uploaded_img_name"):
-            if st.button("Remove image", use_container_width=True, key="sidebar_clear_img"):
-                st.session_state.pop("uploaded_img_b64", None)
-                st.session_state.pop("uploaded_img_mime", None)
-                st.session_state.pop("uploaded_img_name", None)
-                st.rerun()
+            _ic1, _ic2 = st.columns([3, 1])
+            with _ic1:
+                st.caption(f"🖼️ {st.session_state['uploaded_img_name']}")
+            with _ic2:
+                if st.button("✕", key="sidebar_clear_img", use_container_width=True):
+                    st.session_state.pop("uploaded_img_b64", None)
+                    st.session_state.pop("uploaded_img_mime", None)
+                    st.session_state.pop("uploaded_img_name", None)
+                    st.rerun()
 
 # ---------------------------------------------------------------------------
 # Context detection — dataset passed from Hub iframe embed
