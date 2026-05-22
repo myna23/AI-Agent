@@ -966,7 +966,7 @@ with st.sidebar:
     ).add_to(_draw_map)
     # Version key — incremented on clear to reset the map component
     _draw_map_version = st.session_state.get("draw_map_version", 0)
-    _draw_result = st_folium(_draw_map, width="100%", height=320,
+    _draw_result = st_folium(_draw_map, width=320, height=320,
                              returned_objects=["last_active_drawing"],
                              key=f"draw_tool_map_{_draw_map_version}")
 
