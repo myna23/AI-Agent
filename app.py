@@ -893,75 +893,59 @@ with st.sidebar:
         # Keep only last 20
         st.session_state.chat_sessions = st.session_state.chat_sessions[:20]
 
-    if st.button("＋  New Chat", key="new_chat_btn", use_container_width=True):
-        _save_current_chat()
-        st.session_state.messages = []
-        st.session_state["_current_chat_id"] = str(_uuid.uuid4())
-        st.session_state.pop("draw_bbox", None)
-        st.session_state.pop("_draw_counts", None)
-        st.session_state.pop("_draw_details", None)
-        st.session_state.pop("_area_sel_name", None)
-        st.session_state.pop("uploaded_doc_text", None)
-        st.session_state.pop("uploaded_doc_name", None)
-        st.session_state.pop("uploaded_img_b64", None)
-        st.session_state.pop("uploaded_img_name", None)
-        st.rerun()
-
+    # ------------------------------------------------------------------
+    # Recent Chats — top of sidebar for easy access
+    # ------------------------------------------------------------------
     if st.session_state.chat_sessions:
-        st.markdown("**Recent**")
+        st.caption("Recent")
         for _cs in st.session_state.chat_sessions[:15]:
             _is_active = _cs["id"] == st.session_state.get("_current_chat_id")
-            _btn_label = ("▶ " if _is_active else "") + _cs["title"]
+            _btn_label = ("▶ " if _is_active else "💬 ") + _cs["title"]
             if st.button(_btn_label, key=f"hist_{_cs['id']}", use_container_width=True):
                 _save_current_chat()
                 st.session_state.messages = list(_cs["messages"])
                 st.session_state["_current_chat_id"] = _cs["id"]
                 st.rerun()
-
-    st.markdown("---")
+        st.markdown("---")
 
     # ------------------------------------------------------------------
-    # Language selector
+    # Language — compact single row
     # ------------------------------------------------------------------
-    st.markdown("#### Language")
-    _lang = st.selectbox(
-        "Response language",
-        options=list(_LANG_INSTRUCTIONS.keys()),
-        index=list(_LANG_INSTRUCTIONS.keys()).index(st.session_state.get("_lang", "English")),
-        key="lang_select",
-        label_visibility="collapsed",
-    )
-    # Save without rerun — avoids resetting the draw map widget
+    _lang_col1, _lang_col2 = st.columns([1, 3])
+    with _lang_col1:
+        st.caption("🌐 Lang")
+    with _lang_col2:
+        _lang = st.selectbox(
+            "Language", options=list(_LANG_INSTRUCTIONS.keys()),
+            index=list(_LANG_INSTRUCTIONS.keys()).index(st.session_state.get("_lang", "English")),
+            key="lang_select", label_visibility="collapsed",
+        )
     st.session_state["_lang"] = _lang
 
     # ------------------------------------------------------------------
-    # Compare two areas
+    # Compare Two Areas — collapsed expander
     # ------------------------------------------------------------------
-    st.markdown("---")
-    st.markdown("#### Compare Two Areas")
-    st.caption("Enter two districts/provinces and a topic, then click Compare.")
-    _cmp_col1, _cmp_col2 = st.columns(2)
-    with _cmp_col1:
-        _cmp_a = st.text_input("Area A", placeholder="e.g. Lusaka", key="cmp_area_a")
-    with _cmp_col2:
-        _cmp_b = st.text_input("Area B", placeholder="e.g. Kitwe", key="cmp_area_b")
-    _cmp_topic = st.text_input("Topic", placeholder="e.g. health facilities", key="cmp_topic")
-    if st.button("Compare", key="cmp_btn", use_container_width=True):
-        if _cmp_a.strip() and _cmp_b.strip() and _cmp_topic.strip():
-            _cmp_q = f"Compare {_cmp_a.strip()} and {_cmp_b.strip()} in terms of {_cmp_topic.strip()}"
-            st.session_state.messages.append({"role": "user", "content": _cmp_q})
-            st.session_state._pending_question = _cmp_q
-            st.rerun()
-        else:
-            st.warning("Fill in both areas and a topic.")
-
+    with st.expander("⚖️ Compare Two Areas"):
+        st.caption("Enter two districts/provinces and a topic.")
+        _cmp_col1, _cmp_col2 = st.columns(2)
+        with _cmp_col1:
+            _cmp_a = st.text_input("Area A", placeholder="e.g. Lusaka", key="cmp_area_a")
+        with _cmp_col2:
+            _cmp_b = st.text_input("Area B", placeholder="e.g. Kitwe", key="cmp_area_b")
+        _cmp_topic = st.text_input("Topic", placeholder="e.g. health facilities", key="cmp_topic")
+        if st.button("Compare", key="cmp_btn", use_container_width=True):
+            if _cmp_a.strip() and _cmp_b.strip() and _cmp_topic.strip():
+                _cmp_q = f"Compare {_cmp_a.strip()} and {_cmp_b.strip()} in terms of {_cmp_topic.strip()}"
+                st.session_state.messages.append({"role": "user", "content": _cmp_q})
+                st.session_state._pending_question = _cmp_q
+                st.rerun()
+            else:
+                st.warning("Fill in both areas and a topic.")
 
     # ------------------------------------------------------------------
-    # Select an Area — province / district selector with mini-map
+    # Select an Area — collapsed expander
     # ------------------------------------------------------------------
-    st.markdown("---")
-    st.markdown("### Select an Area")
-    st.caption("Pick a province or town, then click Count Features.")
+    with st.expander("📍 Select an Area"):
 
     _AREA_BBOXES = {
         # Provinces
@@ -1220,7 +1204,23 @@ with st.sidebar:
                     st.caption("No additional details.")
         st.caption("[🔗 Zambia GeoHub](https://zmb-geowb.hub.arcgis.com)")
 
-
+    # ------------------------------------------------------------------
+    # New Chat — at the bottom so recent chats get the most space
+    # ------------------------------------------------------------------
+    st.markdown("---")
+    if st.button("＋  New Chat", key="new_chat_btn", use_container_width=True):
+        _save_current_chat()
+        st.session_state.messages = []
+        st.session_state["_current_chat_id"] = str(_uuid.uuid4())
+        st.session_state.pop("draw_bbox", None)
+        st.session_state.pop("_draw_counts", None)
+        st.session_state.pop("_draw_details", None)
+        st.session_state.pop("_area_sel_name", None)
+        st.session_state.pop("uploaded_doc_text", None)
+        st.session_state.pop("uploaded_doc_name", None)
+        st.session_state.pop("uploaded_img_b64", None)
+        st.session_state.pop("uploaded_img_name", None)
+        st.rerun()
 
     # (File upload moved to the ＋ Attach popover next to the chat input)
 
@@ -2959,7 +2959,7 @@ if hasattr(st.session_state, "_pending_question") and st.session_state._pending_
 
 
 # ---------------------------------------------------------------------------
-# Model pill — right-aligned row just above the chat input
+# Model popover — right-aligned button above the chat bar (like Gemini "Flash")
 # ---------------------------------------------------------------------------
 _FRIENDLY_SHORT = {
     "claude-sonnet-4-5": "Claude Sonnet",
@@ -2970,34 +2970,37 @@ _FRIENDLY_SHORT = {
     "gpt-4o-mini":       "GPT-4o mini",
     "gemini-2.0-flash":  "Gemini Flash",
 }
+if _mai_configured:
+    _pill_map = {
+        "Claude Sonnet": ("WB mAI Factory (Claude)", "claude-sonnet-4-5"),
+        "Claude Haiku":  ("WB mAI Factory (Claude)", "claude-haiku-4-5"),
+        "GPT-4o":        ("WB mAI Factory (GPT)",    "gpt-4o"),
+        "GPT-4o mini":   ("WB mAI Factory (GPT)",    "gpt-4o-mini"),
+    }
+else:
+    _pill_map = {
+        "Claude Sonnet": ("Anthropic (Claude)", "claude-sonnet-4-6"),
+        "Claude Opus":   ("Anthropic (Claude)", "claude-opus-4-6"),
+        "GPT-4o":        ("OpenAI (GPT)",       "gpt-4o"),
+        "Gemini Flash":  ("Google (Gemini)",    "gemini-2.0-flash"),
+    }
 _active_model_label = _FRIENDLY_SHORT.get(
-    st.session_state.get("ai_model", DEFAULT_MODEL), "Auto"
+    st.session_state.get("ai_model", DEFAULT_MODEL), "Claude Sonnet"
 )
-_pill_spacer, _pill_col = st.columns([6, 1])
+if _active_model_label not in _pill_map:
+    _active_model_label = list(_pill_map.keys())[0]
+
+_pill_spacer, _pill_col = st.columns([5, 1])
 with _pill_col:
-    if _mai_configured:
-        _pill_opts = ["Claude Sonnet", "Claude Haiku", "GPT-4o", "GPT-4o mini"]
-        _pill_map  = {
-            "Claude Sonnet": ("WB mAI Factory (Claude)", "claude-sonnet-4-5"),
-            "Claude Haiku":  ("WB mAI Factory (Claude)", "claude-haiku-4-5"),
-            "GPT-4o":        ("WB mAI Factory (GPT)",    "gpt-4o"),
-            "GPT-4o mini":   ("WB mAI Factory (GPT)",    "gpt-4o-mini"),
-        }
-    else:
-        _pill_opts = ["Claude Sonnet", "Claude Opus", "GPT-4o", "Gemini Flash"]
-        _pill_map  = {
-            "Claude Sonnet": ("Anthropic (Claude)", "claude-sonnet-4-6"),
-            "Claude Opus":   ("Anthropic (Claude)", "claude-opus-4-6"),
-            "GPT-4o":        ("OpenAI (GPT)",       "gpt-4o"),
-            "Gemini Flash":  ("Google (Gemini)",    "gemini-2.0-flash"),
-        }
-    _pill_idx = _pill_opts.index(_active_model_label) if _active_model_label in _pill_opts else 0
-    _pill_sel = st.selectbox("Model", _pill_opts, index=_pill_idx,
-                              key="model_pill_select", label_visibility="collapsed")
-    if _pill_map[_pill_sel][1] != st.session_state.get("ai_model"):
-        st.session_state["ai_provider"] = _pill_map[_pill_sel][0]
-        st.session_state["ai_model"]    = _pill_map[_pill_sel][1]
-        st.rerun()
+    with st.popover(f"{_active_model_label} ▾", use_container_width=True):
+        st.caption("Select model")
+        for _opt_label, (_opt_prov, _opt_mid) in _pill_map.items():
+            _is_cur = _opt_mid == st.session_state.get("ai_model")
+            _btn_txt = ("✓ " if _is_cur else "  ") + _opt_label
+            if st.button(_btn_txt, key=f"mpop_{_opt_mid}", use_container_width=True):
+                st.session_state["ai_provider"] = _opt_prov
+                st.session_state["ai_model"]    = _opt_mid
+                st.rerun()
 
 # ---------------------------------------------------------------------------
 # Chat input — paperclip icon built into the bar (Streamlit 1.41+)
