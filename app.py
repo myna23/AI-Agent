@@ -1209,7 +1209,6 @@ with st.sidebar:
                     st.caption("No additional details.")
         st.caption("[🔗 Zambia GeoHub](https://zmb-geowb.hub.arcgis.com)")
 
-    st.divider()
     if st.button("＋  New Chat", key="new_chat_btn", use_container_width=True):
         _save_current_chat()
         st.session_state.messages = []
