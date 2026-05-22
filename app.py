@@ -847,6 +847,11 @@ _ai_key      = _resolve_ai_key(_ai_provider)
 claude = get_ai_client(_ai_provider, _ai_model, _ai_key)
 
 # ---------------------------------------------------------------------------
+# Session state — must be initialised before the sidebar reads them
+# ---------------------------------------------------------------------------
+if "chat_sessions" not in st.session_state:
+    st.session_state.chat_sessions = []
+
 # ---------------------------------------------------------------------------
 # Sidebar
 # ---------------------------------------------------------------------------
@@ -1332,8 +1337,6 @@ if "stop_streaming" not in st.session_state:
     st.session_state.stop_streaming = False
 if "is_generating" not in st.session_state:
     st.session_state.is_generating = False
-if "chat_sessions" not in st.session_state:
-    st.session_state.chat_sessions = []  # list of {"id", "title", "messages"}
 
 # ---------------------------------------------------------------------------
 # Fixed-bottom stop button — shown while AI is generating (matches Claude UI)
