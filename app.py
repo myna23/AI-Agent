@@ -1197,78 +1197,7 @@ with st.sidebar:
 
 
 
-    # ------------------------------------------------------------------
-    # Document / Image upload for AI analysis
-    # ------------------------------------------------------------------
-    st.markdown("---")
-    st.markdown("### Attach a File")
-
-    _upl_type = st.radio("File type", ["Document", "Map Image"],
-                         horizontal=True, key="upload_type_radio",
-                         label_visibility="collapsed")
-
-    if _upl_type == "Document":
-        st.caption("PDF, Word, or TXT")
-        _uploaded_file = st.file_uploader(
-            "Upload document", type=["pdf", "docx", "txt"],
-            key="doc_upload", label_visibility="collapsed",
-        )
-        if _uploaded_file:
-            try:
-                if _uploaded_file.name.endswith(".pdf"):
-                    import pypdf as _pypdf
-                    _reader = _pypdf.PdfReader(_uploaded_file)
-                    _doc_text = "\n".join(p.extract_text() or "" for p in _reader.pages)
-                elif _uploaded_file.name.endswith(".docx"):
-                    import docx as _docx
-                    _doc = _docx.Document(_uploaded_file)
-                    _doc_text = "\n".join(p.text for p in _doc.paragraphs if p.text.strip())
-                else:
-                    _doc_text = _uploaded_file.read().decode("utf-8", errors="ignore")
-                _doc_text = _doc_text.strip()
-                if _doc_text:
-                    st.session_state["uploaded_doc_text"] = _doc_text
-                    st.session_state["uploaded_doc_name"] = _uploaded_file.name
-                    st.success(f"✅ {_uploaded_file.name}")
-                else:
-                    st.warning("No text could be extracted.")
-            except Exception as _ue:
-                st.error(f"Could not read: {_ue}")
-        if st.session_state.get("uploaded_doc_name"):
-            _dc1, _dc2 = st.columns([3, 1])
-            with _dc1:
-                st.caption(f"📄 {st.session_state['uploaded_doc_name']}")
-            with _dc2:
-                if st.button("✕", key="sidebar_clear_doc", use_container_width=True):
-                    st.session_state.pop("uploaded_doc_text", None)
-                    st.session_state.pop("uploaded_doc_name", None)
-                    st.rerun()
-    else:
-        st.caption("PNG, JPG, or WEBP map screenshot")
-        _uploaded_img = st.file_uploader(
-            "Upload image", type=["png", "jpg", "jpeg", "webp"],
-            key="img_upload", label_visibility="collapsed",
-        )
-        if _uploaded_img:
-            import base64 as _b64
-            _img_bytes = _uploaded_img.read()
-            _img_b64 = _b64.b64encode(_img_bytes).decode()
-            _img_mime = "image/png" if _uploaded_img.name.lower().endswith(".png") else "image/jpeg"
-            st.session_state["uploaded_img_b64"] = _img_b64
-            st.session_state["uploaded_img_mime"] = _img_mime
-            st.session_state["uploaded_img_name"] = _uploaded_img.name
-            st.success(f"✅ {_uploaded_img.name}")
-            st.image(_img_bytes, use_container_width=True)
-        if st.session_state.get("uploaded_img_name"):
-            _ic1, _ic2 = st.columns([3, 1])
-            with _ic1:
-                st.caption(f"🖼️ {st.session_state['uploaded_img_name']}")
-            with _ic2:
-                if st.button("✕", key="sidebar_clear_img", use_container_width=True):
-                    st.session_state.pop("uploaded_img_b64", None)
-                    st.session_state.pop("uploaded_img_mime", None)
-                    st.session_state.pop("uploaded_img_name", None)
-                    st.rerun()
+    # (File upload moved to the ＋ Attach popover next to the chat input)
 
 # ---------------------------------------------------------------------------
 # Context detection — dataset passed from Hub iframe embed
@@ -3003,6 +2932,85 @@ if hasattr(st.session_state, "_pending_question") and st.session_state._pending_
     process_question(q)
     st.rerun()
 
+
+# ---------------------------------------------------------------------------
+# Attach popover — ＋ button above chat input
+# ---------------------------------------------------------------------------
+_att_col, _badge_col = st.columns([1, 6])
+with _att_col:
+    with st.popover("＋", use_container_width=True):
+        st.markdown("**Attach a file**")
+        _upl_tab_doc, _upl_tab_img = st.tabs(["Document", "Image"])
+
+        with _upl_tab_doc:
+            st.caption("PDF, Word, or TXT")
+            _uploaded_file = st.file_uploader(
+                "Upload document", type=["pdf", "docx", "txt"],
+                key="doc_upload", label_visibility="collapsed",
+            )
+            if _uploaded_file:
+                try:
+                    if _uploaded_file.name.endswith(".pdf"):
+                        import pypdf as _pypdf
+                        _reader = _pypdf.PdfReader(_uploaded_file)
+                        _doc_text = "\n".join(p.extract_text() or "" for p in _reader.pages)
+                    elif _uploaded_file.name.endswith(".docx"):
+                        import docx as _docx
+                        _doc = _docx.Document(_uploaded_file)
+                        _doc_text = "\n".join(p.text for p in _doc.paragraphs if p.text.strip())
+                    else:
+                        _doc_text = _uploaded_file.read().decode("utf-8", errors="ignore")
+                    _doc_text = _doc_text.strip()
+                    if _doc_text:
+                        st.session_state["uploaded_doc_text"] = _doc_text
+                        st.session_state["uploaded_doc_name"] = _uploaded_file.name
+                        st.success(f"✅ {_uploaded_file.name}")
+                    else:
+                        st.warning("No text could be extracted.")
+                except Exception as _ue:
+                    st.error(f"Could not read: {_ue}")
+            if st.session_state.get("uploaded_doc_name"):
+                _dc1, _dc2 = st.columns([4, 1])
+                with _dc1:
+                    st.caption(f"📄 {st.session_state['uploaded_doc_name']}")
+                with _dc2:
+                    if st.button("✕", key="pop_clear_doc", use_container_width=True):
+                        st.session_state.pop("uploaded_doc_text", None)
+                        st.session_state.pop("uploaded_doc_name", None)
+                        st.rerun()
+
+        with _upl_tab_img:
+            st.caption("PNG, JPG, or WEBP map screenshot")
+            _uploaded_img = st.file_uploader(
+                "Upload image", type=["png", "jpg", "jpeg", "webp"],
+                key="img_upload", label_visibility="collapsed",
+            )
+            if _uploaded_img:
+                import base64 as _b64
+                _img_bytes = _uploaded_img.read()
+                _img_b64 = _b64.b64encode(_img_bytes).decode()
+                _img_mime = "image/png" if _uploaded_img.name.lower().endswith(".png") else "image/jpeg"
+                st.session_state["uploaded_img_b64"] = _img_b64
+                st.session_state["uploaded_img_mime"] = _img_mime
+                st.session_state["uploaded_img_name"] = _uploaded_img.name
+                st.success(f"✅ {_uploaded_img.name}")
+                st.image(_img_bytes, use_container_width=True)
+            if st.session_state.get("uploaded_img_name"):
+                _ic1, _ic2 = st.columns([4, 1])
+                with _ic1:
+                    st.caption(f"🖼️ {st.session_state['uploaded_img_name']}")
+                with _ic2:
+                    if st.button("✕", key="pop_clear_img", use_container_width=True):
+                        st.session_state.pop("uploaded_img_b64", None)
+                        st.session_state.pop("uploaded_img_mime", None)
+                        st.session_state.pop("uploaded_img_name", None)
+                        st.rerun()
+
+with _badge_col:
+    if st.session_state.get("uploaded_doc_name"):
+        st.caption(f"📄 {st.session_state['uploaded_doc_name']} attached")
+    elif st.session_state.get("uploaded_img_name"):
+        st.caption(f"🖼️ {st.session_state['uploaded_img_name']} attached")
 
 # ---------------------------------------------------------------------------
 # Chat input
