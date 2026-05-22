@@ -954,14 +954,16 @@ with st.sidebar:
 
     # ------------------------------------------------------------------
     # ------------------------------------------------------------------
-    # Draw tool — compact map in sidebar, always visible
+    # Draw tool — label in sidebar, map rendered in main area below
     # ------------------------------------------------------------------
     st.markdown("---")
     st.markdown("### Draw an Area")
-    st.caption("Draw a rectangle or polygon on the map — coordinates and area appear automatically.")
+    st.caption("Draw a rectangle on the map below to count features in any region.")
 
-    import folium as _folium_draw_mod
-    from folium.plugins import Draw as _FoliumDraw
+# Draw map rendered OUTSIDE sidebar so it works on Posit Connect
+import folium as _folium_draw_mod
+from folium.plugins import Draw as _FoliumDraw
+with st.expander("📐 Draw an Area — click to open map", expanded=False):
     _draw_map = _folium_draw_mod.Map(location=[-13.5, 28.5], zoom_start=5, tiles="CartoDB positron")
     _FoliumDraw(
         export=False,
@@ -977,7 +979,7 @@ with st.sidebar:
     ).add_to(_draw_map)
     # Version key — incremented on clear to reset the map component
     _draw_map_version = st.session_state.get("draw_map_version", 0)
-    _draw_result = st_folium(_draw_map, width=320, height=320,
+    _draw_result = st_folium(_draw_map, width=700, height=420,
                              returned_objects=["last_active_drawing"],
                              key=f"draw_tool_map_{_draw_map_version}")
 
