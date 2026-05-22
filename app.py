@@ -661,7 +661,11 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
     background: #0e1a2b !important;
     border-right: 1px solid #1d3557;
 }
-[data-testid="stSidebar"] * {
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] div.stMarkdown,
+[data-testid="stSidebar"] .stCaption {
     color: #e8edf3 !important;
 }
 [data-testid="stSidebar"] h3 {
@@ -691,6 +695,20 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
     background: #1a2d45 !important;
     border-color: #2d4a6a !important;
     color: #e8edf3 !important;
+}
+[data-testid="stSidebar"] input::placeholder {
+    color: #7a9bbf !important;
+    opacity: 1 !important;
+}
+[data-testid="stSidebar"] textarea::placeholder {
+    color: #7a9bbf !important;
+    opacity: 1 !important;
+}
+/* Ensure folium map iframe is visible */
+[data-testid="stSidebar"] iframe {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 [data-testid="stSidebar"] hr {
     border-color: #1d3557 !important;
