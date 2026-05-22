@@ -925,7 +925,7 @@ with st.sidebar:
     # ------------------------------------------------------------------
     # Compare Two Areas — collapsed expander
     # ------------------------------------------------------------------
-    with st.expander("⚖️ Compare Two Areas"):
+    with st.expander("Compare Two Areas"):
         st.caption("Enter two districts/provinces and a topic.")
         _cmp_col1, _cmp_col2 = st.columns(2)
         with _cmp_col1:
@@ -945,7 +945,7 @@ with st.sidebar:
     # ------------------------------------------------------------------
     # Select an Area — collapsed expander
     # ------------------------------------------------------------------
-    with st.expander("📍 Select an Area"):
+    with st.expander("Select an Area"):
 
         _AREA_BBOXES = {
             # Provinces
@@ -2990,73 +2990,104 @@ _active_model_label = _FRIENDLY_SHORT.get(
 if _active_model_label not in _pill_map:
     _active_model_label = list(_pill_map.keys())[0]
 
-_pill_spacer, _pill_col = st.columns([5, 1])
-with _pill_col:
+# ---------------------------------------------------------------------------
+# Toolbar — Attach (with dropdown) + Model selector, grouped above chat bar
+# ---------------------------------------------------------------------------
+# Show attached file badge if any
+_att_doc = st.session_state.get("uploaded_doc_name")
+_att_img = st.session_state.get("uploaded_img_name")
+if _att_doc or _att_img:
+    _badge_c1, _badge_c2 = st.columns([6, 1])
+    with _badge_c1:
+        st.caption(f"📄 {_att_doc} attached" if _att_doc else f"🖼️ {_att_img} attached")
+    with _badge_c2:
+        if st.button("✕", key="clear_attach_btn"):
+            st.session_state.pop("uploaded_doc_text", None); st.session_state.pop("uploaded_doc_name", None)
+            st.session_state.pop("uploaded_img_b64", None); st.session_state.pop("uploaded_img_mime", None)
+            st.session_state.pop("uploaded_img_name", None); st.rerun()
+
+_tb_attach, _tb_space, _tb_model = st.columns([1, 7, 2])
+
+with _tb_attach:
+    with st.popover("📎", use_container_width=True):
+        st.markdown("**Attach a file**")
+        _upl_doc_tab, _upl_img_tab = st.tabs(["Document", "Image"])
+
+        with _upl_doc_tab:
+            st.caption("PDF, Word, or TXT")
+            _uploaded_file = st.file_uploader(
+                "doc", type=["pdf", "docx", "txt"],
+                key="doc_upload", label_visibility="collapsed",
+            )
+            if _uploaded_file:
+                try:
+                    _fn = _uploaded_file.name.lower()
+                    if _fn.endswith(".pdf"):
+                        import pypdf as _pypdf
+                        _reader = _pypdf.PdfReader(_uploaded_file)
+                        _doc_text = "\n".join(p.extract_text() or "" for p in _reader.pages)
+                    elif _fn.endswith(".docx"):
+                        import docx as _docx
+                        _doc_obj = _docx.Document(_uploaded_file)
+                        _doc_text = "\n".join(p.text for p in _doc_obj.paragraphs if p.text.strip())
+                    else:
+                        _doc_text = _uploaded_file.read().decode("utf-8", errors="ignore")
+                    if _doc_text.strip():
+                        st.session_state["uploaded_doc_text"] = _doc_text.strip()
+                        st.session_state["uploaded_doc_name"] = _uploaded_file.name
+                        st.success(f"✅ {_uploaded_file.name}")
+                    else:
+                        st.warning("No text extracted.")
+                except Exception as _ue:
+                    st.error(str(_ue))
+
+        with _upl_img_tab:
+            st.caption("PNG, JPG, or WEBP")
+            _uploaded_img = st.file_uploader(
+                "img", type=["png", "jpg", "jpeg", "webp"],
+                key="img_upload", label_visibility="collapsed",
+            )
+            if _uploaded_img:
+                import base64 as _b64i
+                _img_bytes = _uploaded_img.read()
+                _img_mime = "image/png" if _uploaded_img.name.lower().endswith(".png") else "image/jpeg"
+                st.session_state["uploaded_img_b64"]  = _b64i.b64encode(_img_bytes).decode()
+                st.session_state["uploaded_img_mime"] = _img_mime
+                st.session_state["uploaded_img_name"] = _uploaded_img.name
+                st.success(f"✅ {_uploaded_img.name}")
+                st.image(_img_bytes, use_container_width=True)
+
+with _tb_model:
     with st.popover(f"{_active_model_label} ▾", use_container_width=True):
         st.caption("Select model")
         for _opt_label, (_opt_prov, _opt_mid) in _pill_map.items():
             _is_cur = _opt_mid == st.session_state.get("ai_model")
-            _btn_txt = ("✓ " if _is_cur else "  ") + _opt_label
+            _btn_txt = ("✓ " if _is_cur else "") + _opt_label
             if st.button(_btn_txt, key=f"mpop_{_opt_mid}", use_container_width=True):
                 st.session_state["ai_provider"] = _opt_prov
                 st.session_state["ai_model"]    = _opt_mid
                 st.rerun()
 
 # ---------------------------------------------------------------------------
-# Chat input — paperclip icon built into the bar (Streamlit 1.41+)
+# Chat input
 # ---------------------------------------------------------------------------
 _chat_placeholder = (
     "Ask a question about your map — AI will analyse and extract information from it..."
     if st.session_state.get("uploaded_img_b64")
     else "Ask a question, say 'generate a report on...', or 'summarise...'"
 )
-_chat_result = st.chat_input(_chat_placeholder, accept_file="multiple",
-                              file_type=["pdf", "docx", "txt", "png", "jpg", "jpeg", "webp"])
-if _chat_result:
-    # Process any attached files first
-    for _af in (_chat_result.files or []):
-        _af_name = _af.name.lower()
-        if _af_name.endswith((".png", ".jpg", ".jpeg", ".webp")):
-            import base64 as _b64
-            _img_bytes = _af.read()
-            _img_mime = "image/png" if _af_name.endswith(".png") else "image/jpeg"
-            st.session_state["uploaded_img_b64"]  = _b64.b64encode(_img_bytes).decode()
-            st.session_state["uploaded_img_mime"] = _img_mime
-            st.session_state["uploaded_img_name"] = _af.name
-        else:
-            try:
-                if _af_name.endswith(".pdf"):
-                    import pypdf as _pypdf
-                    _reader = _pypdf.PdfReader(_af)
-                    _doc_text = "\n".join(p.extract_text() or "" for p in _reader.pages)
-                elif _af_name.endswith(".docx"):
-                    import docx as _docx
-                    _doc_obj = _docx.Document(_af)
-                    _doc_text = "\n".join(p.text for p in _doc_obj.paragraphs if p.text.strip())
-                else:
-                    _doc_text = _af.read().decode("utf-8", errors="ignore")
-                _doc_text = _doc_text.strip()
-                if _doc_text:
-                    st.session_state["uploaded_doc_text"] = _doc_text
-                    st.session_state["uploaded_doc_name"] = _af.name
-            except Exception:
-                pass
-
-    question = _chat_result.text or ""
-    if question.strip() or st.session_state.get("uploaded_img_b64") or st.session_state.get("uploaded_doc_text"):
-        if st.session_state.edit_idx is None:
-            # Assign a chat ID on first message so history works
-            if "_current_chat_id" not in st.session_state:
-                import uuid as _uuid2
-                st.session_state["_current_chat_id"] = str(_uuid2.uuid4())
-            _display_q = question.strip() or f"[Attached: {(_chat_result.files or [{}])[0].name if _chat_result.files else 'file'}]"
-            st.session_state.messages.append({"role": "user", "content": _display_q})
-            with st.chat_message("user"):
-                st.markdown(_display_q)
-            process_question(question)
-            _save_current_chat()
-            st.session_state["_scroll_to_bottom"] = True
-            st.rerun()
+if question := st.chat_input(_chat_placeholder):
+    if st.session_state.edit_idx is None:
+        if "_current_chat_id" not in st.session_state:
+            import uuid as _uuid2
+            st.session_state["_current_chat_id"] = str(_uuid2.uuid4())
+        st.session_state.messages.append({"role": "user", "content": question})
+        with st.chat_message("user"):
+            st.markdown(question)
+        process_question(question)
+        _save_current_chat()
+        st.session_state["_scroll_to_bottom"] = True
+        st.rerun()
 
 # Auto-scroll to bottom after a new answer is generated
 if st.session_state.pop("_scroll_to_bottom", False):
