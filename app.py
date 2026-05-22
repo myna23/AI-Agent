@@ -1018,10 +1018,11 @@ with st.sidebar:
     _cur_sel = st.session_state.get("_area_sel_name", "— Select area —")
     if _cur_sel not in _area_opts:
         _cur_sel = "— Select area —"
+    _area_ver = st.session_state.get("_area_selector_ver", 0)
     _sel_area = st.selectbox(
         "Area", options=_area_opts,
         index=_area_opts.index(_cur_sel),
-        key="area_selector", label_visibility="collapsed",
+        key=f"area_selector_{_area_ver}", label_visibility="collapsed",
     )
 
     # Mini-map — Zambia outline + province centroids, highlight selected area
@@ -1115,8 +1116,8 @@ with st.sidebar:
                 st.session_state.pop("_draw_counts", None)
                 st.session_state.pop("_draw_details", None)
                 st.session_state.pop("_area_sel_name", None)
-                # Reset the dropdown widget back to placeholder
-                st.session_state["area_selector"] = "— Select area —"
+                # Bump version to force a fresh selectbox widget (resets to placeholder)
+                st.session_state["_area_selector_ver"] = _area_ver + 1
                 st.rerun()
         if _do_count:
             _b = {**_AREA_BBOXES[_sel_area], "measurement": f"Area: {_sel_area}"}
