@@ -858,62 +858,46 @@ if "chat_sessions" not in st.session_state:
 import datetime as _dt
 
 with st.sidebar:
-    st.markdown("### Zambia GeoHub AI")
+    st.caption("Zambia GeoHub AI")
 
     import os as _os
-    _mai_configured = bool(_os.getenv("MAI_FACTORY_TOKEN", ""))
-
-    # ------------------------------------------------------------------
-    # New Chat button + Recent Chats
-    # ------------------------------------------------------------------
     import datetime as _dt_chat
     import uuid as _uuid
+    _mai_configured = bool(_os.getenv("MAI_FACTORY_TOKEN", ""))
 
     def _save_current_chat():
-        """Save the active conversation to history before starting a new one."""
         _msgs = st.session_state.get("messages", [])
         if not _msgs:
             return
-        # Title = first user message, truncated
         _title = next((m["content"][:50] for m in _msgs if m["role"] == "user"), "Chat")
         _title = (_title + "…") if len(_title) == 50 else _title
         _existing_ids = [s["id"] for s in st.session_state.chat_sessions]
         _cid = st.session_state.get("_current_chat_id", str(_uuid.uuid4()))
         if _cid in _existing_ids:
-            # Update existing entry
             for _s in st.session_state.chat_sessions:
                 if _s["id"] == _cid:
-                    _s["messages"] = list(_msgs)
-                    _s["title"] = _title
+                    _s["messages"] = list(_msgs); _s["title"] = _title
         else:
             st.session_state.chat_sessions.insert(0, {
                 "id": _cid, "title": _title, "messages": list(_msgs),
                 "time": _dt_chat.datetime.now().strftime("%b %d, %H:%M"),
             })
-        # Keep only last 20
         st.session_state.chat_sessions = st.session_state.chat_sessions[:20]
 
-    # ------------------------------------------------------------------
-    # Recent Chats — top of sidebar for easy access
-    # ------------------------------------------------------------------
+    # Recent chats
     if st.session_state.chat_sessions:
-        st.caption("Recent")
         for _cs in st.session_state.chat_sessions[:15]:
             _is_active = _cs["id"] == st.session_state.get("_current_chat_id")
-            _btn_label = ("▶ " if _is_active else "💬 ") + _cs["title"]
+            _btn_label = ("▶ " if _is_active else "") + _cs["title"]
             if st.button(_btn_label, key=f"hist_{_cs['id']}", use_container_width=True):
                 _save_current_chat()
                 st.session_state.messages = list(_cs["messages"])
                 st.session_state["_current_chat_id"] = _cs["id"]
                 st.rerun()
-        st.markdown("---")
+        st.divider()
 
-    # ------------------------------------------------------------------
-    # Model selector
-    # ------------------------------------------------------------------
-    import os as _os2
-    _mai_cfg2 = bool(_os2.getenv("MAI_FACTORY_TOKEN", ""))
-    if _mai_cfg2:
+    # Model
+    if _mai_configured:
         _sb_model_opts = [
             ("Claude Sonnet", "WB mAI Factory (Claude)", "claude-sonnet-4-5"),
             ("Claude Haiku",  "WB mAI Factory (Claude)", "claude-haiku-4-5"),
@@ -938,23 +922,14 @@ with st.sidebar:
         st.session_state["ai_model"]    = _sb_sel_opt[2]
         st.rerun()
 
-    # ------------------------------------------------------------------
-    # Language — compact single row
-    # ------------------------------------------------------------------
-    _lang_col1, _lang_col2 = st.columns([1, 3])
-    with _lang_col1:
-        st.caption("🌐 Lang")
-    with _lang_col2:
-        _lang = st.selectbox(
-            "Language", options=list(_LANG_INSTRUCTIONS.keys()),
-            index=list(_LANG_INSTRUCTIONS.keys()).index(st.session_state.get("_lang", "English")),
-            key="lang_select", label_visibility="collapsed",
-        )
+    # Language
+    _lang = st.selectbox(
+        "Language", options=list(_LANG_INSTRUCTIONS.keys()),
+        index=list(_LANG_INSTRUCTIONS.keys()).index(st.session_state.get("_lang", "English")),
+        key="lang_select",
+    )
     st.session_state["_lang"] = _lang
 
-    # ------------------------------------------------------------------
-    # Compare Two Areas — collapsed expander
-    # ------------------------------------------------------------------
     with st.expander("Compare Two Areas"):
         st.caption("Enter two districts/provinces and a topic.")
         _cmp_col1, _cmp_col2 = st.columns(2)
@@ -1234,10 +1209,7 @@ with st.sidebar:
                     st.caption("No additional details.")
         st.caption("[🔗 Zambia GeoHub](https://zmb-geowb.hub.arcgis.com)")
 
-    # ------------------------------------------------------------------
-    # New Chat — at the bottom so recent chats get the most space
-    # ------------------------------------------------------------------
-    st.markdown("---")
+    st.divider()
     if st.button("＋  New Chat", key="new_chat_btn", use_container_width=True):
         _save_current_chat()
         st.session_state.messages = []
