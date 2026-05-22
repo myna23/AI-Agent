@@ -1115,6 +1115,8 @@ with st.sidebar:
                 st.session_state.pop("_draw_counts", None)
                 st.session_state.pop("_draw_details", None)
                 st.session_state.pop("_area_sel_name", None)
+                # Reset the dropdown widget back to placeholder
+                st.session_state["area_selector"] = "— Select area —"
                 st.rerun()
         if _do_count:
             _b = {**_AREA_BBOXES[_sel_area], "measurement": f"Area: {_sel_area}"}
