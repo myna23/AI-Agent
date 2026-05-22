@@ -1,0 +1,162 @@
+{
+  "version": 1,
+  "locale": ".UTF-8",
+  "metadata": {
+    "appmode": "python-streamlit",
+    "entrypoint": "app"
+  },
+  "python": {
+    "version": "3.9.6",
+    "package_manager": {
+      "name": "pip",
+      "version": "26.0.1",
+      "package_file": "requirements.txt"
+    }
+  },
+  "files": {
+    "requirements.txt": {
+      "checksum": "54659cebf6e7bc2aacfeac4978ffee86"
+    },
+    ".DS_Store": {
+      "checksum": "c9052b4c278d3e871a3bbd6a81567861"
+    },
+    ".devcontainer/devcontainer.json": {
+      "checksum": "8f4e3db3a5377558da32c1cbcdc723ac"
+    },
+    ".env": {
+      "checksum": "6c44d9f2b9f9b93edbcfd2f785a8853a"
+    },
+    ".env.example": {
+      "checksum": "1d19b52c4c74a901aff2110bad73c3eb"
+    },
+    ".gitignore": {
+      "checksum": "06767ec57a1e26e29deb6c5dd8b4e104"
+    },
+    "CONTRIBUTING.md": {
+      "checksum": "4d8440fd74ba1192dd0b712b5e91aa0d"
+    },
+    "README.md": {
+      "checksum": "44e62bc968da06ac2101ca4973235a84"
+    },
+    "ZambiaGeoHub_AI_ProjectGuide.docx": {
+      "checksum": "138e9ca29685b61ddf06d951de7077a5"
+    },
+    "Zambia_GeoHub_AI_Backend_Reference.docx": {
+      "checksum": "3e178aa574b147aa40269c053fdffca4"
+    },
+    "Zambia_GeoHub_AI_Query_Flow_Technical.docx": {
+      "checksum": "f6616f31ad2c9f4cea4326aa9095fef9"
+    },
+    "Zambia_GeoHub_AI_System_Explained.md": {
+      "checksum": "2db1061e319c3ea8c7869573c1e61996"
+    },
+    "Zambia_GeoHub_AI_Technical_Document.docx": {
+      "checksum": "f08dcde26e8dffb8a8aed130cf07293a"
+    },
+    "ai/__init__.py": {
+      "checksum": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "ai/claude_client.py": {
+      "checksum": "816a2abbf75aae6676ce6f8b8265dae0"
+    },
+    "ai/model_client.py": {
+      "checksum": "8bcddb934e6f23a9ae5b59d28b841a9a"
+    },
+    "ai/prompts.py": {
+      "checksum": "94843eb14843a3a6cea9d535fca65734"
+    },
+    "app.py": {
+      "checksum": "5a7bb42ff0c635adb6bf7b9f50febe3f"
+    },
+    "backend_architecture.html": {
+      "checksum": "76d1adec670907917b87fe012c65b356"
+    },
+    "components/chat_input/index.html": {
+      "checksum": "8f1ce45496bea6d1978dd8ebc4de14b6"
+    },
+    "data/biodiversity.json": {
+      "checksum": "3b442878d03ff875170e78cf15f889d3"
+    },
+    "data/biodiversity_points.json": {
+      "checksum": "d6fdbc90d75d0d6be1b2093cb2c1627f"
+    },
+    "data/districts.json": {
+      "checksum": "0a4239df1b9a46cf28dd31af60ef78ea"
+    },
+    "data/flood_prone.json": {
+      "checksum": "cb61e6627473d478550e91adb41f620e"
+    },
+    "data/forests.json": {
+      "checksum": "5ca4d5b9747684b9564071aaea6af4bc"
+    },
+    "data/health_facilities.json": {
+      "checksum": "3906170593687213e2c7f51f9dc3ecd2"
+    },
+    "data/lusaka_risk.json": {
+      "checksum": "155a9d6165f4b63ca69fab9f97145ba4"
+    },
+    "data/poi_all.json": {
+      "checksum": "c3a81bd91b380c5247321a251b7e8607"
+    },
+    "data/poi_commercial.json": {
+      "checksum": "bd38f42e22642cfc6cffc509d0c7b304"
+    },
+    "data/poi_farm.json": {
+      "checksum": "718abb4745b3964f0c49346e1d0df850"
+    },
+    "data/poi_religion.json": {
+      "checksum": "1e2c6340221a519fc8ce8087213c62a3"
+    },
+    "data/risk_layers.json": {
+      "checksum": "2d02a2ee8e187510d3a575eaa3f36102"
+    },
+    "data/rivers.json": {
+      "checksum": "973a95cdab507ab9e3b2380991b6d63f"
+    },
+    "data/roads.json": {
+      "checksum": "b2ea107b4e75dd7a081b71f2ca84cac7"
+    },
+    "data/schools.json": {
+      "checksum": "ac295934814cb8b50a5193f809b37a09"
+    },
+    "data/settlements.json": {
+      "checksum": "a5af3ebb512bc6b5055e2cca3fae2bce"
+    },
+    "data/wetlands.json": {
+      "checksum": "d0d4fb8dd752ba33b3af1827ae76990e"
+    },
+    "get_token.py": {
+      "checksum": "c21e34e0cdb9075ec3a735b94d840d68"
+    },
+    "hub/__init__.py": {
+      "checksum": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "hub/arcgis_client.py": {
+      "checksum": "654d39c6daa2d78e373a5e56fbe0d2d3"
+    },
+    "hub/client.py": {
+      "checksum": "f6569f4ac36b030d6db554c6b4c016e8"
+    },
+    "hub/mcp_server.py": {
+      "checksum": "2d71b31f9c18b9fa9e28ec5994514e49"
+    },
+    "main.ipynb": {
+      "checksum": "9f3f750640f7059256b18e7e694b98d6"
+    },
+    "note": {
+      "checksum": "54a0a5862c176410d2061418edff4e47"
+    },
+    "reports/__init__.py": {
+      "checksum": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "reports/builder.py": {
+      "checksum": "3bd0a03b97e67a88453dfd78fab42b96"
+    },
+    "utils/__init__.py": {
+      "checksum": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "utils/geo_utils.py": {
+      "checksum": "a2dbc4efc25a1f7f85c46c9bfb3898b0"
+    }
+  }
+}
