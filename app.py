@@ -953,145 +953,93 @@ with st.sidebar:
 
 
     # ------------------------------------------------------------------
-    # ------------------------------------------------------------------
-    # Draw tool — label in sidebar, map rendered in main area below
+    # Analyze an Area — province / district selector
     # ------------------------------------------------------------------
     st.markdown("---")
-    st.markdown("### Draw an Area")
-    st.caption("Draw a rectangle on the map below to count features in any region.")
+    st.markdown("### Analyze an Area")
+    st.caption("Select a province or district, then click Count Features.")
 
-# Draw map rendered OUTSIDE sidebar so it works on Posit Connect
-import folium as _folium_draw_mod
-from folium.plugins import Draw as _FoliumDraw
-with st.expander("📐 Draw an Area — click to open map", expanded=False):
-    _draw_map = _folium_draw_mod.Map(location=[-13.5, 28.5], zoom_start=5, tiles="CartoDB positron")
-    _FoliumDraw(
-        export=False,
-        draw_options={
-            "rectangle": {"shapeOptions": {"color": "#e63946"}},
-            "polygon":   {"shapeOptions": {"color": "#e63946"}},
-            "circle":   False,
-            "polyline": {"shapeOptions": {"color": "#e63946", "weight": 3}},
-            "marker":    False,
-            "circlemarker": False,
-        },
-        edit_options={"edit": False, "remove": True},
-    ).add_to(_draw_map)
-    # Version key — incremented on clear to reset the map component
-    _draw_map_version = st.session_state.get("draw_map_version", 0)
-    _draw_result = st_folium(_draw_map, width=700, height=420,
-                             returned_objects=["last_active_drawing"],
-                             key=f"draw_tool_map_{_draw_map_version}")
-
-    _drawn = (_draw_result or {}).get("last_active_drawing")
-
-    if _drawn and not st.session_state.get("_bbox_cleared"):
-        _dgeom = _drawn.get("geometry", {})
-        _dtype = _dgeom.get("type", "")
-        _dcoords = _dgeom.get("coordinates", [])
-        _flat_pts = []
-
-        if _dtype in ("Polygon", "Rectangle") and _dcoords:
-            _flat_pts = _dcoords[0]
-        elif _dtype == "LineString" and _dcoords:
-            _flat_pts = _dcoords
-        elif _dtype == "Point" and _dcoords:
-            # Circle — use the radius property to build a bbox
-            _clon, _clat = _dcoords[0], _dcoords[1]
-            _crad = (_drawn.get("properties") or {}).get("radius", 50000)
-            # Rough degree offset: 1 degree ≈ 111km
-            _deg_offset = _crad / 111000
-            _flat_pts = [
-                [_clon - _deg_offset, _clat - _deg_offset],
-                [_clon + _deg_offset, _clat + _deg_offset],
-            ]
-
-        if _flat_pts:
-            _lons = [p[0] for p in _flat_pts]
-            _lats = [p[1] for p in _flat_pts]
-            _bbox = {"min_lon": min(_lons), "max_lon": max(_lons),
-                     "min_lat": min(_lats), "max_lat": max(_lats)}
-
-            # --- Measurements ---
-            # Area in km² using haversine on bbox edges
-            _w_km = haversine_km(
-                (_lats[0]+_lats[-1])/2, min(_lons),
-                (_lats[0]+_lats[-1])/2, max(_lons))
-            _h_km = haversine_km(
-                min(_lats), (_lons[0]+_lons[-1])/2,
-                max(_lats), (_lons[0]+_lons[-1])/2)
-
-            # Perimeter for lines / area for polygons
-            if _dtype == "LineString":
-                _perim_km = sum(
-                    haversine_km(_flat_pts[i][1], _flat_pts[i][0],
-                                 _flat_pts[i+1][1], _flat_pts[i+1][0])
-                    for i in range(len(_flat_pts)-1)
-                )
-                _bbox["measurement"] = f"Length: {_perim_km:.1f} km"
-            elif _dtype == "Point":  # circle
-                _rad_km = _crad / 1000
-                _area_km2 = 3.14159 * _rad_km ** 2
-                _bbox["measurement"] = f"Radius: {_rad_km:.1f} km | Area: {_area_km2:.1f} km²"
-            else:
-                _area_km2 = _w_km * _h_km
-                _perim_km = 2 * (_w_km + _h_km)
-                _bbox["measurement"] = f"Area: {_area_km2:.1f} km² | Perimeter: {_perim_km:.1f} km"
-
-            st.session_state["draw_bbox"] = _bbox
-            st.session_state.pop("_draw_counts", None)
-
-    # Reset cleared flag after one rerun
-    st.session_state.pop("_bbox_cleared", None)
-
-    if st.session_state.get("draw_bbox"):
-        _b = st.session_state["draw_bbox"]
-
-        # Measurement + coords + clear on one bar
-        if _b.get("measurement"):
-            st.success(f"📐 {_b['measurement']}")
-        st.caption(f"📍 {_b['min_lat']:.3f}–{_b['max_lat']:.3f}°N, "
-                   f"{_b['min_lon']:.3f}–{_b['max_lon']:.3f}°E")
-        if st.button("🗑️ Clear drawn area", use_container_width=True, key="clear_bbox_sidebar"):
-            st.session_state.pop("draw_bbox", None)
-            st.session_state.pop("_draw_counts", None)
-            st.session_state["_bbox_cleared"] = True
-            st.session_state["draw_map_version"] = _draw_map_version + 1
-            st.rerun()
-
-        # --- Feature count + details within drawn area ---
-        if st.button("📊 Count features in area", use_container_width=True, key="count_features_btn"):
+    _AREA_BBOXES = {
+        "Central Province":       {"min_lat":-15.8,"max_lat":-12.3,"min_lon":25.8,"max_lon":30.8},
+        "Copperbelt Province":    {"min_lat":-13.8,"max_lat":-11.8,"min_lon":26.8,"max_lon":29.2},
+        "Eastern Province":       {"min_lat":-15.5,"max_lat":-11.2,"min_lon":30.8,"max_lon":33.8},
+        "Luapula Province":       {"min_lat":-12.8,"max_lat":-8.5, "min_lon":28.0,"max_lon":30.8},
+        "Lusaka Province":        {"min_lat":-16.0,"max_lat":-14.3,"min_lon":27.5,"max_lon":29.5},
+        "Muchinga Province":      {"min_lat":-13.2,"max_lat":-9.0, "min_lon":30.5,"max_lon":33.5},
+        "Northern Province":      {"min_lat":-12.0,"max_lat":-7.8, "min_lon":28.5,"max_lon":32.8},
+        "North-Western Province": {"min_lat":-14.2,"max_lat":-9.2, "min_lon":21.8,"max_lon":26.5},
+        "Southern Province":      {"min_lat":-18.5,"max_lat":-15.2,"min_lon":25.2,"max_lon":29.8},
+        "Western Province":       {"min_lat":-18.2,"max_lat":-13.0,"min_lon":21.3,"max_lon":25.8},
+        "Chipata":                {"min_lat":-13.70,"max_lat":-13.48,"min_lon":32.50,"max_lon":32.80},
+        "Kabwe":                  {"min_lat":-14.50,"max_lat":-14.30,"min_lon":28.28,"max_lon":28.62},
+        "Kasama":                 {"min_lat":-10.30,"max_lat":-10.10,"min_lon":31.10,"max_lon":31.32},
+        "Kitwe":                  {"min_lat":-13.10,"max_lat":-12.72,"min_lon":28.12,"max_lon":28.52},
+        "Livingstone":            {"min_lat":-17.95,"max_lat":-17.68,"min_lon":25.70,"max_lon":26.00},
+        "Lusaka (city)":          {"min_lat":-15.60,"max_lat":-15.18,"min_lon":28.10,"max_lon":28.60},
+        "Mansa":                  {"min_lat":-11.32,"max_lat":-11.08,"min_lon":28.80,"max_lon":29.12},
+        "Mongu":                  {"min_lat":-15.40,"max_lat":-15.10,"min_lon":22.95,"max_lon":23.30},
+        "Ndola":                  {"min_lat":-13.10,"max_lat":-12.78,"min_lon":28.48,"max_lon":28.90},
+        "Solwezi":                {"min_lat":-12.32,"max_lat":-12.10,"min_lon":26.28,"max_lon":26.52},
+    }
+    _area_opts = ["— Select area —"] + list(_AREA_BBOXES.keys())
+    _cur_sel = st.session_state.get("_area_sel_name", "— Select area —")
+    if _cur_sel not in _area_opts:
+        _cur_sel = "— Select area —"
+    _sel_area = st.selectbox(
+        "Area", options=_area_opts,
+        index=_area_opts.index(_cur_sel),
+        key="area_selector", label_visibility="collapsed",
+    )
+    if _sel_area != "— Select area —":
+        st.session_state["_area_sel_name"] = _sel_area
+        _btn_col, _clr_col = st.columns([3, 1])
+        with _btn_col:
+            _do_count = st.button("Count Features", key="count_preset_btn", use_container_width=True)
+        with _clr_col:
+            if st.button("✕", key="clear_area_btn", use_container_width=True):
+                st.session_state.pop("draw_bbox", None)
+                st.session_state.pop("_draw_counts", None)
+                st.session_state.pop("_draw_details", None)
+                st.session_state.pop("_area_sel_name", None)
+                st.rerun()
+        if _do_count:
+            _b = {**_AREA_BBOXES[_sel_area], "measurement": f"Area: {_sel_area}"}
+            st.session_state["draw_bbox"] = _b
             _bbx_str = (f"{_b['min_lon']},{_b['min_lat']},"
                         f"{_b['max_lon']},{_b['max_lat']}")
             _tok = _hub_client_module._ARCGIS_TOKEN
             _count_datasets = [
-                ("🏥 Health facilities", "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_HealthFac_v01beta/FeatureServer/0",                                                                              ["Facility_N", "Name", "FacilityNa", "facility_name", "NAME"], "Type"),
-                ("🏫 Schools",           "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_School_v01beta/FeatureServer/0",                                                                                ["School_Nam", "Name", "school_name", "NAME"], "School_Typ"),
-                ("🛣️ Roads",             "https://services3.arcgis.com/t6lYS2Pmd8iVx1fy/arcgis/rest/services/glc_ZMB_trs_roads_major_b_view/FeatureServer/0",                                                                          ["name", "Name", "road_name", "NAME"], "type"),
-                ("🏘️ Settlements",       "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_Zambia_Operational_Settlement_Points_and_Names_Version01/FeatureServer/0",                                          ["Settlement", "name", "Name", "NAME"], "Type"),
+                ("🏥 Health facilities",
+                 "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_HealthFac_v01beta/FeatureServer/0",
+                 ["Facility_N", "Name", "FacilityNa", "facility_name", "NAME"], "Type"),
+                ("🏫 Schools",
+                 "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_School_v01beta/FeatureServer/0",
+                 ["School_Nam", "Name", "school_name", "NAME"], "School_Typ"),
+                ("🛣️ Roads",
+                 "https://services3.arcgis.com/t6lYS2Pmd8iVx1fy/arcgis/rest/services/glc_ZMB_trs_roads_major_b_view/FeatureServer/0",
+                 ["name", "Name", "road_name", "NAME"], "type"),
+                ("🏘️ Settlements",
+                 "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_Zambia_Operational_Settlement_Points_and_Names_Version01/FeatureServer/0",
+                 ["Settlement", "name", "Name", "NAME"], "Type"),
             ]
             import requests as _req
             _counts = {}
-            _details = {}  # feature names + subtypes
+            _details = {}
             _hdr = {
                 "Referer": "https://zmb-geowb.hub.arcgis.com",
                 "Origin":  "https://zmb-geowb.hub.arcgis.com",
                 "Accept":  "application/json",
             }
-
-            # Compute area for density calculation
             _area_km2_draw = (
                 haversine_km(_b["min_lat"], _b["min_lon"], _b["min_lat"], _b["max_lon"]) *
                 haversine_km(_b["min_lat"], _b["min_lon"], _b["max_lat"], _b["min_lon"])
             )
-            # Centroid of drawn area
-            _ctr_lat = (_b["min_lat"] + _b["max_lat"]) / 2
-            _ctr_lon = (_b["min_lon"] + _b["max_lon"]) / 2
+            _ctr_lat_area = (_b["min_lat"] + _b["max_lat"]) / 2
+            _ctr_lon_area = (_b["min_lon"] + _b["max_lon"]) / 2
 
             import concurrent.futures as _cf
 
-            # Helper: fetch one ArcGIS dataset in parallel
-            def _fetch_arcgis(args):
+            def _fetch_arcgis_area(args):
                 _label, _url, _name_fields, _type_field = args
                 try:
                     _p = {"geometry": _bbx_str, "geometryType": "esriGeometryEnvelope",
@@ -1117,14 +1065,14 @@ with st.expander("📐 Draw an Area — click to open map", expanded=False):
                                 if _nm and str(_nm).strip() not in ("None", "null", "", "0"): break
                             if _nm: _names.append(str(_nm).strip())
                             if _type_field:
-                                _st = _props.get(_type_field)
-                                if _st and str(_st).strip() not in ("None", "null", ""):
-                                    _st = str(_st).strip()
-                                    _subtypes[_st] = _subtypes.get(_st, 0) + 1
+                                _st2 = _props.get(_type_field)
+                                if _st2 and str(_st2).strip() not in ("None", "null", ""):
+                                    _st2 = str(_st2).strip()
+                                    _subtypes[_st2] = _subtypes.get(_st2, 0) + 1
                             _geom = _feat.get("geometry") or {}
                             _fx = _geom.get("x"); _fy = _geom.get("y")
                             if _fx and _fy:
-                                _d = haversine_km(_ctr_lat, _ctr_lon, _fy, _fx)
+                                _d = haversine_km(_ctr_lat_area, _ctr_lon_area, _fy, _fx)
                                 if _d < _nearest_dist:
                                     _nearest_dist = _d
                                     _nearest_name = str(_nm).strip() if _nm else None
@@ -1135,202 +1083,120 @@ with st.expander("📐 Draw an Area — click to open map", expanded=False):
                 except Exception:
                     return _label, "—", {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
 
-            # Overpass helpers
-            _s, _w, _n, _e = _b["min_lat"], _b["min_lon"], _b["max_lat"], _b["max_lon"]
-            _osm_bbox = f"({_s},{_w},{_n},{_e})"
-            _OVERPASS_MIRRORS = [
+            _s2, _w2, _n2, _e2 = _b["min_lat"], _b["min_lon"], _b["max_lat"], _b["max_lon"]
+            _osm_bbox2 = f"({_s2},{_w2},{_n2},{_e2})"
+            _OVERPASS_MIRRORS2 = [
                 "https://overpass.kumi.systems/api/interpreter",
                 "https://overpass-api.de/api/interpreter",
                 "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
             ]
-            def _overpass_req(query_str):
-                for _mirror in _OVERPASS_MIRRORS:
+            def _overpass_req2(query_str):
+                for _mirror2 in _OVERPASS_MIRRORS2:
                     try:
-                        _r2 = _req.post(_mirror, data={"data": query_str},
+                        _r3 = _req.post(_mirror2, data={"data": query_str},
                                         headers={"User-Agent": "ZambiaGeoHubAI/1.0"}, timeout=20)
-                        if _r2.status_code == 200: return _r2.json()
+                        if _r3.status_code == 200: return _r3.json()
                     except Exception: continue
                 return None
 
-            def _fetch_osm(label, count_q, detail_q, name_tags, default_name):
+            def _fetch_osm_area(label, count_q, detail_q, name_tags, default_name):
                 try:
-                    _js = _overpass_req(count_q)
-                    if not _js:
+                    _js2 = _overpass_req2(count_q)
+                    if not _js2:
                         return label, "—", {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
-                    _cnt = int((_js.get("elements") or [{}])[0].get("tags", {}).get("total", 0))
-                    if _cnt == 0:
+                    _cnt2 = int((_js2.get("elements") or [{}])[0].get("tags", {}).get("total", 0))
+                    if _cnt2 == 0:
                         return label, 0, {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
-                    _fjs = _overpass_req(detail_q)
-                    _names, _near, _ndist = [], None, float("inf")
-                    for _el in (_fjs or {}).get("elements", []):
-                        _tags = _el.get("tags") or {}
-                        _nm = next((_tags.get(t) for t in name_tags if _tags.get(t)), None)
-                        if _nm: _names.append(_nm)
-                        _lat = _el.get("lat"); _lon = _el.get("lon")
-                        if _lat and _lon:
-                            _d = haversine_km(_ctr_lat, _ctr_lon, _lat, _lon)
-                            if _d < _ndist: _ndist = _d; _near = _nm or default_name
-                    return label, _cnt, {"names": _names, "subtypes": {}, "nearest_name": _near,
-                                         "nearest_dist": _ndist if _ndist < float("inf") else None}
+                    _fjs2 = _overpass_req2(detail_q)
+                    _names2, _near2, _ndist2 = [], None, float("inf")
+                    for _el2 in (_fjs2 or {}).get("elements", []):
+                        _tags2 = _el2.get("tags") or {}
+                        _nm2 = next((_tags2.get(t) for t in name_tags if _tags2.get(t)), None)
+                        if _nm2: _names2.append(_nm2)
+                        _lat2 = _el2.get("lat"); _lon2 = _el2.get("lon")
+                        if _lat2 and _lon2:
+                            _d2 = haversine_km(_ctr_lat_area, _ctr_lon_area, _lat2, _lon2)
+                            if _d2 < _ndist2: _ndist2 = _d2; _near2 = _nm2 or default_name
+                    return label, _cnt2, {"names": _names2, "subtypes": {}, "nearest_name": _near2,
+                                          "nearest_dist": _ndist2 if _ndist2 < float("inf") else None}
                 except Exception:
                     return label, "—", {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
 
-            _osm_tasks = [
+            _osm_tasks2 = [
                 ("⛏️ Mines",
-                 f"[out:json][timeout:20];(node[\"industrial\"=\"mine\"]{_osm_bbox};way[\"industrial\"=\"mine\"]{_osm_bbox};node[\"landuse\"=\"quarry\"]{_osm_bbox};way[\"landuse\"=\"quarry\"]{_osm_bbox};);out count;",
-                 f"[out:json][timeout:20];(node[\"industrial\"=\"mine\"]{_osm_bbox};way[\"industrial\"=\"mine\"]{_osm_bbox};node[\"landuse\"=\"quarry\"]{_osm_bbox};);out body 20;",
+                 f'[out:json][timeout:20];(node["industrial"="mine"]{_osm_bbox2};way["industrial"="mine"]{_osm_bbox2};node["landuse"="quarry"]{_osm_bbox2};way["landuse"="quarry"]{_osm_bbox2};);out count;',
+                 f'[out:json][timeout:20];(node["industrial"="mine"]{_osm_bbox2};way["industrial"="mine"]{_osm_bbox2};node["landuse"="quarry"]{_osm_bbox2};);out body 20;',
                  ["name", "operator"], "Unnamed mine"),
                 ("🌊 Dams",
-                 f"[out:json][timeout:20];(node[\"waterway\"=\"dam\"]{_osm_bbox};way[\"waterway\"=\"dam\"]{_osm_bbox};node[\"man_made\"=\"dam\"]{_osm_bbox};way[\"man_made\"=\"dam\"]{_osm_bbox};);out count;",
-                 f"[out:json][timeout:20];(node[\"waterway\"=\"dam\"]{_osm_bbox};way[\"waterway\"=\"dam\"]{_osm_bbox};);out body 20;",
+                 f'[out:json][timeout:20];(node["waterway"="dam"]{_osm_bbox2};way["waterway"="dam"]{_osm_bbox2};node["man_made"="dam"]{_osm_bbox2};way["man_made"="dam"]{_osm_bbox2};);out count;',
+                 f'[out:json][timeout:20];(node["waterway"="dam"]{_osm_bbox2};way["waterway"="dam"]{_osm_bbox2};);out body 20;',
                  ["name"], "Unnamed dam"),
                 ("⛪ Churches",
-                 f"[out:json][timeout:20];(node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"christian\"]{_osm_bbox};way[\"amenity\"=\"place_of_worship\"][\"religion\"=\"christian\"]{_osm_bbox};);out count;",
-                 f"[out:json][timeout:20];(node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"christian\"]{_osm_bbox};);out body 20;",
+                 f'[out:json][timeout:20];(node["amenity"="place_of_worship"]["religion"="christian"]{_osm_bbox2};way["amenity"="place_of_worship"]["religion"="christian"]{_osm_bbox2};);out count;',
+                 f'[out:json][timeout:20];(node["amenity"="place_of_worship"]["religion"="christian"]{_osm_bbox2};);out body 20;',
                  ["name"], "Unnamed church"),
                 ("🕌 Mosques",
-                 f"[out:json][timeout:20];(node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"]{_osm_bbox};way[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"]{_osm_bbox};);out count;",
-                 f"[out:json][timeout:20];(node[\"amenity\"=\"place_of_worship\"][\"religion\"=\"muslim\"]{_osm_bbox};);out body 20;",
+                 f'[out:json][timeout:20];(node["amenity"="place_of_worship"]["religion"="muslim"]{_osm_bbox2};way["amenity"="place_of_worship"]["religion"="muslim"]{_osm_bbox2};);out count;',
+                 f'[out:json][timeout:20];(node["amenity"="place_of_worship"]["religion"="muslim"]{_osm_bbox2};);out body 20;',
                  ["name"], "Unnamed mosque"),
                 ("🛒 Markets & shops",
-                 f"[out:json][timeout:20];(node[\"amenity\"=\"marketplace\"]{_osm_bbox};way[\"amenity\"=\"marketplace\"]{_osm_bbox};node[\"shop\"~\"supermarket|mall|convenience|general\"]{_osm_bbox};);out count;",
-                 f"[out:json][timeout:20];(node[\"amenity\"=\"marketplace\"]{_osm_bbox};node[\"shop\"~\"supermarket|mall|convenience|general\"]{_osm_bbox};);out body 20;",
+                 f'[out:json][timeout:20];(node["amenity"="marketplace"]{_osm_bbox2};way["amenity"="marketplace"]{_osm_bbox2};node["shop"~"supermarket|mall|convenience|general"]{_osm_bbox2};);out count;',
+                 f'[out:json][timeout:20];(node["amenity"="marketplace"]{_osm_bbox2};node["shop"~"supermarket|mall|convenience|general"]{_osm_bbox2};);out body 20;',
                  ["name"], "Unnamed market"),
             ]
-
-            # Run ArcGIS + OSM queries in parallel
-            with _cf.ThreadPoolExecutor(max_workers=9) as _pool:
-                _arcgis_futs = [_pool.submit(_fetch_arcgis, ds) for ds in _count_datasets]
-                _osm_futs    = [_pool.submit(_fetch_osm, *t) for t in _osm_tasks]
-                for _fut in _arcgis_futs + _osm_futs:
-                    _lbl, _cnt, _det = _fut.result()
-                    _counts[_lbl] = _cnt
-                    _details[_lbl] = _det
-
-            # District overlap from context layers
-            _overlap_districts = []
-            _overlap_provinces = []
-            if _CONTEXT_LAYERS:
-                _corners = [
-                    (_b["min_lat"], _b["min_lon"]), (_b["min_lat"], _b["max_lon"]),
-                    (_b["max_lat"], _b["min_lon"]), (_b["max_lat"], _b["max_lon"]),
-                    (_ctr_lat, _ctr_lon),
-                ]
-                for _cl in _CONTEXT_LAYERS:
-                    if _cl.get("type") != "boundary":
-                        continue
-                    for _df in _cl["geojson"].get("features", []):
-                        _dp = _df.get("properties") or {}
-                        _dn = (_dp.get("ADM2_EN") or _dp.get("DISTRICT") or _dp.get("District") or "").strip()
-                        _pn = (_dp.get("ADM1_EN") or _dp.get("PROVINCE") or _dp.get("Province") or "").strip()
-                        if not _dn:
-                            continue
-                        _dg = _df.get("geometry") or {}
-                        _dg_type = _dg.get("type", "")
-                        _dg_coords = _dg.get("coordinates", [])
-                        # Get list of rings to test
-                        _rings = []
-                        if _dg_type == "Polygon" and _dg_coords:
-                            _rings = [_dg_coords[0]]
-                        elif _dg_type == "MultiPolygon":
-                            _rings = [p[0] for p in _dg_coords if p]
-                        _hit = False
-                        for (_tlat, _tlon) in _corners:
-                            for _ring in _rings:
-                                if _ring and _point_in_polygon(_tlat, _tlon, _ring):
-                                    _hit = True
-                                    break
-                            if _hit:
-                                break
-                        if _hit:
-                            if _dn and _dn not in _overlap_districts:
-                                _overlap_districts.append(_dn)
-                            if _pn and _pn not in _overlap_provinces:
-                                _overlap_provinces.append(_pn)
-
-            st.session_state["_draw_counts"] = _counts
-            st.session_state["_draw_details"] = _details
+            with _cf.ThreadPoolExecutor(max_workers=9) as _pool2:
+                _arcgis_futs2 = [_pool2.submit(_fetch_arcgis_area, ds) for ds in _count_datasets]
+                _osm_futs2    = [_pool2.submit(_fetch_osm_area, *t) for t in _osm_tasks2]
+                for _fut2 in _arcgis_futs2 + _osm_futs2:
+                    _lbl2, _cnt2, _det2 = _fut2.result()
+                    _counts[_lbl2] = _cnt2
+                    _details[_lbl2] = _det2
+            st.session_state["_draw_counts"]   = _counts
+            st.session_state["_draw_details"]  = _details
             st.session_state["_draw_area_km2"] = _area_km2_draw
-            st.session_state["_draw_overlap_districts"] = _overlap_districts
-            st.session_state["_draw_overlap_provinces"] = _overlap_provinces
-            st.session_state["_draw_centroid"] = (_ctr_lat, _ctr_lon)
+            st.session_state["_draw_centroid"] = (_ctr_lat_area, _ctr_lon_area)
+            st.rerun()
 
-        if st.session_state.get("_draw_counts"):
-            _dc = st.session_state["_draw_counts"]
-            _dd = st.session_state.get("_draw_details", {})
-            _da = st.session_state.get("_draw_area_km2", 0)
-            _od = st.session_state.get("_draw_overlap_districts", [])
-            _op = st.session_state.get("_draw_overlap_provinces", [])
-            _ctr = st.session_state.get("_draw_centroid", (_ctr_lat, _ctr_lon))
-
-
-            # District overlap
-            if _od:
-                st.markdown(f"**Districts touched:** {', '.join(_od)}")
-            if _op:
-                st.markdown(f"**Provinces:** {', '.join(_op)}")
-
-            # --- Derived analytics ---
-            _health_cnt  = _dc.get("🏥 Health facilities", 0) if isinstance(_dc.get("🏥 Health facilities"), int) else 0
-            _school_cnt  = _dc.get("🏫 Schools", 0)           if isinstance(_dc.get("🏫 Schools"), int) else 0
-            _settle_cnt  = _dc.get("🏘️ Settlements", 0)       if isinstance(_dc.get("🏘️ Settlements"), int) else 0
-
-            # 1. Population estimate (avg 6 people per settlement/household)
-            _pop_est = _settle_cnt * 6
-            # 2. Healthcare access ratio
-            _health_ratio = round(_health_cnt / _pop_est * 10000, 1) if _pop_est > 0 else None
-            # 3. School-age coverage (schools per settlement)
-            _school_ratio = round(_school_cnt / _settle_cnt, 2) if _settle_cnt > 0 else None
-            # 5. Area classification based on settlement density per 100 km²
-            _settle_density = (_settle_cnt / _da * 100) if _da and _da > 0 else 0
-            if _settle_density >= 50:
-                _area_class = "🏙️ Urban"
-            elif _settle_density >= 15:
-                _area_class = "🏘️ Peri-urban"
+    # Show area analysis results
+    if st.session_state.get("_draw_counts") and st.session_state.get("_area_sel_name"):
+        _dc = st.session_state["_draw_counts"]
+        _dd = st.session_state.get("_draw_details", {})
+        _da = st.session_state.get("_draw_area_km2", 0)
+        _health_cnt = _dc.get("🏥 Health facilities", 0) if isinstance(_dc.get("🏥 Health facilities"), int) else 0
+        _school_cnt = _dc.get("🏫 Schools", 0) if isinstance(_dc.get("🏫 Schools"), int) else 0
+        _settle_cnt = _dc.get("🏘️ Settlements", 0) if isinstance(_dc.get("🏘️ Settlements"), int) else 0
+        _pop_est    = _settle_cnt * 6
+        _health_ratio = round(_health_cnt / _pop_est * 10000, 1) if _pop_est > 0 else None
+        _school_ratio = round(_school_cnt / _settle_cnt, 2) if _settle_cnt > 0 else None
+        _settle_density = (_settle_cnt / _da * 100) if _da and _da > 0 else 0
+        _area_class = "🏙️ Urban" if _settle_density >= 50 else ("🏘️ Peri-urban" if _settle_density >= 15 else "🌾 Rural")
+        st.success(f"**{st.session_state['_area_sel_name']}** — {_area_class}")
+        st.caption(f"👥 Est. population: ~{_pop_est:,}")
+        st.caption(f"🏥 Health/10k people: {_health_ratio if _health_ratio is not None else 'N/A'}")
+        st.caption(f"🏫 Schools/settlement: {_school_ratio if _school_ratio is not None else 'N/A'}")
+        st.markdown("**Feature counts** (click to expand):")
+        for _lbl3, _cnt3 in _dc.items():
+            _info3 = _dd.get(_lbl3, {})
+            _names3 = _info3.get("names", [])
+            _subtypes3 = _info3.get("subtypes", {})
+            _nearest3 = _info3.get("nearest_name")
+            _ndist3 = _info3.get("nearest_dist")
+            if isinstance(_cnt3, int) and _da and _da > 0:
+                _exp_lbl3 = f"{_lbl3} — **{_cnt3}** · {_cnt3/_da*100:.1f}/100 km²"
             else:
-                _area_class = "🌾 Rural"
+                _exp_lbl3 = f"{_lbl3} — **{_cnt3}**"
+            with st.expander(_exp_lbl3, expanded=False):
+                if _nearest3 and _ndist3 is not None:
+                    st.caption(f"📍 Nearest: {_nearest3} ({_ndist3:.1f} km)")
+                if _subtypes3:
+                    st.caption("🏷️ " + " · ".join(f"{k}: {v}" for k, v in sorted(_subtypes3.items(), key=lambda x: -x[1])[:4]))
+                for _n3 in _names3[:10]:
+                    st.caption(f"• {_n3}")
+                if not _nearest3 and not _subtypes3 and not _names3:
+                    st.caption("No additional details.")
+        st.caption("[🔗 Zambia GeoHub](https://zmb-geowb.hub.arcgis.com)")
 
-            # Analytics — collapsed by default
-            with st.expander("📊 Area Analytics", expanded=False):
-                st.caption(f"👥 Est. population: ~{_pop_est:,} people ({_settle_cnt} settlements × 6)")
-                st.caption(f"🏥 Healthcare access: {_health_ratio if _health_ratio is not None else 'N/A'} facilities per 10,000 people")
-                st.caption(f"🏫 School coverage: {_school_ratio if _school_ratio is not None else 'N/A'} schools per settlement")
-                st.caption(f"🗺️ Area classification: {_area_class} ({_settle_density:.1f} settlements per 100 km²)")
 
-            # Each feature category as its own collapsible row
-            st.markdown("**Features in this area** — click to expand:")
-            for _lbl, _cnt in _dc.items():
-                _info = _dd.get(_lbl, {})
-                _names = _info.get("names", [])
-                _subtypes = _info.get("subtypes", {})
-                _nearest = _info.get("nearest_name")
-                _ndist = _info.get("nearest_dist")
-
-                # Summary label for the expander header
-                if isinstance(_cnt, int) and _da and _da > 0:
-                    _density = _cnt / _da * 100
-                    _exp_label = f"{_lbl}  —  **{_cnt}** &nbsp;·&nbsp; {_density:.1f}/100 km²"
-                else:
-                    _exp_label = f"{_lbl}  —  **{_cnt}**"
-
-                with st.expander(_exp_label, expanded=False):
-                    if _nearest and _ndist is not None:
-                        st.caption(f"📍 Nearest: {_nearest} ({_ndist:.1f} km from centre)")
-                    if _subtypes:
-                        _sub_str = " · ".join(f"{k}: {v}" for k, v in sorted(_subtypes.items(), key=lambda x: -x[1])[:4])
-                        st.caption(f"🏷️ Types: {_sub_str}")
-                    if _names:
-                        st.markdown("**Locations:**")
-                        for _n in _names[:20]:
-                            st.markdown(f"• {_n}")
-                    if not _nearest and not _subtypes and not _names:
-                        st.caption("No additional details available.")
-
-            # Single link to the full GeoHub
-            st.caption("[🔗 Explore all datasets on Zambia GeoHub](https://zmb-geowb.hub.arcgis.com)")
-
-    else:
-        st.caption("No area selected — draw on the map above.")
 
     # ------------------------------------------------------------------
     # Document / Image upload for AI analysis
