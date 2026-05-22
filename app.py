@@ -709,6 +709,17 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
+    min-height: 320px !important;
+    height: 320px !important;
+}
+[data-testid="stSidebar"] [data-testid="stCustomComponentV1"] {
+    min-height: 320px !important;
+    height: 320px !important;
+    display: block !important;
+}
+[data-testid="stSidebar"] .element-container:has(iframe) {
+    min-height: 320px !important;
+    height: 320px !important;
 }
 [data-testid="stSidebar"] hr {
     border-color: #1d3557 !important;
