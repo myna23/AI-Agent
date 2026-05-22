@@ -704,6 +704,24 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
     color: #7a9bbf !important;
     opacity: 1 !important;
 }
+/* File uploader drop zone — dark background, clear text */
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
+    background-color: #1a2d45 !important;
+    border: 1.5px dashed #4a7fa8 !important;
+    border-radius: 6px !important;
+}
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] span,
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] p {
+    color: #d0e4f5 !important;
+}
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] small {
+    color: #8ab4d4 !important;
+}
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] button {
+    background-color: #2d5a87 !important;
+    color: #ffffff !important;
+    border: 1px solid #4a7fa8 !important;
+}
 /* Ensure folium map iframe is visible */
 [data-testid="stSidebar"] iframe {
     display: block !important;
@@ -1054,26 +1072,29 @@ with st.sidebar:
             _zmb_poly = _MplPoly(_ZMB, closed=True)
             _pc = _PC([_zmb_poly], facecolor="#1e3a5f", edgecolor="#4a7fa8", linewidth=1.2, alpha=0.9)
             _ax.add_collection(_pc)
-            # Province centroid dots + short labels
+            # Province centroid dots — label all of them
             for _pn, (_px, _py) in _PROV_CTR.items():
                 _is_sel = (_pn == _sel_area)
                 _clr = "#e63946" if _is_sel else "#7ab3d4"
-                _sz  = 60 if _is_sel else 18
-                _ax.scatter(_px, _py, s=_sz, color=_clr, zorder=5)
-                if _is_sel:
-                    # Short label for selected province
-                    _short = _pn.replace(" Province","")
-                    _ax.text(_px, _py+0.5, _short, color="#e63946",
-                             fontsize=5.5, ha="center", va="bottom",
-                             fontweight="bold", zorder=6)
+                _sz  = 70 if _is_sel else 22
+                _ax.scatter(_px, _py, s=_sz, color=_clr, zorder=5,
+                             edgecolors="white", linewidths=0.8 if _is_sel else 0.3)
+                _short = _pn.replace(" Province","").replace("North-Western","NW")
+                _ax.text(_px, _py + 0.55, _short,
+                         color="#e63946" if _is_sel else "#b0cfe8",
+                         fontsize=5.0 if not _is_sel else 6.0,
+                         ha="center", va="bottom",
+                         fontweight="bold" if _is_sel else "normal",
+                         zorder=6)
             # For a city/district selection, draw a red star at its centre
             if "Province" not in _sel_area:
                 _sb = _AREA_BBOXES[_sel_area]
                 _cx = (_sb["min_lon"]+_sb["max_lon"])/2
                 _cy = (_sb["min_lat"]+_sb["max_lat"])/2
-                _ax.scatter(_cx, _cy, s=80, color="#e63946", marker="*", zorder=7)
-                _ax.text(_cx, _cy+0.5, _sel_area, color="#e63946",
-                         fontsize=5.5, ha="center", va="bottom",
+                _ax.scatter(_cx, _cy, s=100, color="#e63946", marker="*",
+                             edgecolors="white", linewidths=0.5, zorder=7)
+                _ax.text(_cx, _cy+0.6, _sel_area, color="#e63946",
+                         fontsize=6.0, ha="center", va="bottom",
                          fontweight="bold", zorder=8)
             _ax.axis("off")
             _buf = _io.BytesIO()
@@ -1102,16 +1123,16 @@ with st.sidebar:
                         f"{_b['max_lon']},{_b['max_lat']}")
             _tok = _hub_client_module._ARCGIS_TOKEN
             _count_datasets = [
-                ("🏥 Health facilities",
+                ("Health facilities",
                  "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_HealthFac_v01beta/FeatureServer/0",
                  ["Facility_N", "Name", "FacilityNa", "facility_name", "NAME"], "Type"),
-                ("🏫 Schools",
+                ("Schools",
                  "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_School_v01beta/FeatureServer/0",
                  ["School_Nam", "Name", "school_name", "NAME"], "School_Typ"),
-                ("🛣️ Roads",
+                ("Roads",
                  "https://services3.arcgis.com/t6lYS2Pmd8iVx1fy/arcgis/rest/services/glc_ZMB_trs_roads_major_b_view/FeatureServer/0",
                  ["name", "Name", "road_name", "NAME"], "type"),
-                ("🏘️ Settlements",
+                ("Settlements",
                  "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_Zambia_Operational_Settlement_Points_and_Names_Version01/FeatureServer/0",
                  ["Settlement", "name", "Name", "NAME"], "Type"),
             ]
@@ -1216,23 +1237,23 @@ with st.sidebar:
                     return label, "—", {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
 
             _osm_tasks2 = [
-                ("⛏️ Mines",
+                ("Mines",
                  f'[out:json][timeout:20];(node["industrial"="mine"]{_osm_bbox2};way["industrial"="mine"]{_osm_bbox2};node["landuse"="quarry"]{_osm_bbox2};way["landuse"="quarry"]{_osm_bbox2};);out count;',
                  f'[out:json][timeout:20];(node["industrial"="mine"]{_osm_bbox2};way["industrial"="mine"]{_osm_bbox2};node["landuse"="quarry"]{_osm_bbox2};);out body 20;',
                  ["name", "operator"], "Unnamed mine"),
-                ("🌊 Dams",
+                ("Dams",
                  f'[out:json][timeout:20];(node["waterway"="dam"]{_osm_bbox2};way["waterway"="dam"]{_osm_bbox2};node["man_made"="dam"]{_osm_bbox2};way["man_made"="dam"]{_osm_bbox2};);out count;',
                  f'[out:json][timeout:20];(node["waterway"="dam"]{_osm_bbox2};way["waterway"="dam"]{_osm_bbox2};);out body 20;',
                  ["name"], "Unnamed dam"),
-                ("⛪ Churches",
+                ("Churches",
                  f'[out:json][timeout:20];(node["amenity"="place_of_worship"]["religion"="christian"]{_osm_bbox2};way["amenity"="place_of_worship"]["religion"="christian"]{_osm_bbox2};);out count;',
                  f'[out:json][timeout:20];(node["amenity"="place_of_worship"]["religion"="christian"]{_osm_bbox2};);out body 20;',
                  ["name"], "Unnamed church"),
-                ("🕌 Mosques",
+                ("Mosques",
                  f'[out:json][timeout:20];(node["amenity"="place_of_worship"]["religion"="muslim"]{_osm_bbox2};way["amenity"="place_of_worship"]["religion"="muslim"]{_osm_bbox2};);out count;',
                  f'[out:json][timeout:20];(node["amenity"="place_of_worship"]["religion"="muslim"]{_osm_bbox2};);out body 20;',
                  ["name"], "Unnamed mosque"),
-                ("🛒 Markets & shops",
+                ("Markets & shops",
                  f'[out:json][timeout:20];(node["amenity"="marketplace"]{_osm_bbox2};way["amenity"="marketplace"]{_osm_bbox2};node["shop"~"supermarket|mall|convenience|general"]{_osm_bbox2};);out count;',
                  f'[out:json][timeout:20];(node["amenity"="marketplace"]{_osm_bbox2};node["shop"~"supermarket|mall|convenience|general"]{_osm_bbox2};);out body 20;',
                  ["name"], "Unnamed market"),
@@ -1255,18 +1276,18 @@ with st.sidebar:
         _dc = st.session_state["_draw_counts"]
         _dd = st.session_state.get("_draw_details", {})
         _da = st.session_state.get("_draw_area_km2", 0)
-        _health_cnt = _dc.get("🏥 Health facilities", 0) if isinstance(_dc.get("🏥 Health facilities"), int) else 0
-        _school_cnt = _dc.get("🏫 Schools", 0) if isinstance(_dc.get("🏫 Schools"), int) else 0
-        _settle_cnt = _dc.get("🏘️ Settlements", 0) if isinstance(_dc.get("🏘️ Settlements"), int) else 0
+        _health_cnt = _dc.get("Health facilities", 0) if isinstance(_dc.get("Health facilities"), int) else 0
+        _school_cnt = _dc.get("Schools", 0) if isinstance(_dc.get("Schools"), int) else 0
+        _settle_cnt = _dc.get("Settlements", 0) if isinstance(_dc.get("Settlements"), int) else 0
         _pop_est    = _settle_cnt * 6
         _health_ratio = round(_health_cnt / _pop_est * 10000, 1) if _pop_est > 0 else None
         _school_ratio = round(_school_cnt / _settle_cnt, 2) if _settle_cnt > 0 else None
         _settle_density = (_settle_cnt / _da * 100) if _da and _da > 0 else 0
-        _area_class = "🏙️ Urban" if _settle_density >= 50 else ("🏘️ Peri-urban" if _settle_density >= 15 else "🌾 Rural")
+        _area_class = "Urban" if _settle_density >= 50 else ("Peri-urban" if _settle_density >= 15 else "Rural")
         st.success(f"**{st.session_state['_area_sel_name']}** — {_area_class}")
-        st.caption(f"👥 Est. population: ~{_pop_est:,}")
-        st.caption(f"🏥 Health/10k people: {_health_ratio if _health_ratio is not None else 'N/A'}")
-        st.caption(f"🏫 Schools/settlement: {_school_ratio if _school_ratio is not None else 'N/A'}")
+        st.caption(f"Est. population: ~{_pop_est:,}")
+        st.caption(f"Health/10k people: {_health_ratio if _health_ratio is not None else 'N/A'}")
+        st.caption(f"Schools/settlement: {_school_ratio if _school_ratio is not None else 'N/A'}")
         st.markdown("**Feature counts** (click to expand):")
         for _lbl3, _cnt3 in _dc.items():
             _info3 = _dd.get(_lbl3, {})
