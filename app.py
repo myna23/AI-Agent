@@ -742,14 +742,33 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
 [data-testid="stSidebar"] hr {
     border-color: #1d3557 !important;
 }
-[data-testid="stSidebar"] .stButton > button {
+/* Primary button (New Chat) — keep as a real button */
+[data-testid="stSidebar"] [data-testid="baseButton-primary"] {
     background: #1d3557 !important;
     color: white !important;
     border: 1px solid #2d4a6a !important;
     border-radius: 8px !important;
+    font-weight: 600 !important;
 }
-[data-testid="stSidebar"] .stButton > button:hover {
+[data-testid="stSidebar"] [data-testid="baseButton-primary"]:hover {
     background: #2a6496 !important;
+}
+/* Secondary buttons (chat history items) — plain text menu items */
+[data-testid="stSidebar"] [data-testid="baseButton-secondary"] {
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    color: #c8dff0 !important;
+    font-weight: 400 !important;
+    font-size: 0.875rem !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    padding: 0.3rem 0.6rem !important;
+    border-radius: 8px !important;
+}
+[data-testid="stSidebar"] [data-testid="baseButton-secondary"]:hover {
+    background: rgba(255,255,255,0.07) !important;
+    border-color: transparent !important;
+    color: #e8f4ff !important;
 }
 </style>
 
@@ -884,17 +903,28 @@ with st.sidebar:
             })
         st.session_state.chat_sessions = st.session_state.chat_sessions[:20]
 
+    # New Chat — top, primary style
+    if st.button("＋  New Chat", key="new_chat_btn", type="primary", use_container_width=True):
+        _save_current_chat()
+        st.session_state.messages = []
+        st.session_state["_current_chat_id"] = str(_uuid.uuid4())
+        for _k in ["draw_bbox","_draw_counts","_draw_details","_area_sel_name",
+                   "uploaded_doc_text","uploaded_doc_name","uploaded_img_b64","uploaded_img_name"]:
+            st.session_state.pop(_k, None)
+        st.rerun()
+
     # Recent chats
     if st.session_state.chat_sessions:
+        st.caption("Recents")
         for _cs in st.session_state.chat_sessions[:15]:
             _is_active = _cs["id"] == st.session_state.get("_current_chat_id")
-            _btn_label = ("▶ " if _is_active else "") + _cs["title"]
+            _btn_label = ("▶  " if _is_active else "    ") + _cs["title"]
             if st.button(_btn_label, key=f"hist_{_cs['id']}", use_container_width=True):
                 _save_current_chat()
                 st.session_state.messages = list(_cs["messages"])
                 st.session_state["_current_chat_id"] = _cs["id"]
                 st.rerun()
-        st.divider()
+    st.divider()
 
     # Model
     if _mai_configured:
@@ -1208,20 +1238,6 @@ with st.sidebar:
                 if not _nearest3 and not _subtypes3 and not _names3:
                     st.caption("No additional details.")
         st.caption("[🔗 Zambia GeoHub](https://zmb-geowb.hub.arcgis.com)")
-
-    if st.button("＋  New Chat", key="new_chat_btn", use_container_width=True):
-        _save_current_chat()
-        st.session_state.messages = []
-        st.session_state["_current_chat_id"] = str(_uuid.uuid4())
-        st.session_state.pop("draw_bbox", None)
-        st.session_state.pop("_draw_counts", None)
-        st.session_state.pop("_draw_details", None)
-        st.session_state.pop("_area_sel_name", None)
-        st.session_state.pop("uploaded_doc_text", None)
-        st.session_state.pop("uploaded_doc_name", None)
-        st.session_state.pop("uploaded_img_b64", None)
-        st.session_state.pop("uploaded_img_name", None)
-        st.rerun()
 
     # (File upload moved to the ＋ Attach popover next to the chat input)
 
