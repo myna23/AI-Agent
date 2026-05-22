@@ -953,13 +953,14 @@ with st.sidebar:
 
 
     # ------------------------------------------------------------------
-    # Analyze an Area — province / district selector
+    # Select an Area — province / district selector with mini-map
     # ------------------------------------------------------------------
     st.markdown("---")
-    st.markdown("### Analyze an Area")
-    st.caption("Select a province or district, then click Count Features.")
+    st.markdown("### Select an Area")
+    st.caption("Pick a province or town, then click Count Features.")
 
     _AREA_BBOXES = {
+        # Provinces
         "Central Province":       {"min_lat":-15.8,"max_lat":-12.3,"min_lon":25.8,"max_lon":30.8},
         "Copperbelt Province":    {"min_lat":-13.8,"max_lat":-11.8,"min_lon":26.8,"max_lon":29.2},
         "Eastern Province":       {"min_lat":-15.5,"max_lat":-11.2,"min_lon":30.8,"max_lon":33.8},
@@ -970,16 +971,30 @@ with st.sidebar:
         "North-Western Province": {"min_lat":-14.2,"max_lat":-9.2, "min_lon":21.8,"max_lon":26.5},
         "Southern Province":      {"min_lat":-18.5,"max_lat":-15.2,"min_lon":25.2,"max_lon":29.8},
         "Western Province":       {"min_lat":-18.2,"max_lat":-13.0,"min_lon":21.3,"max_lon":25.8},
+        # Major towns & districts
+        "Chililabombwe":          {"min_lat":-12.42,"max_lat":-12.28,"min_lon":27.78,"max_lon":27.98},
+        "Chingola":               {"min_lat":-12.58,"max_lat":-12.42,"min_lon":27.78,"max_lon":28.02},
         "Chipata":                {"min_lat":-13.70,"max_lat":-13.48,"min_lon":32.50,"max_lon":32.80},
+        "Choma":                  {"min_lat":-16.92,"max_lat":-16.72,"min_lon":26.88,"max_lon":27.12},
         "Kabwe":                  {"min_lat":-14.50,"max_lat":-14.30,"min_lon":28.28,"max_lon":28.62},
+        "Kafue":                  {"min_lat":-15.88,"max_lat":-15.72,"min_lon":28.12,"max_lon":28.32},
+        "Kapiri Mposhi":          {"min_lat":-13.92,"max_lat":-13.72,"min_lon":28.52,"max_lon":28.82},
         "Kasama":                 {"min_lat":-10.30,"max_lat":-10.10,"min_lon":31.10,"max_lon":31.32},
         "Kitwe":                  {"min_lat":-13.10,"max_lat":-12.72,"min_lon":28.12,"max_lon":28.52},
         "Livingstone":            {"min_lat":-17.95,"max_lat":-17.68,"min_lon":25.70,"max_lon":26.00},
+        "Luanshya":               {"min_lat":-13.18,"max_lat":-13.02,"min_lon":28.32,"max_lon":28.58},
         "Lusaka (city)":          {"min_lat":-15.60,"max_lat":-15.18,"min_lon":28.10,"max_lon":28.60},
         "Mansa":                  {"min_lat":-11.32,"max_lat":-11.08,"min_lon":28.80,"max_lon":29.12},
+        "Mazabuka":               {"min_lat":-15.92,"max_lat":-15.72,"min_lon":27.68,"max_lon":27.92},
         "Mongu":                  {"min_lat":-15.40,"max_lat":-15.10,"min_lon":22.95,"max_lon":23.30},
+        "Mpika":                  {"min_lat":-11.92,"max_lat":-11.72,"min_lon":31.38,"max_lon":31.62},
+        "Mufulira":               {"min_lat":-12.58,"max_lat":-12.38,"min_lon":28.18,"max_lon":28.42},
         "Ndola":                  {"min_lat":-13.10,"max_lat":-12.78,"min_lon":28.48,"max_lon":28.90},
+        "Petauke":                {"min_lat":-14.32,"max_lat":-14.12,"min_lon":31.28,"max_lon":31.52},
+        "Senanga":                {"min_lat":-16.22,"max_lat":-16.02,"min_lon":23.18,"max_lon":23.42},
+        "Siavonga":               {"min_lat":-16.58,"max_lat":-16.38,"min_lon":28.58,"max_lon":28.82},
         "Solwezi":                {"min_lat":-12.32,"max_lat":-12.10,"min_lon":26.28,"max_lon":26.52},
+        "Zambezi":                {"min_lat":-13.58,"max_lat":-13.38,"min_lon":23.05,"max_lon":23.28},
     }
     _area_opts = ["— Select area —"] + list(_AREA_BBOXES.keys())
     _cur_sel = st.session_state.get("_area_sel_name", "— Select area —")
@@ -990,6 +1005,47 @@ with st.sidebar:
         index=_area_opts.index(_cur_sel),
         key="area_selector", label_visibility="collapsed",
     )
+
+    # Mini-map — show all provinces as boxes, highlight selected area
+    if _sel_area != "— Select area —":
+        try:
+            import matplotlib
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as _plt
+            import matplotlib.patches as _mpatch
+            import io as _io
+            _fig, _ax = _plt.subplots(figsize=(2.8, 2.8))
+            _fig.patch.set_facecolor("#0e1a2b")
+            _ax.set_facecolor("#1a2d45")
+            _ax.set_xlim(21, 34); _ax.set_ylim(-19, -7.5)
+            _ax.set_aspect("equal")
+            _PROV_NAMES = [k for k in _AREA_BBOXES if "Province" in k]
+            for _pn in _PROV_NAMES:
+                _pb = _AREA_BBOXES[_pn]
+                _is_sel = (_pn == _sel_area)
+                _ax.add_patch(_mpatch.Rectangle(
+                    (_pb["min_lon"], _pb["min_lat"]),
+                    _pb["max_lon"]-_pb["min_lon"], _pb["max_lat"]-_pb["min_lat"],
+                    linewidth=1, edgecolor="#4a7fa8",
+                    facecolor="#e63946" if _is_sel else "#2d5a87",
+                    alpha=0.7 if _is_sel else 0.35,
+                ))
+            # Always highlight selected area in red (city or province)
+            _sb = _AREA_BBOXES[_sel_area]
+            _ax.add_patch(_mpatch.Rectangle(
+                (_sb["min_lon"], _sb["min_lat"]),
+                _sb["max_lon"]-_sb["min_lon"], _sb["max_lat"]-_sb["min_lat"],
+                linewidth=2, edgecolor="#e63946", facecolor="#e63946", alpha=0.55,
+            ))
+            _ax.tick_params(colors="#4a7fa8", labelsize=5)
+            for _sp in _ax.spines.values(): _sp.set_color("#2d4a6a")
+            _buf = _io.BytesIO()
+            _fig.savefig(_buf, format="png", bbox_inches="tight", dpi=110, facecolor="#0e1a2b")
+            _buf.seek(0); _plt.close(_fig)
+            st.image(_buf, use_container_width=True)
+        except Exception:
+            pass  # silently skip if matplotlib unavailable
+
     if _sel_area != "— Select area —":
         st.session_state["_area_sel_name"] = _sel_area
         _btn_col, _clr_col = st.columns([3, 1])

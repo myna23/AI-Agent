@@ -15,7 +15,7 @@
   },
   "files": {
     "requirements.txt": {
-      "checksum": "9003e9ff3aa8ba9dceef5ed1d4438804"
+      "checksum": "b2704795ca71fad3d9cbff496559a35e"
     },
     ".DS_Store": {
       "checksum": "c9052b4c278d3e871a3bbd6a81567861"
@@ -66,7 +66,7 @@
       "checksum": "94843eb14843a3a6cea9d535fca65734"
     },
     "app.py": {
-      "checksum": "22c9c8a67ed388aad2f55b846a7d3a39"
+      "checksum": "47d37ccbc705c8887a31bc42f283e1be"
     },
     "backend_architecture.html": {
       "checksum": "76d1adec670907917b87fe012c65b356"
