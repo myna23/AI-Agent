@@ -935,13 +935,13 @@ with st.sidebar:
     # ------------------------------------------------------------------
     st.markdown("---")
     st.markdown("#### Compare Two Areas")
-    st.caption("Pick two districts or provinces to compare side by side.")
+    st.caption("Enter two districts/provinces and a topic, then click Compare.")
     _cmp_col1, _cmp_col2 = st.columns(2)
     with _cmp_col1:
-        _cmp_a = st.text_input("Area A", placeholder="e.g. Lusaka", key="cmp_area_a", label_visibility="collapsed")
+        _cmp_a = st.text_input("Area A", placeholder="e.g. Lusaka", key="cmp_area_a")
     with _cmp_col2:
-        _cmp_b = st.text_input("Area B", placeholder="e.g. Kitwe", key="cmp_area_b", label_visibility="collapsed")
-    _cmp_topic = st.text_input("Topic", placeholder="e.g. health facilities", key="cmp_topic", label_visibility="collapsed")
+        _cmp_b = st.text_input("Area B", placeholder="e.g. Kitwe", key="cmp_area_b")
+    _cmp_topic = st.text_input("Topic", placeholder="e.g. health facilities", key="cmp_topic")
     if st.button("Compare", key="cmp_btn", use_container_width=True):
         if _cmp_a.strip() and _cmp_b.strip() and _cmp_topic.strip():
             _cmp_q = f"Compare {_cmp_a.strip()} and {_cmp_b.strip()} in terms of {_cmp_topic.strip()}"
