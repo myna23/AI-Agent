@@ -947,223 +947,223 @@ with st.sidebar:
     # ------------------------------------------------------------------
     with st.expander("📍 Select an Area"):
 
-    _AREA_BBOXES = {
-        # Provinces
-        "Central Province":       {"min_lat":-15.8,"max_lat":-12.3,"min_lon":25.8,"max_lon":30.8},
-        "Copperbelt Province":    {"min_lat":-13.8,"max_lat":-11.8,"min_lon":26.8,"max_lon":29.2},
-        "Eastern Province":       {"min_lat":-15.5,"max_lat":-11.2,"min_lon":30.8,"max_lon":33.8},
-        "Luapula Province":       {"min_lat":-12.8,"max_lat":-8.5, "min_lon":28.0,"max_lon":30.8},
-        "Lusaka Province":        {"min_lat":-16.0,"max_lat":-14.3,"min_lon":27.5,"max_lon":29.5},
-        "Muchinga Province":      {"min_lat":-13.2,"max_lat":-9.0, "min_lon":30.5,"max_lon":33.5},
-        "Northern Province":      {"min_lat":-12.0,"max_lat":-7.8, "min_lon":28.5,"max_lon":32.8},
-        "North-Western Province": {"min_lat":-14.2,"max_lat":-9.2, "min_lon":21.8,"max_lon":26.5},
-        "Southern Province":      {"min_lat":-18.5,"max_lat":-15.2,"min_lon":25.2,"max_lon":29.8},
-        "Western Province":       {"min_lat":-18.2,"max_lat":-13.0,"min_lon":21.3,"max_lon":25.8},
-        # Major towns & districts
-        "Chililabombwe":          {"min_lat":-12.42,"max_lat":-12.28,"min_lon":27.78,"max_lon":27.98},
-        "Chingola":               {"min_lat":-12.58,"max_lat":-12.42,"min_lon":27.78,"max_lon":28.02},
-        "Chipata":                {"min_lat":-13.70,"max_lat":-13.48,"min_lon":32.50,"max_lon":32.80},
-        "Choma":                  {"min_lat":-16.92,"max_lat":-16.72,"min_lon":26.88,"max_lon":27.12},
-        "Kabwe":                  {"min_lat":-14.50,"max_lat":-14.30,"min_lon":28.28,"max_lon":28.62},
-        "Kafue":                  {"min_lat":-15.88,"max_lat":-15.72,"min_lon":28.12,"max_lon":28.32},
-        "Kapiri Mposhi":          {"min_lat":-13.92,"max_lat":-13.72,"min_lon":28.52,"max_lon":28.82},
-        "Kasama":                 {"min_lat":-10.30,"max_lat":-10.10,"min_lon":31.10,"max_lon":31.32},
-        "Kitwe":                  {"min_lat":-13.10,"max_lat":-12.72,"min_lon":28.12,"max_lon":28.52},
-        "Livingstone":            {"min_lat":-17.95,"max_lat":-17.68,"min_lon":25.70,"max_lon":26.00},
-        "Luanshya":               {"min_lat":-13.18,"max_lat":-13.02,"min_lon":28.32,"max_lon":28.58},
-        "Lusaka (city)":          {"min_lat":-15.60,"max_lat":-15.18,"min_lon":28.10,"max_lon":28.60},
-        "Mansa":                  {"min_lat":-11.32,"max_lat":-11.08,"min_lon":28.80,"max_lon":29.12},
-        "Mazabuka":               {"min_lat":-15.92,"max_lat":-15.72,"min_lon":27.68,"max_lon":27.92},
-        "Mongu":                  {"min_lat":-15.40,"max_lat":-15.10,"min_lon":22.95,"max_lon":23.30},
-        "Mpika":                  {"min_lat":-11.92,"max_lat":-11.72,"min_lon":31.38,"max_lon":31.62},
-        "Mufulira":               {"min_lat":-12.58,"max_lat":-12.38,"min_lon":28.18,"max_lon":28.42},
-        "Ndola":                  {"min_lat":-13.10,"max_lat":-12.78,"min_lon":28.48,"max_lon":28.90},
-        "Petauke":                {"min_lat":-14.32,"max_lat":-14.12,"min_lon":31.28,"max_lon":31.52},
-        "Senanga":                {"min_lat":-16.22,"max_lat":-16.02,"min_lon":23.18,"max_lon":23.42},
-        "Siavonga":               {"min_lat":-16.58,"max_lat":-16.38,"min_lon":28.58,"max_lon":28.82},
-        "Solwezi":                {"min_lat":-12.32,"max_lat":-12.10,"min_lon":26.28,"max_lon":26.52},
-        "Zambezi":                {"min_lat":-13.58,"max_lat":-13.38,"min_lon":23.05,"max_lon":23.28},
-    }
-    _area_opts = ["— Select area —"] + list(_AREA_BBOXES.keys())
-    _cur_sel = st.session_state.get("_area_sel_name", "— Select area —")
-    if _cur_sel not in _area_opts:
-        _cur_sel = "— Select area —"
-    _area_ver = st.session_state.get("_area_selector_ver", 0)
-    _sel_area = st.selectbox(
-        "Area", options=_area_opts,
-        index=_area_opts.index(_cur_sel),
-        key=f"area_selector_{_area_ver}", label_visibility="collapsed",
-    )
+        _AREA_BBOXES = {
+            # Provinces
+            "Central Province":       {"min_lat":-15.8,"max_lat":-12.3,"min_lon":25.8,"max_lon":30.8},
+            "Copperbelt Province":    {"min_lat":-13.8,"max_lat":-11.8,"min_lon":26.8,"max_lon":29.2},
+            "Eastern Province":       {"min_lat":-15.5,"max_lat":-11.2,"min_lon":30.8,"max_lon":33.8},
+            "Luapula Province":       {"min_lat":-12.8,"max_lat":-8.5, "min_lon":28.0,"max_lon":30.8},
+            "Lusaka Province":        {"min_lat":-16.0,"max_lat":-14.3,"min_lon":27.5,"max_lon":29.5},
+            "Muchinga Province":      {"min_lat":-13.2,"max_lat":-9.0, "min_lon":30.5,"max_lon":33.5},
+            "Northern Province":      {"min_lat":-12.0,"max_lat":-7.8, "min_lon":28.5,"max_lon":32.8},
+            "North-Western Province": {"min_lat":-14.2,"max_lat":-9.2, "min_lon":21.8,"max_lon":26.5},
+            "Southern Province":      {"min_lat":-18.5,"max_lat":-15.2,"min_lon":25.2,"max_lon":29.8},
+            "Western Province":       {"min_lat":-18.2,"max_lat":-13.0,"min_lon":21.3,"max_lon":25.8},
+            # Major towns & districts
+            "Chililabombwe":          {"min_lat":-12.42,"max_lat":-12.28,"min_lon":27.78,"max_lon":27.98},
+            "Chingola":               {"min_lat":-12.58,"max_lat":-12.42,"min_lon":27.78,"max_lon":28.02},
+            "Chipata":                {"min_lat":-13.70,"max_lat":-13.48,"min_lon":32.50,"max_lon":32.80},
+            "Choma":                  {"min_lat":-16.92,"max_lat":-16.72,"min_lon":26.88,"max_lon":27.12},
+            "Kabwe":                  {"min_lat":-14.50,"max_lat":-14.30,"min_lon":28.28,"max_lon":28.62},
+            "Kafue":                  {"min_lat":-15.88,"max_lat":-15.72,"min_lon":28.12,"max_lon":28.32},
+            "Kapiri Mposhi":          {"min_lat":-13.92,"max_lat":-13.72,"min_lon":28.52,"max_lon":28.82},
+            "Kasama":                 {"min_lat":-10.30,"max_lat":-10.10,"min_lon":31.10,"max_lon":31.32},
+            "Kitwe":                  {"min_lat":-13.10,"max_lat":-12.72,"min_lon":28.12,"max_lon":28.52},
+            "Livingstone":            {"min_lat":-17.95,"max_lat":-17.68,"min_lon":25.70,"max_lon":26.00},
+            "Luanshya":               {"min_lat":-13.18,"max_lat":-13.02,"min_lon":28.32,"max_lon":28.58},
+            "Lusaka (city)":          {"min_lat":-15.60,"max_lat":-15.18,"min_lon":28.10,"max_lon":28.60},
+            "Mansa":                  {"min_lat":-11.32,"max_lat":-11.08,"min_lon":28.80,"max_lon":29.12},
+            "Mazabuka":               {"min_lat":-15.92,"max_lat":-15.72,"min_lon":27.68,"max_lon":27.92},
+            "Mongu":                  {"min_lat":-15.40,"max_lat":-15.10,"min_lon":22.95,"max_lon":23.30},
+            "Mpika":                  {"min_lat":-11.92,"max_lat":-11.72,"min_lon":31.38,"max_lon":31.62},
+            "Mufulira":               {"min_lat":-12.58,"max_lat":-12.38,"min_lon":28.18,"max_lon":28.42},
+            "Ndola":                  {"min_lat":-13.10,"max_lat":-12.78,"min_lon":28.48,"max_lon":28.90},
+            "Petauke":                {"min_lat":-14.32,"max_lat":-14.12,"min_lon":31.28,"max_lon":31.52},
+            "Senanga":                {"min_lat":-16.22,"max_lat":-16.02,"min_lon":23.18,"max_lon":23.42},
+            "Siavonga":               {"min_lat":-16.58,"max_lat":-16.38,"min_lon":28.58,"max_lon":28.82},
+            "Solwezi":                {"min_lat":-12.32,"max_lat":-12.10,"min_lon":26.28,"max_lon":26.52},
+            "Zambezi":                {"min_lat":-13.58,"max_lat":-13.38,"min_lon":23.05,"max_lon":23.28},
+        }
+        _area_opts = ["— Select area —"] + list(_AREA_BBOXES.keys())
+        _cur_sel = st.session_state.get("_area_sel_name", "— Select area —")
+        if _cur_sel not in _area_opts:
+            _cur_sel = "— Select area —"
+        _area_ver = st.session_state.get("_area_selector_ver", 0)
+        _sel_area = st.selectbox(
+            "Area", options=_area_opts,
+            index=_area_opts.index(_cur_sel),
+            key=f"area_selector_{_area_ver}", label_visibility="collapsed",
+        )
 
-    # Mini-map — Zambia outline + province centroids, highlight selected area
-    if _sel_area != "— Select area —":
-        st.session_state["_area_sel_name"] = _sel_area
-        _btn_col, _clr_col = st.columns([3, 1])
-        with _btn_col:
-            _do_count = st.button("Count Features", key="count_preset_btn", use_container_width=True)
-        with _clr_col:
-            if st.button("✕", key="clear_area_btn", use_container_width=True):
-                st.session_state.pop("draw_bbox", None)
-                st.session_state.pop("_draw_counts", None)
-                st.session_state.pop("_draw_details", None)
-                st.session_state.pop("_area_sel_name", None)
-                # Bump version to force a fresh selectbox widget (resets to placeholder)
-                st.session_state["_area_selector_ver"] = _area_ver + 1
-                st.rerun()
-        if _do_count:
-            _b = {**_AREA_BBOXES[_sel_area], "measurement": f"Area: {_sel_area}"}
-            st.session_state["draw_bbox"] = _b
-            _bbx_str = (f"{_b['min_lon']},{_b['min_lat']},"
-                        f"{_b['max_lon']},{_b['max_lat']}")
-            _tok = _hub_client_module._ARCGIS_TOKEN
-            _count_datasets = [
-                ("Health facilities",
-                 "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_HealthFac_v01beta/FeatureServer/0",
-                 ["Facility_N", "Name", "FacilityNa", "facility_name", "NAME"], "Type"),
-                ("Schools",
-                 "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_School_v01beta/FeatureServer/0",
-                 ["School_Nam", "Name", "school_name", "NAME"], "School_Typ"),
-                ("Roads",
-                 "https://services3.arcgis.com/t6lYS2Pmd8iVx1fy/arcgis/rest/services/glc_ZMB_trs_roads_major_b_view/FeatureServer/0",
-                 ["name", "Name", "road_name", "NAME"], "type"),
-                ("Settlements",
-                 "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_Zambia_Operational_Settlement_Points_and_Names_Version01/FeatureServer/0",
-                 ["Settlement", "name", "Name", "NAME"], "Type"),
-            ]
-            import requests as _req
-            _counts = {}
-            _details = {}
-            _hdr = {
-                "Referer": "https://zmb-geowb.hub.arcgis.com",
-                "Origin":  "https://zmb-geowb.hub.arcgis.com",
-                "Accept":  "application/json",
-            }
-            _area_km2_draw = (
-                haversine_km(_b["min_lat"], _b["min_lon"], _b["min_lat"], _b["max_lon"]) *
-                haversine_km(_b["min_lat"], _b["min_lon"], _b["max_lat"], _b["min_lon"])
-            )
-            _ctr_lat_area = (_b["min_lat"] + _b["max_lat"]) / 2
-            _ctr_lon_area = (_b["min_lon"] + _b["max_lon"]) / 2
+        # Mini-map — Zambia outline + province centroids, highlight selected area
+        if _sel_area != "— Select area —":
+            st.session_state["_area_sel_name"] = _sel_area
+            _btn_col, _clr_col = st.columns([3, 1])
+            with _btn_col:
+                _do_count = st.button("Count Features", key="count_preset_btn", use_container_width=True)
+            with _clr_col:
+                if st.button("✕", key="clear_area_btn", use_container_width=True):
+                    st.session_state.pop("draw_bbox", None)
+                    st.session_state.pop("_draw_counts", None)
+                    st.session_state.pop("_draw_details", None)
+                    st.session_state.pop("_area_sel_name", None)
+                    # Bump version to force a fresh selectbox widget (resets to placeholder)
+                    st.session_state["_area_selector_ver"] = _area_ver + 1
+                    st.rerun()
+            if _do_count:
+                _b = {**_AREA_BBOXES[_sel_area], "measurement": f"Area: {_sel_area}"}
+                st.session_state["draw_bbox"] = _b
+                _bbx_str = (f"{_b['min_lon']},{_b['min_lat']},"
+                            f"{_b['max_lon']},{_b['max_lat']}")
+                _tok = _hub_client_module._ARCGIS_TOKEN
+                _count_datasets = [
+                    ("Health facilities",
+                     "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_HealthFac_v01beta/FeatureServer/0",
+                     ["Facility_N", "Name", "FacilityNa", "facility_name", "NAME"], "Type"),
+                    ("Schools",
+                     "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_School_v01beta/FeatureServer/0",
+                     ["School_Nam", "Name", "school_name", "NAME"], "School_Typ"),
+                    ("Roads",
+                     "https://services3.arcgis.com/t6lYS2Pmd8iVx1fy/arcgis/rest/services/glc_ZMB_trs_roads_major_b_view/FeatureServer/0",
+                     ["name", "Name", "road_name", "NAME"], "type"),
+                    ("Settlements",
+                     "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_Zambia_Operational_Settlement_Points_and_Names_Version01/FeatureServer/0",
+                     ["Settlement", "name", "Name", "NAME"], "Type"),
+                ]
+                import requests as _req
+                _counts = {}
+                _details = {}
+                _hdr = {
+                    "Referer": "https://zmb-geowb.hub.arcgis.com",
+                    "Origin":  "https://zmb-geowb.hub.arcgis.com",
+                    "Accept":  "application/json",
+                }
+                _area_km2_draw = (
+                    haversine_km(_b["min_lat"], _b["min_lon"], _b["min_lat"], _b["max_lon"]) *
+                    haversine_km(_b["min_lat"], _b["min_lon"], _b["max_lat"], _b["min_lon"])
+                )
+                _ctr_lat_area = (_b["min_lat"] + _b["max_lat"]) / 2
+                _ctr_lon_area = (_b["min_lon"] + _b["max_lon"]) / 2
 
-            import concurrent.futures as _cf
+                import concurrent.futures as _cf
 
-            def _fetch_arcgis_area(args):
-                _label, _url, _name_fields, _type_field = args
-                try:
-                    _p = {"geometry": _bbx_str, "geometryType": "esriGeometryEnvelope",
-                          "spatialRel": "esriSpatialRelIntersects",
-                          "returnCountOnly": "true", "f": "json"}
-                    if _tok: _p["token"] = _tok
-                    _r = _req.get(f"{_url}/query", params=_p, headers=_hdr, timeout=10)
-                    _c = _r.json().get("count", 0)
-                    if _c and _c > 0:
-                        _fp = {"geometry": _bbx_str, "geometryType": "esriGeometryEnvelope",
-                               "spatialRel": "esriSpatialRelIntersects",
-                               "outFields": "*", "resultRecordCount": 20,
-                               "returnGeometry": "true", "f": "json"}
-                        if _tok: _fp["token"] = _tok
-                        _fr = _req.get(f"{_url}/query", params=_fp, headers=_hdr, timeout=12)
-                        _feats = _fr.json().get("features", [])
-                        _names, _subtypes, _nearest_name, _nearest_dist = [], {}, None, float("inf")
-                        for _feat in _feats:
-                            _props = _feat.get("attributes") or {}
-                            _nm = None
-                            for _nf in _name_fields:
-                                _nm = _props.get(_nf)
-                                if _nm and str(_nm).strip() not in ("None", "null", "", "0"): break
-                            if _nm: _names.append(str(_nm).strip())
-                            if _type_field:
-                                _st2 = _props.get(_type_field)
-                                if _st2 and str(_st2).strip() not in ("None", "null", ""):
-                                    _st2 = str(_st2).strip()
-                                    _subtypes[_st2] = _subtypes.get(_st2, 0) + 1
-                            _geom = _feat.get("geometry") or {}
-                            _fx = _geom.get("x"); _fy = _geom.get("y")
-                            if _fx and _fy:
-                                _d = haversine_km(_ctr_lat_area, _ctr_lon_area, _fy, _fx)
-                                if _d < _nearest_dist:
-                                    _nearest_dist = _d
-                                    _nearest_name = str(_nm).strip() if _nm else None
-                        return _label, _c, {"names": _names, "subtypes": _subtypes,
-                                            "nearest_name": _nearest_name,
-                                            "nearest_dist": _nearest_dist if _nearest_dist < float("inf") else None}
-                    return _label, _c, {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
-                except Exception:
-                    return _label, "—", {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
-
-            _s2, _w2, _n2, _e2 = _b["min_lat"], _b["min_lon"], _b["max_lat"], _b["max_lon"]
-            _osm_bbox2 = f"({_s2},{_w2},{_n2},{_e2})"
-            _OVERPASS_MIRRORS2 = [
-                "https://overpass.kumi.systems/api/interpreter",
-                "https://overpass-api.de/api/interpreter",
-                "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-            ]
-            def _overpass_req2(query_str):
-                for _mirror2 in _OVERPASS_MIRRORS2:
+                def _fetch_arcgis_area(args):
+                    _label, _url, _name_fields, _type_field = args
                     try:
-                        _r3 = _req.post(_mirror2, data={"data": query_str},
-                                        headers={"User-Agent": "ZambiaGeoHubAI/1.0"}, timeout=20)
-                        if _r3.status_code == 200: return _r3.json()
-                    except Exception: continue
-                return None
+                        _p = {"geometry": _bbx_str, "geometryType": "esriGeometryEnvelope",
+                              "spatialRel": "esriSpatialRelIntersects",
+                              "returnCountOnly": "true", "f": "json"}
+                        if _tok: _p["token"] = _tok
+                        _r = _req.get(f"{_url}/query", params=_p, headers=_hdr, timeout=10)
+                        _c = _r.json().get("count", 0)
+                        if _c and _c > 0:
+                            _fp = {"geometry": _bbx_str, "geometryType": "esriGeometryEnvelope",
+                                   "spatialRel": "esriSpatialRelIntersects",
+                                   "outFields": "*", "resultRecordCount": 20,
+                                   "returnGeometry": "true", "f": "json"}
+                            if _tok: _fp["token"] = _tok
+                            _fr = _req.get(f"{_url}/query", params=_fp, headers=_hdr, timeout=12)
+                            _feats = _fr.json().get("features", [])
+                            _names, _subtypes, _nearest_name, _nearest_dist = [], {}, None, float("inf")
+                            for _feat in _feats:
+                                _props = _feat.get("attributes") or {}
+                                _nm = None
+                                for _nf in _name_fields:
+                                    _nm = _props.get(_nf)
+                                    if _nm and str(_nm).strip() not in ("None", "null", "", "0"): break
+                                if _nm: _names.append(str(_nm).strip())
+                                if _type_field:
+                                    _st2 = _props.get(_type_field)
+                                    if _st2 and str(_st2).strip() not in ("None", "null", ""):
+                                        _st2 = str(_st2).strip()
+                                        _subtypes[_st2] = _subtypes.get(_st2, 0) + 1
+                                _geom = _feat.get("geometry") or {}
+                                _fx = _geom.get("x"); _fy = _geom.get("y")
+                                if _fx and _fy:
+                                    _d = haversine_km(_ctr_lat_area, _ctr_lon_area, _fy, _fx)
+                                    if _d < _nearest_dist:
+                                        _nearest_dist = _d
+                                        _nearest_name = str(_nm).strip() if _nm else None
+                            return _label, _c, {"names": _names, "subtypes": _subtypes,
+                                                "nearest_name": _nearest_name,
+                                                "nearest_dist": _nearest_dist if _nearest_dist < float("inf") else None}
+                        return _label, _c, {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+                    except Exception:
+                        return _label, "—", {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
 
-            def _fetch_osm_area(label, count_q, detail_q, name_tags, default_name):
-                try:
-                    _js2 = _overpass_req2(count_q)
-                    if not _js2:
+                _s2, _w2, _n2, _e2 = _b["min_lat"], _b["min_lon"], _b["max_lat"], _b["max_lon"]
+                _osm_bbox2 = f"({_s2},{_w2},{_n2},{_e2})"
+                _OVERPASS_MIRRORS2 = [
+                    "https://overpass.kumi.systems/api/interpreter",
+                    "https://overpass-api.de/api/interpreter",
+                    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+                ]
+                def _overpass_req2(query_str):
+                    for _mirror2 in _OVERPASS_MIRRORS2:
+                        try:
+                            _r3 = _req.post(_mirror2, data={"data": query_str},
+                                            headers={"User-Agent": "ZambiaGeoHubAI/1.0"}, timeout=20)
+                            if _r3.status_code == 200: return _r3.json()
+                        except Exception: continue
+                    return None
+
+                def _fetch_osm_area(label, count_q, detail_q, name_tags, default_name):
+                    try:
+                        _js2 = _overpass_req2(count_q)
+                        if not _js2:
+                            return label, "—", {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+                        _cnt2 = int((_js2.get("elements") or [{}])[0].get("tags", {}).get("total", 0))
+                        if _cnt2 == 0:
+                            return label, 0, {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
+                        _fjs2 = _overpass_req2(detail_q)
+                        _names2, _near2, _ndist2 = [], None, float("inf")
+                        for _el2 in (_fjs2 or {}).get("elements", []):
+                            _tags2 = _el2.get("tags") or {}
+                            _nm2 = next((_tags2.get(t) for t in name_tags if _tags2.get(t)), None)
+                            if _nm2: _names2.append(_nm2)
+                            _lat2 = _el2.get("lat"); _lon2 = _el2.get("lon")
+                            if _lat2 and _lon2:
+                                _d2 = haversine_km(_ctr_lat_area, _ctr_lon_area, _lat2, _lon2)
+                                if _d2 < _ndist2: _ndist2 = _d2; _near2 = _nm2 or default_name
+                        return label, _cnt2, {"names": _names2, "subtypes": {}, "nearest_name": _near2,
+                                              "nearest_dist": _ndist2 if _ndist2 < float("inf") else None}
+                    except Exception:
                         return label, "—", {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
-                    _cnt2 = int((_js2.get("elements") or [{}])[0].get("tags", {}).get("total", 0))
-                    if _cnt2 == 0:
-                        return label, 0, {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
-                    _fjs2 = _overpass_req2(detail_q)
-                    _names2, _near2, _ndist2 = [], None, float("inf")
-                    for _el2 in (_fjs2 or {}).get("elements", []):
-                        _tags2 = _el2.get("tags") or {}
-                        _nm2 = next((_tags2.get(t) for t in name_tags if _tags2.get(t)), None)
-                        if _nm2: _names2.append(_nm2)
-                        _lat2 = _el2.get("lat"); _lon2 = _el2.get("lon")
-                        if _lat2 and _lon2:
-                            _d2 = haversine_km(_ctr_lat_area, _ctr_lon_area, _lat2, _lon2)
-                            if _d2 < _ndist2: _ndist2 = _d2; _near2 = _nm2 or default_name
-                    return label, _cnt2, {"names": _names2, "subtypes": {}, "nearest_name": _near2,
-                                          "nearest_dist": _ndist2 if _ndist2 < float("inf") else None}
-                except Exception:
-                    return label, "—", {"names": [], "subtypes": {}, "nearest_name": None, "nearest_dist": None}
 
-            _osm_tasks2 = [
-                ("Mines",
-                 f'[out:json][timeout:20];(node["industrial"="mine"]{_osm_bbox2};way["industrial"="mine"]{_osm_bbox2};node["landuse"="quarry"]{_osm_bbox2};way["landuse"="quarry"]{_osm_bbox2};);out count;',
-                 f'[out:json][timeout:20];(node["industrial"="mine"]{_osm_bbox2};way["industrial"="mine"]{_osm_bbox2};node["landuse"="quarry"]{_osm_bbox2};);out body 20;',
-                 ["name", "operator"], "Unnamed mine"),
-                ("Dams",
-                 f'[out:json][timeout:20];(node["waterway"="dam"]{_osm_bbox2};way["waterway"="dam"]{_osm_bbox2};node["man_made"="dam"]{_osm_bbox2};way["man_made"="dam"]{_osm_bbox2};);out count;',
-                 f'[out:json][timeout:20];(node["waterway"="dam"]{_osm_bbox2};way["waterway"="dam"]{_osm_bbox2};);out body 20;',
-                 ["name"], "Unnamed dam"),
-                ("Churches",
-                 f'[out:json][timeout:20];(node["amenity"="place_of_worship"]["religion"="christian"]{_osm_bbox2};way["amenity"="place_of_worship"]["religion"="christian"]{_osm_bbox2};);out count;',
-                 f'[out:json][timeout:20];(node["amenity"="place_of_worship"]["religion"="christian"]{_osm_bbox2};);out body 20;',
-                 ["name"], "Unnamed church"),
-                ("Mosques",
-                 f'[out:json][timeout:20];(node["amenity"="place_of_worship"]["religion"="muslim"]{_osm_bbox2};way["amenity"="place_of_worship"]["religion"="muslim"]{_osm_bbox2};);out count;',
-                 f'[out:json][timeout:20];(node["amenity"="place_of_worship"]["religion"="muslim"]{_osm_bbox2};);out body 20;',
-                 ["name"], "Unnamed mosque"),
-                ("Markets & shops",
-                 f'[out:json][timeout:20];(node["amenity"="marketplace"]{_osm_bbox2};way["amenity"="marketplace"]{_osm_bbox2};node["shop"~"supermarket|mall|convenience|general"]{_osm_bbox2};);out count;',
-                 f'[out:json][timeout:20];(node["amenity"="marketplace"]{_osm_bbox2};node["shop"~"supermarket|mall|convenience|general"]{_osm_bbox2};);out body 20;',
-                 ["name"], "Unnamed market"),
-            ]
-            with _cf.ThreadPoolExecutor(max_workers=9) as _pool2:
-                _arcgis_futs2 = [_pool2.submit(_fetch_arcgis_area, ds) for ds in _count_datasets]
-                _osm_futs2    = [_pool2.submit(_fetch_osm_area, *t) for t in _osm_tasks2]
-                for _fut2 in _arcgis_futs2 + _osm_futs2:
-                    _lbl2, _cnt2, _det2 = _fut2.result()
-                    _counts[_lbl2] = _cnt2
-                    _details[_lbl2] = _det2
-            st.session_state["_draw_counts"]   = _counts
-            st.session_state["_draw_details"]  = _details
-            st.session_state["_draw_area_km2"] = _area_km2_draw
-            st.session_state["_draw_centroid"] = (_ctr_lat_area, _ctr_lon_area)
-            st.rerun()
+                _osm_tasks2 = [
+                    ("Mines",
+                     f'[out:json][timeout:20];(node["industrial"="mine"]{_osm_bbox2};way["industrial"="mine"]{_osm_bbox2};node["landuse"="quarry"]{_osm_bbox2};way["landuse"="quarry"]{_osm_bbox2};);out count;',
+                     f'[out:json][timeout:20];(node["industrial"="mine"]{_osm_bbox2};way["industrial"="mine"]{_osm_bbox2};node["landuse"="quarry"]{_osm_bbox2};);out body 20;',
+                     ["name", "operator"], "Unnamed mine"),
+                    ("Dams",
+                     f'[out:json][timeout:20];(node["waterway"="dam"]{_osm_bbox2};way["waterway"="dam"]{_osm_bbox2};node["man_made"="dam"]{_osm_bbox2};way["man_made"="dam"]{_osm_bbox2};);out count;',
+                     f'[out:json][timeout:20];(node["waterway"="dam"]{_osm_bbox2};way["waterway"="dam"]{_osm_bbox2};);out body 20;',
+                     ["name"], "Unnamed dam"),
+                    ("Churches",
+                     f'[out:json][timeout:20];(node["amenity"="place_of_worship"]["religion"="christian"]{_osm_bbox2};way["amenity"="place_of_worship"]["religion"="christian"]{_osm_bbox2};);out count;',
+                     f'[out:json][timeout:20];(node["amenity"="place_of_worship"]["religion"="christian"]{_osm_bbox2};);out body 20;',
+                     ["name"], "Unnamed church"),
+                    ("Mosques",
+                     f'[out:json][timeout:20];(node["amenity"="place_of_worship"]["religion"="muslim"]{_osm_bbox2};way["amenity"="place_of_worship"]["religion"="muslim"]{_osm_bbox2};);out count;',
+                     f'[out:json][timeout:20];(node["amenity"="place_of_worship"]["religion"="muslim"]{_osm_bbox2};);out body 20;',
+                     ["name"], "Unnamed mosque"),
+                    ("Markets & shops",
+                     f'[out:json][timeout:20];(node["amenity"="marketplace"]{_osm_bbox2};way["amenity"="marketplace"]{_osm_bbox2};node["shop"~"supermarket|mall|convenience|general"]{_osm_bbox2};);out count;',
+                     f'[out:json][timeout:20];(node["amenity"="marketplace"]{_osm_bbox2};node["shop"~"supermarket|mall|convenience|general"]{_osm_bbox2};);out body 20;',
+                     ["name"], "Unnamed market"),
+                ]
+                with _cf.ThreadPoolExecutor(max_workers=9) as _pool2:
+                    _arcgis_futs2 = [_pool2.submit(_fetch_arcgis_area, ds) for ds in _count_datasets]
+                    _osm_futs2    = [_pool2.submit(_fetch_osm_area, *t) for t in _osm_tasks2]
+                    for _fut2 in _arcgis_futs2 + _osm_futs2:
+                        _lbl2, _cnt2, _det2 = _fut2.result()
+                        _counts[_lbl2] = _cnt2
+                        _details[_lbl2] = _det2
+                st.session_state["_draw_counts"]   = _counts
+                st.session_state["_draw_details"]  = _details
+                st.session_state["_draw_area_km2"] = _area_km2_draw
+                st.session_state["_draw_centroid"] = (_ctr_lat_area, _ctr_lon_area)
+                st.rerun()
 
     # Show area analysis results
     if st.session_state.get("_draw_counts") and st.session_state.get("_area_sel_name"):
