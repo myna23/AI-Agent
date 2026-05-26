@@ -917,6 +917,16 @@ input.addEventListener('keydown', e => { if (e.key === 'Enter') sendBtn.click();
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
+# Open data-source URL in new tab if a topic button was just clicked
+# ---------------------------------------------------------------------------
+if st.session_state.get("_open_url"):
+    _url_to_open = st.session_state.pop("_open_url")
+    st.markdown(
+        f'<script>window.open("{_url_to_open}", "_blank");</script>',
+        unsafe_allow_html=True,
+    )
+
+# ---------------------------------------------------------------------------
 # Clients
 # ---------------------------------------------------------------------------
 @st.cache_resource(show_spinner=False)
@@ -1680,20 +1690,41 @@ if context_dataset:
 # Welcome screen — shown only on first open (no messages yet)
 # ---------------------------------------------------------------------------
 if not st.session_state.get("messages"):
-    # Topic category buttons — at the very top, plain text, no emoji
-    _TOPIC_QUESTIONS = {
-        "Health":         "Show me health facilities across Zambia",
-        "Education":      "Show me schools across Zambia",
-        "Infrastructure": "Show me roads and infrastructure in Zambia",
-        "Environment":    "Show me environmental and flood risk data in Zambia",
-        "Reports":        "Generate a report on health facilities in Zambia",
-    }
-    _topic_cols = st.columns(len(_TOPIC_QUESTIONS))
-    for _ti, (_tlabel, _tq) in enumerate(_TOPIC_QUESTIONS.items()):
+    # Topic category buttons — open data source in new tab AND ask a question
+    _TOPICS = [
+        {
+            "label":    "Health",
+            "question": "Show me health facilities across Zambia",
+            "url":      "https://zmb-geowb.hub.arcgis.com/search?q=health+facilities",
+        },
+        {
+            "label":    "Education",
+            "question": "Show me schools across Zambia",
+            "url":      "https://zmb-geowb.hub.arcgis.com/search?q=schools+education",
+        },
+        {
+            "label":    "Infrastructure",
+            "question": "Show me roads and infrastructure in Zambia",
+            "url":      "https://zmb-geowb.hub.arcgis.com/search?q=roads+infrastructure",
+        },
+        {
+            "label":    "Environment",
+            "question": "Show me environmental and flood risk data in Zambia",
+            "url":      "https://zmb-geowb.hub.arcgis.com/search?q=environment+flood",
+        },
+        {
+            "label":    "Reports",
+            "question": "Generate a report on health facilities in Zambia",
+            "url":      "https://zmb-geowb.hub.arcgis.com",
+        },
+    ]
+    _topic_cols = st.columns(len(_TOPICS))
+    for _ti, _tp in enumerate(_TOPICS):
         with _topic_cols[_ti]:
-            if st.button(_tlabel, key=f"topic_btn_{_ti}", use_container_width=True):
-                st.session_state.messages.append({"role": "user", "content": _tq})
-                st.session_state._pending_question = _tq
+            if st.button(_tp["label"], key=f"topic_btn_{_ti}", use_container_width=True):
+                st.session_state["_open_url"] = _tp["url"]
+                st.session_state.messages.append({"role": "user", "content": _tp["question"]})
+                st.session_state._pending_question = _tp["question"]
                 st.rerun()
 
     # Hero banner
