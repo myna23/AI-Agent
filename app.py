@@ -39,6 +39,27 @@ import base64 as _base64_mod
 import io as _io_mod
 import math
 
+# ---------------------------------------------------------------------------
+# Toolbar icon SVGs — inline, rendered directly in HTML (no JS/CSS tricks)
+# ---------------------------------------------------------------------------
+_S = 'width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'
+_TB_ICONS = [
+    # 0 pencil
+    f'<svg {_S}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+    # 1 refresh
+    f'<svg {_S}><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>',
+    # 2 copy (two squares)
+    f'<svg {_S}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+    # 3 download / save
+    f'<svg {_S}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+    # 4 trash
+    f'<svg {_S}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
+    # 5 thumbs up
+    f'<svg {_S}><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>',
+    # 6 thumbs down
+    f'<svg {_S}><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>',
+]
+
 # Module-level buffer for capturing partial streamed responses across reruns.
 # Keyed by a session identifier derived from session_state id.
 _STREAM_BUFFERS: dict = {}
@@ -647,14 +668,44 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
 .zmb-msg-user { background: #1d3557; color: white; border-radius: 12px 12px 2px 12px; padding: 8px 12px; margin: 6px 0 6px 30px; font-size: 13px; }
 .zmb-msg-ai { background: white; border: 1px solid #dde; border-radius: 12px 12px 12px 2px; padding: 8px 12px; margin: 6px 30px 6px 0; font-size: 13px; }
 
-/* ── Action toolbar SVG icon buttons ────────────────────────────────── */
-/* Invisible marker placed immediately before the toolbar columns */
+/* ── Action toolbar ─────────────────────────────────────────────────── */
 .zmb-tb { display: none; }
 
-/* Base style for every button in the toolbar */
+/* Each toolbar column: relative so the SVG overlay can be absolute inside it */
+[data-testid="stColumn"]:has(.zmb-ic) {
+    position: relative !important;
+    overflow: visible !important;
+}
+/* Zero-height wrapper — the SVG markdown block takes no vertical space */
+.element-container:has(.zmb-ic) {
+    height: 0 !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    line-height: 0 !important;
+}
+/* SVG overlay: floats centered over the button below it */
+.zmb-ic {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 16px !important;
+    height: 16px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    pointer-events: none !important;
+    z-index: 10 !important;
+}
+.zmb-ic svg { display: block !important; }
+
+/* Toolbar buttons: square, transparent, bordered */
 .element-container:has(.zmb-tb) + .element-container button,
 .element-container:has(.zmb-tb) + .element-container [data-testid="stDownloadButton"] button {
     background-color: transparent !important;
+    color: transparent !important;
+    font-size: 0 !important;
     border: 1px solid #dde3ed !important;
     border-radius: 6px !important;
     box-shadow: none !important;
@@ -664,17 +715,15 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
     min-height: 32px !important;
     padding: 0 !important;
 }
-/* Liked/disliked confirmation tick */
-.zmb-tb-liked {
-    color: #4caf50; font-size: 14px; text-align: center; line-height: 32px;
-}
 .element-container:has(.zmb-tb) + .element-container button:hover,
 .element-container:has(.zmb-tb) + .element-container [data-testid="stDownloadButton"] button:hover {
     background-color: #f0f4f9 !important;
     border-color: #b0c4d8 !important;
 }
-/* SVG icons injected directly into button innerHTML by JS */
-.zmb-tb-icon-btn svg { display: block; pointer-events: none; }
+/* Liked/disliked confirmation tick */
+.zmb-tb-liked {
+    color: #4caf50; font-size: 14px; text-align: center; line-height: 32px;
+}
 
 /* ── Intent badge ───────────────────────────────────────────────────── */
 .intent-badge {
@@ -922,56 +971,6 @@ input.addEventListener('keydown', e => { if (e.key === 'Enter') sendBtn.click();
 # Toolbar icon injector — JS MutationObserver adds .zmb-icon-N to each button
 # CSS class selectors then apply the SVG background-image reliably
 # ---------------------------------------------------------------------------
-st.markdown("""
-<script id="zmb-icon-init">
-(function() {
-    var S = 'stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
-    var PRE = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" ' + S + '>';
-    var ICONS = [
-        PRE + '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
-        PRE + '<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>',
-        PRE + '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
-        PRE + '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
-        PRE + '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
-        PRE + '<path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>',
-        PRE + '<path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>'
-    ];
-    var BTN_STYLE = [
-        'background:transparent','border:1px solid #dde3ed','border-radius:6px',
-        'width:32px','min-width:32px','height:32px','min-height:32px',
-        'padding:0','display:flex','align-items:center','justify-content:center',
-        'box-shadow:none','cursor:pointer'
-    ].join(';') + ';';
-
-    function zmb_apply() {
-        document.querySelectorAll('.zmb-tb').forEach(function(marker) {
-            var el = marker;
-            for (var d = 0; d < 10; d++) {
-                el = el.parentElement;
-                if (!el) break;
-                var sib = el.nextElementSibling;
-                if (!sib) continue;
-                var cols = sib.querySelectorAll('[data-testid="stColumn"]');
-                if (cols.length >= 7) {
-                    for (var i = 0; i < 7; i++) {
-                        var btn = cols[i] && cols[i].querySelector('button');
-                        if (btn && btn.getAttribute('data-zmb') !== String(i)) {
-                            btn.innerHTML = ICONS[i];
-                            btn.setAttribute('style', BTN_STYLE);
-                            btn.setAttribute('data-zmb', String(i));
-                        }
-                    }
-                    break;
-                }
-            }
-        });
-    }
-    zmb_apply();
-    new MutationObserver(function() { setTimeout(zmb_apply, 60); })
-        .observe(document.body, { childList: true, subtree: true });
-})();
-</script>
-""", unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # Open data-source URL in new tab if a topic button was just clicked
@@ -1877,15 +1876,17 @@ for i, msg in enumerate(st.session_state.messages):
             if msg.get("intent", "chat") == "chat" and msg.get("ds_name"):
                 _render_ondemand_panel(i, msg)
 
-            # Action toolbar — marker lets CSS inject SVG icons
+            # Action toolbar — SVG overlays sit in zero-height divs above each button
             st.markdown('<div class="zmb-tb"></div>', unsafe_allow_html=True)
             _prev_q_hist = next((m["content"] for m in reversed(st.session_state.messages[:i]) if m["role"] == "user"), "")
             _tool_cols = st.columns([1, 1, 1, 1, 1, 1, 1, 5])
             with _tool_cols[0]:
+                st.markdown(f'<div class="zmb-ic">{_TB_ICONS[0]}</div>', unsafe_allow_html=True)
                 if st.button("\u00a0", key=f"edit_{i}", help="Edit question", use_container_width=True):
                     st.session_state.edit_idx = i - 1
                     st.rerun()
             with _tool_cols[1]:
+                st.markdown(f'<div class="zmb-ic">{_TB_ICONS[1]}</div>', unsafe_allow_html=True)
                 if st.button("\u00a0", key=f"regen_{i}", help="Regenerate answer", use_container_width=True):
                     _prev_user = next(
                         (m["content"] for m in reversed(st.session_state.messages[:i])
@@ -1896,15 +1897,18 @@ for i, msg in enumerate(st.session_state.messages):
                         st.session_state._pending_question = _prev_user
                         st.rerun()
             with _tool_cols[2]:
+                st.markdown(f'<div class="zmb-ic">{_TB_ICONS[2]}</div>', unsafe_allow_html=True)
                 _copy_text = msg.get("content", "")
                 st.download_button("\u00a0", _copy_text, file_name="answer.txt",
                                    mime="text/plain", key=f"copy_{i}", help="Copy answer", use_container_width=True)
             with _tool_cols[3]:
+                st.markdown(f'<div class="zmb-ic">{_TB_ICONS[3]}</div>', unsafe_allow_html=True)
                 _prev_q_save = next((m["content"] for m in reversed(st.session_state.messages[:i]) if m["role"] == "user"), "Question")
                 _save_text = f"Question:\n{_prev_q_save}\n\nAnswer:\n{msg.get('content','')}"
                 st.download_button("\u00a0", _save_text, file_name="saved_answer.txt",
                                    mime="text/plain", key=f"save_{i}", help="Save answer", use_container_width=True)
             with _tool_cols[4]:
+                st.markdown(f'<div class="zmb-ic">{_TB_ICONS[4]}</div>', unsafe_allow_html=True)
                 if st.button("\u00a0", key=f"clear_{i}", help="Delete this answer", use_container_width=True):
                     _start = max(0, i - 1)
                     st.session_state.messages = st.session_state.messages[:_start] + st.session_state.messages[i + 1:]
@@ -1912,6 +1916,7 @@ for i, msg in enumerate(st.session_state.messages):
             _fb = msg.get("_feedback", "")
             with _tool_cols[5]:
                 if _fb != "up":
+                    st.markdown(f'<div class="zmb-ic">{_TB_ICONS[5]}</div>', unsafe_allow_html=True)
                     if st.button("\u00a0", key=f"fb_up_{i}", help="Good answer", use_container_width=True):
                         msg["_feedback"] = "up"
                         _fbc = st.session_state.get("_feedback_counts", {"up": 0, "down": 0})
@@ -1923,6 +1928,7 @@ for i, msg in enumerate(st.session_state.messages):
                     st.markdown('<div class="zmb-tb-liked">✓</div>', unsafe_allow_html=True)
             with _tool_cols[6]:
                 if _fb != "down":
+                    st.markdown(f'<div class="zmb-ic">{_TB_ICONS[6]}</div>', unsafe_allow_html=True)
                     if st.button("\u00a0", key=f"fb_dn_{i}", help="Bad answer", use_container_width=True):
                         msg["_feedback"] = "down"
                         _fbc = st.session_state.get("_feedback_counts", {"up": 0, "down": 0})
