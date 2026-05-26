@@ -647,43 +647,31 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
 .zmb-msg-user { background: #1d3557; color: white; border-radius: 12px 12px 2px 12px; padding: 8px 12px; margin: 6px 0 6px 30px; font-size: 13px; }
 .zmb-msg-ai { background: white; border: 1px solid #dde; border-radius: 12px 12px 12px 2px; padding: 8px 12px; margin: 6px 30px 6px 0; font-size: 13px; }
 
-/* ── Action toolbar (Edit / Retry / Copy / Save / Delete) ──────────── */
-.zmb-toolbar [data-testid="baseButton-secondary"],
-[data-testid="stHorizontalBlock"] + [data-testid="stHorizontalBlock"] [data-testid="baseButton-secondary"] {
-    /* fallback — handled below */
-}
-/* Style all secondary buttons inside the action toolbar columns */
+/* ── Action toolbar (emoji icon buttons below AI answers) ────────────── */
 [data-testid="stChatMessage"] [data-testid="baseButton-secondary"],
-[data-testid="stChatMessage"] [data-testid="baseButton-secondary"]:focus {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    color: #8a9bae !important;
-    font-size: 0.75rem !important;
-    font-weight: 500 !important;
-    padding: 2px 4px !important;
-    min-height: unset !important;
-    height: auto !important;
-}
-[data-testid="stChatMessage"] [data-testid="baseButton-secondary"]:hover {
-    color: #1d3557 !important;
-    background: transparent !important;
-}
+[data-testid="stChatMessage"] [data-testid="baseButton-secondary"]:focus,
 [data-testid="stChatMessage"] [data-testid="stDownloadButton"] button,
 [data-testid="stChatMessage"] [data-testid="stDownloadButton"] button:focus {
     background: transparent !important;
-    border: none !important;
+    border: 1px solid #e4eaf2 !important;
     box-shadow: none !important;
-    color: #8a9bae !important;
-    font-size: 0.75rem !important;
-    font-weight: 500 !important;
-    padding: 2px 4px !important;
-    min-height: unset !important;
-    height: auto !important;
+    color: #555 !important;
+    font-size: 1rem !important;
+    padding: 4px 6px !important;
+    min-height: 34px !important;
+    height: 34px !important;
+    width: 34px !important;
+    border-radius: 6px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
 }
+[data-testid="stChatMessage"] [data-testid="baseButton-secondary"]:hover,
 [data-testid="stChatMessage"] [data-testid="stDownloadButton"] button:hover {
-    color: #1d3557 !important;
-    background: transparent !important;
+    background: #f0f4f9 !important;
+    border-color: #c0cfe0 !important;
 }
 
 /* ── Intent badge ───────────────────────────────────────────────────── */
@@ -1784,15 +1772,15 @@ for i, msg in enumerate(st.session_state.messages):
             if msg.get("intent", "chat") == "chat" and msg.get("ds_name"):
                 _render_ondemand_panel(i, msg)
 
-            # Action toolbar — compact inline row of text buttons
+            # Action toolbar — single emoji per button, sized to fit
             _prev_q_hist = next((m["content"] for m in reversed(st.session_state.messages[:i]) if m["role"] == "user"), "")
-            _tool_cols = st.columns([1, 1, 1, 1, 1, 1, 6])
+            _tool_cols = st.columns([1, 1, 1, 1, 1, 1, 1, 5])
             with _tool_cols[0]:
-                if st.button("Edit", key=f"edit_{i}", help="Edit question", use_container_width=True):
+                if st.button("✏️", key=f"edit_{i}", help="Edit question", use_container_width=True):
                     st.session_state.edit_idx = i - 1
                     st.rerun()
             with _tool_cols[1]:
-                if st.button("Retry", key=f"regen_{i}", help="Regenerate answer", use_container_width=True):
+                if st.button("🔁", key=f"regen_{i}", help="Regenerate answer", use_container_width=True):
                     _prev_user = next(
                         (m["content"] for m in reversed(st.session_state.messages[:i])
                          if m["role"] == "user"), None
@@ -1803,42 +1791,41 @@ for i, msg in enumerate(st.session_state.messages):
                         st.rerun()
             with _tool_cols[2]:
                 _copy_text = msg.get("content", "")
-                st.download_button("Copy", _copy_text, file_name="answer.txt",
+                st.download_button("📋", _copy_text, file_name="answer.txt",
                                    mime="text/plain", key=f"copy_{i}", help="Copy answer", use_container_width=True)
             with _tool_cols[3]:
                 _prev_q_save = next((m["content"] for m in reversed(st.session_state.messages[:i]) if m["role"] == "user"), "Question")
                 _save_text = f"Question:\n{_prev_q_save}\n\nAnswer:\n{msg.get('content','')}"
-                st.download_button("Save", _save_text, file_name="saved_answer.txt",
+                st.download_button("💾", _save_text, file_name="saved_answer.txt",
                                    mime="text/plain", key=f"save_{i}", help="Save answer", use_container_width=True)
             with _tool_cols[4]:
-                if st.button("Delete", key=f"clear_{i}", help="Delete this answer", use_container_width=True):
+                if st.button("🗑️", key=f"clear_{i}", help="Delete this answer", use_container_width=True):
                     _start = max(0, i - 1)
                     st.session_state.messages = st.session_state.messages[:_start] + st.session_state.messages[i + 1:]
                     st.rerun()
+            _fb = msg.get("_feedback", "")
             with _tool_cols[5]:
-                _fb = msg.get("_feedback", "")
-                if _fb == "up":
-                    st.caption("👍")
-                elif _fb == "down":
-                    st.caption("👎")
+                if _fb != "up":
+                    if st.button("👍", key=f"fb_up_{i}", help="Good answer", use_container_width=True):
+                        msg["_feedback"] = "up"
+                        _fbc = st.session_state.get("_feedback_counts", {"up": 0, "down": 0})
+                        _fbc["up"] += 1
+                        st.session_state["_feedback_counts"] = _fbc
+                        st.toast("Thanks for the feedback!")
+                        st.rerun()
                 else:
-                    _fup, _fdn = st.columns(2)
-                    with _fup:
-                        if st.button("👍", key=f"fb_up_{i}", help="Good answer", use_container_width=True):
-                            msg["_feedback"] = "up"
-                            _fbc = st.session_state.get("_feedback_counts", {"up": 0, "down": 0})
-                            _fbc["up"] += 1
-                            st.session_state["_feedback_counts"] = _fbc
-                            st.toast("Thanks for the feedback!")
-                            st.rerun()
-                    with _fdn:
-                        if st.button("👎", key=f"fb_dn_{i}", help="Bad answer", use_container_width=True):
-                            msg["_feedback"] = "down"
-                            _fbc = st.session_state.get("_feedback_counts", {"up": 0, "down": 0})
-                            _fbc["down"] += 1
-                            st.session_state["_feedback_counts"] = _fbc
-                            st.toast("Thanks, we'll use this to improve.")
-                            st.rerun()
+                    st.markdown("👍")
+            with _tool_cols[6]:
+                if _fb != "down":
+                    if st.button("👎", key=f"fb_dn_{i}", help="Bad answer", use_container_width=True):
+                        msg["_feedback"] = "down"
+                        _fbc = st.session_state.get("_feedback_counts", {"up": 0, "down": 0})
+                        _fbc["down"] += 1
+                        st.session_state["_feedback_counts"] = _fbc
+                        st.toast("Thanks, we'll use this to improve.")
+                        st.rerun()
+                else:
+                    st.markdown("👎")
 
             # Row 2: follow-up suggestions — only on the most recent answer
             if i == _last_assistant_idx and msg.get("intent", "chat") == "chat" and _prev_q_hist:
