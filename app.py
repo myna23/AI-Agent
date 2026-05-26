@@ -770,6 +770,42 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
     border-color: transparent !important;
     color: #e8f4ff !important;
 }
+/* Recents label — plain text, no background */
+.zmb-recents-label {
+    color: #7a9bbf !important;
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.8px !important;
+    margin: 8px 0 4px 8px !important;
+    background: transparent !important;
+    padding: 0 !important;
+}
+/* Ensure no white box appears on caption-like elements in sidebar */
+[data-testid="stSidebar"] .stMarkdown p {
+    background: transparent !important;
+}
+/* Topic category buttons on welcome screen */
+[data-testid="stHorizontalBlock"] [data-testid="baseButton-secondary"]:has-text {
+    /* fallback — handled below */
+}
+/* Style the topic buttons to look like pill buttons */
+div[data-testid="column"] [data-testid="baseButton-secondary"] {
+    background: #1a3a5c !important;
+    border: 1px solid #2d5a87 !important;
+    border-radius: 24px !important;
+    color: #d0e8ff !important;
+    font-weight: 600 !important;
+    font-size: 0.83rem !important;
+    padding: 0.45rem 0.9rem !important;
+    transition: background 0.15s !important;
+    white-space: nowrap !important;
+}
+div[data-testid="column"] [data-testid="baseButton-secondary"]:hover {
+    background: #2a5a8c !important;
+    border-color: #4a8abf !important;
+    color: #ffffff !important;
+}
 </style>
 
 <button id="zmb-chat-btn" title="Ask the Zambia GeoHub AI">🗺️</button>
@@ -903,30 +939,7 @@ with st.sidebar:
             })
         st.session_state.chat_sessions = st.session_state.chat_sessions[:20]
 
-    # New Chat — top, primary style
-    if st.button("＋  New Chat", key="new_chat_btn", type="primary", use_container_width=True):
-        _save_current_chat()
-        st.session_state.messages = []
-        st.session_state["_current_chat_id"] = str(_uuid.uuid4())
-        for _k in ["draw_bbox","_draw_counts","_draw_details","_area_sel_name",
-                   "uploaded_doc_text","uploaded_doc_name","uploaded_img_b64","uploaded_img_name"]:
-            st.session_state.pop(_k, None)
-        st.rerun()
-
-    # Recent chats
-    if st.session_state.chat_sessions:
-        st.caption("Recents")
-        for _cs in st.session_state.chat_sessions[:15]:
-            _is_active = _cs["id"] == st.session_state.get("_current_chat_id")
-            _btn_label = ("▶  " if _is_active else "    ") + _cs["title"]
-            if st.button(_btn_label, key=f"hist_{_cs['id']}", use_container_width=True):
-                _save_current_chat()
-                st.session_state.messages = list(_cs["messages"])
-                st.session_state["_current_chat_id"] = _cs["id"]
-                st.rerun()
-    st.divider()
-
-    # Model
+    # Model — at top so it's always accessible without scrolling
     if _mai_configured:
         _sb_model_opts = [
             ("Claude Sonnet", "WB mAI Factory (Claude)", "claude-sonnet-4-5"),
@@ -960,7 +973,33 @@ with st.sidebar:
     )
     st.session_state["_lang"] = _lang
 
-    with st.expander("Compare Two Areas"):
+    st.divider()
+
+    # New Chat button
+    if st.button("✏️  New Chat", key="new_chat_btn", type="primary", use_container_width=True):
+        _save_current_chat()
+        st.session_state.messages = []
+        st.session_state["_current_chat_id"] = str(_uuid.uuid4())
+        for _k in ["draw_bbox","_draw_counts","_draw_details","_area_sel_name",
+                   "uploaded_doc_text","uploaded_doc_name","uploaded_img_b64","uploaded_img_name"]:
+            st.session_state.pop(_k, None)
+        st.rerun()
+
+    # Recent chats
+    if st.session_state.chat_sessions:
+        st.markdown('<p class="zmb-recents-label">Recents</p>', unsafe_allow_html=True)
+        for _cs in st.session_state.chat_sessions[:15]:
+            _is_active = _cs["id"] == st.session_state.get("_current_chat_id")
+            _btn_label = ("▶  " if _is_active else "") + _cs["title"]
+            if st.button(_btn_label, key=f"hist_{_cs['id']}", use_container_width=True):
+                _save_current_chat()
+                st.session_state.messages = list(_cs["messages"])
+                st.session_state["_current_chat_id"] = _cs["id"]
+                st.rerun()
+
+    st.divider()
+
+    with st.expander("⚖️  Compare Two Areas"):
         st.caption("Enter two districts/provinces and a topic.")
         _cmp_col1, _cmp_col2 = st.columns(2)
         with _cmp_col1:
@@ -1574,21 +1613,8 @@ def _filter_by_location(features: list, location: str, loc_type: str) -> list:
     return result
 
 # ---------------------------------------------------------------------------
-# Header — hero banner
-# ---------------------------------------------------------------------------
-st.markdown("""
-<div class="zmb-hero">
-  <h1>Zambia GeoHub AI Assistant</h1>
-  <p>Ask questions about Zambia's geospatial data in plain English — get live counts, maps, and downloadable reports.</p>
-  <span class="zmb-hero-badge">Health</span>
-  <span class="zmb-hero-badge">Education</span>
-  <span class="zmb-hero-badge">Infrastructure</span>
-  <span class="zmb-hero-badge">Environment</span>
-  <span class="zmb-hero-badge">Reports</span>
-</div>
-""", unsafe_allow_html=True)
-
 # Context banner — shown when a dataset is passed from the Hub page
+# ---------------------------------------------------------------------------
 if context_dataset:
     st.info(
         f"📍 **Context loaded:** You are viewing **{context_dataset['name']}** on the Hub. "
@@ -1596,10 +1622,8 @@ if context_dataset:
         icon=None,
     )
 
-st.markdown("---")
-
 # ---------------------------------------------------------------------------
-# Onboarding — shown only to first-time visitors (no messages yet)
+# Welcome screen — shown only on first open (no messages yet)
 # ---------------------------------------------------------------------------
 if not st.session_state.get("messages"):
     # Nudge user to set an API key when none is configured (local dev only)
@@ -1611,6 +1635,32 @@ if not st.session_state.get("messages"):
             "On World Bank Posit Connect the key is set in the Vars tab — nothing to do here.",
             icon="🔑",
         )
+
+    # Topic category buttons — clickable, trigger a contextual question
+    _TOPIC_QUESTIONS = {
+        "🏥  Health":          "Show me health facilities across Zambia",
+        "🎓  Education":       "Show me schools across Zambia",
+        "🛣️  Infrastructure":  "Show me roads and infrastructure in Zambia",
+        "🌿  Environment":     "Show me environmental and flood risk data in Zambia",
+        "📄  Reports":         "Generate a report on health facilities in Zambia",
+    }
+    _topic_cols = st.columns(len(_TOPIC_QUESTIONS))
+    for _ti, (_tlabel, _tq) in enumerate(_TOPIC_QUESTIONS.items()):
+        with _topic_cols[_ti]:
+            if st.button(_tlabel, key=f"topic_btn_{_ti}", use_container_width=True):
+                st.session_state.messages.append({"role": "user", "content": _tq})
+                st.session_state._pending_question = _tq
+                st.rerun()
+
+    # Hero banner — only visible before any questions are asked
+    st.markdown("""
+<div class="zmb-hero">
+  <h1>Zambia GeoHub AI Assistant</h1>
+  <p>Ask questions about Zambia's geospatial data in plain English — get live counts, maps, and downloadable reports.</p>
+</div>
+""", unsafe_allow_html=True)
+
+    st.markdown("---")
 
     # Feature cards
     st.markdown("""
