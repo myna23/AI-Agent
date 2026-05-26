@@ -651,7 +651,7 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
 /* Invisible marker placed immediately before the toolbar columns */
 .zmb-tb { display: none; }
 
-/* Base style for every button in the toolbar — square icon button */
+/* Base style for every button in the toolbar */
 .element-container:has(.zmb-tb) + .element-container button,
 .element-container:has(.zmb-tb) + .element-container [data-testid="stDownloadButton"] button {
     background-color: transparent !important;
@@ -663,15 +663,6 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
     height: 32px !important;
     min-height: 32px !important;
     padding: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    position: relative !important;
-}
-/* Hide inner Streamlit content (p / div wrappers) so ::before icon shows */
-.element-container:has(.zmb-tb) + .element-container button > *,
-.element-container:has(.zmb-tb) + .element-container [data-testid="stDownloadButton"] button > * {
-    display: none !important;
 }
 /* Liked/disliked confirmation tick */
 .zmb-tb-liked {
@@ -682,40 +673,8 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
     background-color: #f0f4f9 !important;
     border-color: #b0c4d8 !important;
 }
-
-/* ── Per-icon ::before pseudo-elements set via JS-injected classes ── */
-/* ::before is independent of button's inner HTML — always renders */
-button.zmb-icon-set::before {
-    content: "" !important;
-    display: block !important;
-    width: 16px !important;
-    height: 16px !important;
-    background-size: 16px 16px !important;
-    background-repeat: no-repeat !important;
-    background-position: center !important;
-    flex-shrink: 0 !important;
-}
-button.zmb-icon-0::before {
-    background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTk5IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTExIDRINGEyIDIgMCAwIDAtMiAydjE0YTIgMiAwIDAgMCAyIDJoMTRhMiAyIDAgMCAwIDItMnYtNyIvPjxwYXRoIGQ9Ik0xOC41IDIuNWEyLjEyMSAyLjEyMSAwIDAgMSAzIDNMMTIgMTVsLTQgMSAxLTQgOS41LTkuNXoiLz48L3N2Zz4=") !important;
-}
-button.zmb-icon-1::before {
-    background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTk5IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlsaW5lIHBvaW50cz0iMSA0IDEgMTAgNyAxMCIvPjxwYXRoIGQ9Ik0zLjUxIDE1YTkgOSAwIDEgMCAyLjEzLTkuMzZMMSAxMCIvPjwvc3ZnPg==") !important;
-}
-button.zmb-icon-2::before {
-    background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTk5IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iOSIgeT0iOSIgd2lkdGg9IjEzIiBoZWlnaHQ9IjEzIiByeD0iMiIvPjxwYXRoIGQ9Ik01IDE1SDRhMiAyIDAgMCAxLTItMlY0YTIgMiAwIDAgMSAyLTJoOWEyIDIgMCAwIDEgMiAydjEiLz48L3N2Zz4=") !important;
-}
-button.zmb-icon-3::before {
-    background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTk5IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIxIDE1djRhMiAyIDAgMCAxLTIgMkg1YTIgMiAwIDAgMS0yLTJ2LTQiLz48cG9seWxpbmUgcG9pbnRzPSI3IDEwIDEyIDE1IDE3IDEwIi8+PGxpbmUgeDE9IjEyIiB5MT0iMTUiIHgyPSIxMiIgeTI9IjMiLz48L3N2Zz4=") !important;
-}
-button.zmb-icon-4::before {
-    background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTk5IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlsaW5lIHBvaW50cz0iMyA2IDUgNiAyMSA2Ii8+PHBhdGggZD0iTTE5IDZsLTEgMTRhMiAyIDAgMCAxLTIgMkg4YTIgMiAwIDAgMS0yLTJMNSA2Ii8+PHBhdGggZD0iTTEwIDExdjYiLz48cGF0aCBkPSJNMTQgMTF2NiIvPjxwYXRoIGQ9Ik05IDZWNGExIDEgMCAwIDEgMS0xaDRhMSAxIDAgMCAxIDEgMXYyIi8+PC9zdmc+") !important;
-}
-button.zmb-icon-5::before {
-    background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTk5IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTE0IDlWNWEzIDMgMCAwIDAtMy0zbC00IDl2MTFoMTEuMjhhMiAyIDAgMCAwIDItMS43bDEuMzgtOWEyIDIgMCAwIDAtMi0yLjNIMTR6Ii8+PHBhdGggZD0iTTcgMjJINGEyIDIgMCAwIDEtMi0ydi03YTIgMiAwIDAgMSAyLTJoMyIvPjwvc3ZnPg==") !important;
-}
-button.zmb-icon-6::before {
-    background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTk5IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTEwIDE1djRhMyAzIDAgMCAwIDMgM2w0LTlWMkg1LjcyYTIgMiAwIDAgMC0yIDEuN2wtMS4zOCA5YTIgMiAwIDAgMCAyIDIuM0gxMHoiLz48cGF0aCBkPSJNMTcgMmgyLjY3QTIuMzEgMi4zMSAwIDAgMSAyMiA0djdhMi4zMSAyLjMxIDAgMCAxLTIuMzMgMkgxNyIvPjwvc3ZnPg==") !important;
-}
+/* SVG icons injected directly into button innerHTML by JS */
+.zmb-tb-icon-btn svg { display: block; pointer-events: none; }
 
 /* ── Intent badge ───────────────────────────────────────────────────── */
 .intent-badge {
@@ -966,31 +925,50 @@ input.addEventListener('keydown', e => { if (e.key === 'Enter') sendBtn.click();
 st.markdown("""
 <script id="zmb-icon-init">
 (function() {
-    function zmb_apply_icons() {
+    var S = 'stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+    var PRE = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" ' + S + '>';
+    var ICONS = [
+        PRE + '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+        PRE + '<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>',
+        PRE + '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+        PRE + '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+        PRE + '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
+        PRE + '<path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>',
+        PRE + '<path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>'
+    ];
+    var BTN_STYLE = [
+        'background:transparent','border:1px solid #dde3ed','border-radius:6px',
+        'width:32px','min-width:32px','height:32px','min-height:32px',
+        'padding:0','display:flex','align-items:center','justify-content:center',
+        'box-shadow:none','cursor:pointer'
+    ].join(';') + ';';
+
+    function zmb_apply() {
         document.querySelectorAll('.zmb-tb').forEach(function(marker) {
             var el = marker;
-            for (var depth = 0; depth < 8; depth++) {
+            for (var d = 0; d < 10; d++) {
                 el = el.parentElement;
                 if (!el) break;
                 var sib = el.nextElementSibling;
-                if (sib) {
-                    var cols = sib.querySelectorAll('[data-testid="stColumn"]');
-                    if (cols.length >= 7) {
-                        for (var i = 0; i < 7; i++) {
-                            var btn = cols[i] && cols[i].querySelector('button');
-                            if (btn && !btn.classList.contains('zmb-icon-set')) {
-                                btn.classList.add('zmb-icon-' + i, 'zmb-icon-set');
-                            }
+                if (!sib) continue;
+                var cols = sib.querySelectorAll('[data-testid="stColumn"]');
+                if (cols.length >= 7) {
+                    for (var i = 0; i < 7; i++) {
+                        var btn = cols[i] && cols[i].querySelector('button');
+                        if (btn && btn.getAttribute('data-zmb') !== String(i)) {
+                            btn.innerHTML = ICONS[i];
+                            btn.setAttribute('style', BTN_STYLE);
+                            btn.setAttribute('data-zmb', String(i));
                         }
-                        break;
                     }
+                    break;
                 }
             }
         });
     }
-    zmb_apply_icons();
-    var _obs = new MutationObserver(function() { setTimeout(zmb_apply_icons, 80); });
-    _obs.observe(document.body, { childList: true, subtree: true });
+    zmb_apply();
+    new MutationObserver(function() { setTimeout(zmb_apply, 60); })
+        .observe(document.body, { childList: true, subtree: true });
 })();
 </script>
 """, unsafe_allow_html=True)
