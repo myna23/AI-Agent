@@ -780,34 +780,51 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
 [data-testid="stSidebar"] [data-testid="baseButton-primary"]:hover {
     background: #2a6496 !important;
 }
-/* Secondary buttons (chat history items) — plain text, no background box */
+/* Secondary buttons (chat history items) — transparent, plain text */
+[data-testid="stSidebar"] button[kind="secondary"],
+[data-testid="stSidebar"] button[data-testid="baseButton-secondary"],
 [data-testid="stSidebar"] [data-testid="baseButton-secondary"],
-[data-testid="stSidebar"] [data-testid="baseButton-secondary"]:focus,
-[data-testid="stSidebar"] [data-testid="baseButton-secondary"]:active {
+[data-testid="stSidebar"] [data-testid="stButton"] button {
     background: transparent !important;
     background-color: transparent !important;
+    background-image: none !important;
     border: none !important;
     box-shadow: none !important;
+    outline: none !important;
     color: #c8dff0 !important;
     font-weight: 400 !important;
     font-size: 0.83rem !important;
     text-align: left !important;
     justify-content: flex-start !important;
     padding: 0.2rem 0.5rem !important;
-    border-radius: 6px !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
+    border-radius: 4px !important;
 }
-[data-testid="stSidebar"] [data-testid="baseButton-secondary"]:hover {
-    background: rgba(255,255,255,0.06) !important;
+[data-testid="stSidebar"] button[kind="secondary"]:hover,
+[data-testid="stSidebar"] button[data-testid="baseButton-secondary"]:hover,
+[data-testid="stSidebar"] [data-testid="stButton"] button:hover {
+    background: rgba(255,255,255,0.07) !important;
+    background-color: rgba(255,255,255,0.07) !important;
     color: #e8f4ff !important;
 }
-[data-testid="stSidebar"] [data-testid="baseButton-secondary"] p {
+[data-testid="stSidebar"] button[kind="secondary"]:focus,
+[data-testid="stSidebar"] button[kind="secondary"]:active,
+[data-testid="stSidebar"] button[data-testid="baseButton-secondary"]:focus,
+[data-testid="stSidebar"] button[data-testid="baseButton-secondary"]:active {
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+}
+[data-testid="stSidebar"] [data-testid="stButton"] {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+[data-testid="stSidebar"] [data-testid="stButton"] button p,
+[data-testid="stSidebar"] button[kind="secondary"] p {
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     max-width: 100% !important;
+    color: #c8dff0 !important;
 }
 /* Recents label — plain text, no background */
 .zmb-recents-label {
