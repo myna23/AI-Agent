@@ -678,26 +678,26 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
     border-color: #b0c4d8 !important;
 }
 
-/* ── Per-column SVG icons — base64 encoded (reliable across all browsers) ── */
-.element-container:has(.zmb-tb) + .element-container [data-testid="stColumn"]:nth-child(1) button {
+/* ── Per-icon classes set by JS MutationObserver (see zmb_icon_init script) ── */
+button.zmb-icon-0 {
     background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjY2IiBzdHJva2Utd2lkdGg9IjEuOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTEgNEg0YTIgMiAwIDAgMC0yIDJ2MTRhMiAyIDAgMCAwIDIgMmgxNGEyIDIgMCAwIDAgMi0ydi03Ii8+PHBhdGggZD0iTTE4LjUgMi41YTIuMTIxIDIuMTIxIDAgMCAxIDMgM0wxMiAxNWwtNCAxIDEtNCA5LjUtOS41eiIvPjwvc3ZnPg==") !important;
 }
-.element-container:has(.zmb-tb) + .element-container [data-testid="stColumn"]:nth-child(2) button {
+button.zmb-icon-1 {
     background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjY2IiBzdHJva2Utd2lkdGg9IjEuOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSIxIDQgMSAxMCA3IDEwIi8+PHBhdGggZD0iTTMuNTEgMTVhOSA5IDAgMSAwIDIuMTMtOS4zNkwxIDEwIi8+PC9zdmc+") !important;
 }
-.element-container:has(.zmb-tb) + .element-container [data-testid="stColumn"]:nth-child(3) button {
+button.zmb-icon-2 {
     background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjY2IiBzdHJva2Utd2lkdGg9IjEuOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cmVjdCB4PSI5IiB5PSI5IiB3aWR0aD0iMTMiIGhlaWdodD0iMTMiIHJ4PSIyIi8+PHBhdGggZD0iTTUgMTVINGEyIDIgMCAwIDEtMi0yVjRhMiAyIDAgMCAxIDItMmg5YTIgMiAwIDAgMSAyIDJ2MSIvPjwvc3ZnPg==") !important;
 }
-.element-container:has(.zmb-tb) + .element-container [data-testid="stColumn"]:nth-child(4) button {
+button.zmb-icon-3 {
     background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjY2IiBzdHJva2Utd2lkdGg9IjEuOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMjEgMTV2NGEyIDIgMCAwIDEtMiAySDVhMiAyIDAgMCAxLTItMnYtNCIvPjxwb2x5bGluZSBwb2ludHM9IjcgMTAgMTIgMTUgMTcgMTAiLz48bGluZSB4MT0iMTIiIHkxPSIxNSIgeDI9IjEyIiB5Mj0iMyIvPjwvc3ZnPg==") !important;
 }
-.element-container:has(.zmb-tb) + .element-container [data-testid="stColumn"]:nth-child(5) button {
+button.zmb-icon-4 {
     background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjY2IiBzdHJva2Utd2lkdGg9IjEuOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSIzIDYgNSA2IDIxIDYiLz48cGF0aCBkPSJNMTkgNmwtMSAxNGEyIDIgMCAwIDEtMiAySDhhMiAyIDAgMCAxLTItMkw1IDYiLz48cGF0aCBkPSJNMTAgMTF2NiIvPjxwYXRoIGQ9Ik0xNCAxMXY2Ii8+PHBhdGggZD0iTTkgNlY0YTEgMSAwIDAgMSAxLTFoNGExIDEgMCAwIDEgMSAxdjIiLz48L3N2Zz4=") !important;
 }
-.element-container:has(.zmb-tb) + .element-container [data-testid="stColumn"]:nth-child(6) button {
+button.zmb-icon-5 {
     background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjY2IiBzdHJva2Utd2lkdGg9IjEuOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTQgOVY1YTMgMyAwIDAgMC0zLTNsLTQgOXYxMWgxMS4yOGEyIDIgMCAwIDAgMi0xLjdsMS4zOC05YTIgMiAwIDAgMC0yLTIuM0gxNHoiLz48cGF0aCBkPSJNNyAyMkg0YTIgMiAwIDAgMS0yLTJ2LTdhMiAyIDAgMCAxIDItMmgzIi8+PC9zdmc+") !important;
 }
-.element-container:has(.zmb-tb) + .element-container [data-testid="stColumn"]:nth-child(7) button {
+button.zmb-icon-6 {
     background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjY2IiBzdHJva2Utd2lkdGg9IjEuOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTAgMTV2NGEzIDMgMCAwIDAgMyAzbDQtOVYySDUuNzJhMiAyIDAgMCAwLTIgMS43bC0xLjM4IDlhMiAyIDAgMCAwIDIgMi4zSDEweiIvPjxwYXRoIGQ9Ik0xNyAyaDIuNjdBMi4zMSAyLjMxIDAgMCAxIDIyIDR2N2EyLjMxIDIuMzEgMCAwIDEtMi4zMyAySDE3Ii8+PC9zdmc+") !important;
 }
 
@@ -940,6 +940,42 @@ sendBtn.onclick = () => {
     setTimeout(() => addMsg('Use the main chat above for full AI responses with maps and downloads.', 'ai'), 800);
 };
 input.addEventListener('keydown', e => { if (e.key === 'Enter') sendBtn.click(); });
+</script>
+""", unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# Toolbar icon injector — JS MutationObserver adds .zmb-icon-N to each button
+# CSS class selectors then apply the SVG background-image reliably
+# ---------------------------------------------------------------------------
+st.markdown("""
+<script id="zmb-icon-init">
+(function() {
+    function zmb_apply_icons() {
+        document.querySelectorAll('.zmb-tb').forEach(function(marker) {
+            var el = marker;
+            for (var depth = 0; depth < 8; depth++) {
+                el = el.parentElement;
+                if (!el) break;
+                var sib = el.nextElementSibling;
+                if (sib) {
+                    var cols = sib.querySelectorAll('[data-testid="stColumn"]');
+                    if (cols.length >= 7) {
+                        for (var i = 0; i < 7; i++) {
+                            var btn = cols[i] && cols[i].querySelector('button');
+                            if (btn && !btn.classList.contains('zmb-icon-set')) {
+                                btn.classList.add('zmb-icon-' + i, 'zmb-icon-set');
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        });
+    }
+    zmb_apply_icons();
+    var _obs = new MutationObserver(function() { setTimeout(zmb_apply_icons, 80); });
+    _obs.observe(document.body, { childList: true, subtree: true });
+})();
 </script>
 """, unsafe_allow_html=True)
 
