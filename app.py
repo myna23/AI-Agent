@@ -647,31 +647,63 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
 .zmb-msg-user { background: #1d3557; color: white; border-radius: 12px 12px 2px 12px; padding: 8px 12px; margin: 6px 0 6px 30px; font-size: 13px; }
 .zmb-msg-ai { background: white; border: 1px solid #dde; border-radius: 12px 12px 12px 2px; padding: 8px 12px; margin: 6px 30px 6px 0; font-size: 13px; }
 
-/* ── Action toolbar (emoji icon buttons below AI answers) ────────────── */
-[data-testid="stChatMessage"] [data-testid="baseButton-secondary"],
-[data-testid="stChatMessage"] [data-testid="baseButton-secondary"]:focus,
-[data-testid="stChatMessage"] [data-testid="stDownloadButton"] button,
-[data-testid="stChatMessage"] [data-testid="stDownloadButton"] button:focus {
-    background: transparent !important;
-    border: 1px solid #e4eaf2 !important;
-    box-shadow: none !important;
-    color: #555 !important;
-    font-size: 1rem !important;
-    padding: 4px 6px !important;
-    min-height: 34px !important;
-    height: 34px !important;
-    width: 34px !important;
+/* ── Action toolbar SVG icon buttons ────────────────────────────────── */
+/* Invisible marker placed immediately before the toolbar columns */
+.zmb-tb { display: none; }
+
+/* Base style for every button in the toolbar — square, no text */
+.element-container:has(.zmb-tb) + .element-container button,
+.element-container:has(.zmb-tb) + .element-container [data-testid="stDownloadButton"] button {
+    background-color: transparent !important;
+    background-repeat: no-repeat !important;
+    background-position: center !important;
+    background-size: 16px 16px !important;
+    border: 1px solid #dde3ed !important;
     border-radius: 6px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    white-space: nowrap !important;
+    box-shadow: none !important;
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0 !important;
+    color: transparent !important;
+    font-size: 0 !important;
     overflow: hidden !important;
 }
-[data-testid="stChatMessage"] [data-testid="baseButton-secondary"]:hover,
-[data-testid="stChatMessage"] [data-testid="stDownloadButton"] button:hover {
-    background: #f0f4f9 !important;
-    border-color: #c0cfe0 !important;
+.element-container:has(.zmb-tb) + .element-container button:hover,
+.element-container:has(.zmb-tb) + .element-container [data-testid="stDownloadButton"] button:hover {
+    background-color: #f0f4f9 !important;
+    border-color: #b0c4d8 !important;
+}
+
+/* ── Per-column SVG icons (Feather/Lucide outline style) ─────────────── */
+/* col 1 = Edit (pencil) */
+.element-container:has(.zmb-tb) + .element-container [data-testid="stColumn"]:nth-child(1) button {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7'/%3E%3Cpath d='M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z'/%3E%3C/svg%3E") !important;
+}
+/* col 2 = Retry (circular arrow) */
+.element-container:has(.zmb-tb) + .element-container [data-testid="stColumn"]:nth-child(2) button {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='1 4 1 10 7 10'/%3E%3Cpath d='M3.51 15a9 9 0 1 0 2.13-9.36L1 10'/%3E%3C/svg%3E") !important;
+}
+/* col 3 = Copy (two overlapping squares) */
+.element-container:has(.zmb-tb) + .element-container [data-testid="stColumn"]:nth-child(3) button {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='9' width='13' height='13' rx='2'/%3E%3Cpath d='M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'/%3E%3C/svg%3E") !important;
+}
+/* col 4 = Save (download arrow) */
+.element-container:has(.zmb-tb) + .element-container [data-testid="stColumn"]:nth-child(4) button {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/%3E%3Cpolyline points='7 10 12 15 17 10'/%3E%3Cline x1='12' y1='15' x2='12' y2='3'/%3E%3C/svg%3E") !important;
+}
+/* col 5 = Delete (trash) */
+.element-container:has(.zmb-tb) + .element-container [data-testid="stColumn"]:nth-child(5) button {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3 6 5 6 21 6'/%3E%3Cpath d='M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6'/%3E%3Cpath d='M10 11v6'/%3E%3Cpath d='M14 11v6'/%3E%3Cpath d='M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2'/%3E%3C/svg%3E") !important;
+}
+/* col 6 = Thumbs up */
+.element-container:has(.zmb-tb) + .element-container [data-testid="stColumn"]:nth-child(6) button {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z'/%3E%3Cpath d='M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3'/%3E%3C/svg%3E") !important;
+}
+/* col 7 = Thumbs down */
+.element-container:has(.zmb-tb) + .element-container [data-testid="stColumn"]:nth-child(7) button {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z'/%3E%3Cpath d='M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17'/%3E%3C/svg%3E") !important;
 }
 
 /* ── Intent badge ───────────────────────────────────────────────────── */
@@ -1820,7 +1852,8 @@ for i, msg in enumerate(st.session_state.messages):
             if msg.get("intent", "chat") == "chat" and msg.get("ds_name"):
                 _render_ondemand_panel(i, msg)
 
-            # Action toolbar — single emoji per button, sized to fit
+            # Action toolbar — marker lets CSS inject SVG icons
+            st.markdown('<div class="zmb-tb"></div>', unsafe_allow_html=True)
             _prev_q_hist = next((m["content"] for m in reversed(st.session_state.messages[:i]) if m["role"] == "user"), "")
             _tool_cols = st.columns([1, 1, 1, 1, 1, 1, 1, 5])
             with _tool_cols[0]:
