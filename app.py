@@ -647,6 +647,45 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
 .zmb-msg-user { background: #1d3557; color: white; border-radius: 12px 12px 2px 12px; padding: 8px 12px; margin: 6px 0 6px 30px; font-size: 13px; }
 .zmb-msg-ai { background: white; border: 1px solid #dde; border-radius: 12px 12px 12px 2px; padding: 8px 12px; margin: 6px 30px 6px 0; font-size: 13px; }
 
+/* ── Action toolbar (Edit / Retry / Copy / Save / Delete) ──────────── */
+.zmb-toolbar [data-testid="baseButton-secondary"],
+[data-testid="stHorizontalBlock"] + [data-testid="stHorizontalBlock"] [data-testid="baseButton-secondary"] {
+    /* fallback — handled below */
+}
+/* Style all secondary buttons inside the action toolbar columns */
+[data-testid="stChatMessage"] [data-testid="baseButton-secondary"],
+[data-testid="stChatMessage"] [data-testid="baseButton-secondary"]:focus {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #8a9bae !important;
+    font-size: 0.75rem !important;
+    font-weight: 500 !important;
+    padding: 2px 4px !important;
+    min-height: unset !important;
+    height: auto !important;
+}
+[data-testid="stChatMessage"] [data-testid="baseButton-secondary"]:hover {
+    color: #1d3557 !important;
+    background: transparent !important;
+}
+[data-testid="stChatMessage"] [data-testid="stDownloadButton"] button,
+[data-testid="stChatMessage"] [data-testid="stDownloadButton"] button:focus {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #8a9bae !important;
+    font-size: 0.75rem !important;
+    font-weight: 500 !important;
+    padding: 2px 4px !important;
+    min-height: unset !important;
+    height: auto !important;
+}
+[data-testid="stChatMessage"] [data-testid="stDownloadButton"] button:hover {
+    color: #1d3557 !important;
+    background: transparent !important;
+}
+
 /* ── Intent badge ───────────────────────────────────────────────────── */
 .intent-badge {
     display: inline-block; font-size: 11px; font-weight: 600;
@@ -753,22 +792,34 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
 [data-testid="stSidebar"] [data-testid="baseButton-primary"]:hover {
     background: #2a6496 !important;
 }
-/* Secondary buttons (chat history items) — plain text menu items */
-[data-testid="stSidebar"] [data-testid="baseButton-secondary"] {
+/* Secondary buttons (chat history items) — plain text, no background box */
+[data-testid="stSidebar"] [data-testid="baseButton-secondary"],
+[data-testid="stSidebar"] [data-testid="baseButton-secondary"]:focus,
+[data-testid="stSidebar"] [data-testid="baseButton-secondary"]:active {
     background: transparent !important;
-    border: 1px solid transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
     color: #c8dff0 !important;
     font-weight: 400 !important;
-    font-size: 0.875rem !important;
+    font-size: 0.83rem !important;
     text-align: left !important;
     justify-content: flex-start !important;
-    padding: 0.3rem 0.6rem !important;
-    border-radius: 8px !important;
+    padding: 0.2rem 0.5rem !important;
+    border-radius: 6px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 [data-testid="stSidebar"] [data-testid="baseButton-secondary"]:hover {
-    background: rgba(255,255,255,0.07) !important;
-    border-color: transparent !important;
+    background: rgba(255,255,255,0.06) !important;
     color: #e8f4ff !important;
+}
+[data-testid="stSidebar"] [data-testid="baseButton-secondary"] p {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
 }
 /* Recents label — plain text, no background */
 .zmb-recents-label {
@@ -973,33 +1024,7 @@ with st.sidebar:
     )
     st.session_state["_lang"] = _lang
 
-    st.divider()
-
-    # New Chat button
-    if st.button("✏️  New Chat", key="new_chat_btn", type="primary", use_container_width=True):
-        _save_current_chat()
-        st.session_state.messages = []
-        st.session_state["_current_chat_id"] = str(_uuid.uuid4())
-        for _k in ["draw_bbox","_draw_counts","_draw_details","_area_sel_name",
-                   "uploaded_doc_text","uploaded_doc_name","uploaded_img_b64","uploaded_img_name"]:
-            st.session_state.pop(_k, None)
-        st.rerun()
-
-    # Recent chats
-    if st.session_state.chat_sessions:
-        st.markdown('<p class="zmb-recents-label">Recents</p>', unsafe_allow_html=True)
-        for _cs in st.session_state.chat_sessions[:15]:
-            _is_active = _cs["id"] == st.session_state.get("_current_chat_id")
-            _btn_label = ("▶  " if _is_active else "") + _cs["title"]
-            if st.button(_btn_label, key=f"hist_{_cs['id']}", use_container_width=True):
-                _save_current_chat()
-                st.session_state.messages = list(_cs["messages"])
-                st.session_state["_current_chat_id"] = _cs["id"]
-                st.rerun()
-
-    st.divider()
-
-    with st.expander("⚖️  Compare Two Areas"):
+    with st.expander("Compare Two Areas"):
         st.caption("Enter two districts/provinces and a topic.")
         _cmp_col1, _cmp_col2 = st.columns(2)
         with _cmp_col1:
@@ -1277,6 +1302,30 @@ with st.sidebar:
                 if not _nearest3 and not _subtypes3 and not _names3:
                     st.caption("No additional details.")
         st.caption("[🔗 Zambia GeoHub](https://zmb-geowb.hub.arcgis.com)")
+
+    st.divider()
+
+    # New Chat button
+    if st.button("New Chat", key="new_chat_btn", type="primary", use_container_width=True):
+        _save_current_chat()
+        st.session_state.messages = []
+        st.session_state["_current_chat_id"] = str(_uuid.uuid4())
+        for _k in ["draw_bbox","_draw_counts","_draw_details","_area_sel_name",
+                   "uploaded_doc_text","uploaded_doc_name","uploaded_img_b64","uploaded_img_name"]:
+            st.session_state.pop(_k, None)
+        st.rerun()
+
+    # Recent chats
+    if st.session_state.chat_sessions:
+        st.markdown('<p class="zmb-recents-label">Recents</p>', unsafe_allow_html=True)
+        for _cs in st.session_state.chat_sessions[:15]:
+            _is_active = _cs["id"] == st.session_state.get("_current_chat_id")
+            _btn_label = ("▶ " if _is_active else "") + _cs["title"]
+            if st.button(_btn_label, key=f"hist_{_cs['id']}", use_container_width=True):
+                _save_current_chat()
+                st.session_state.messages = list(_cs["messages"])
+                st.session_state["_current_chat_id"] = _cs["id"]
+                st.rerun()
 
     # (File upload moved to the ＋ Attach popover next to the chat input)
 
@@ -1626,23 +1675,13 @@ if context_dataset:
 # Welcome screen — shown only on first open (no messages yet)
 # ---------------------------------------------------------------------------
 if not st.session_state.get("messages"):
-    # Nudge user to set an API key when none is configured (local dev only)
-    import os as _os_welcome
-    _welcome_key = _resolve_ai_key(st.session_state.get("ai_provider", DEFAULT_PROVIDER))
-    if not _welcome_key:
-        st.info(
-            "**No API key detected.** Add your API key to the `.env` file to enable AI responses. "
-            "On World Bank Posit Connect the key is set in the Vars tab — nothing to do here.",
-            icon="🔑",
-        )
-
-    # Topic category buttons — clickable, trigger a contextual question
+    # Topic category buttons — at the very top, plain text, no emoji
     _TOPIC_QUESTIONS = {
-        "🏥  Health":          "Show me health facilities across Zambia",
-        "🎓  Education":       "Show me schools across Zambia",
-        "🛣️  Infrastructure":  "Show me roads and infrastructure in Zambia",
-        "🌿  Environment":     "Show me environmental and flood risk data in Zambia",
-        "📄  Reports":         "Generate a report on health facilities in Zambia",
+        "Health":         "Show me health facilities across Zambia",
+        "Education":      "Show me schools across Zambia",
+        "Infrastructure": "Show me roads and infrastructure in Zambia",
+        "Environment":    "Show me environmental and flood risk data in Zambia",
+        "Reports":        "Generate a report on health facilities in Zambia",
     }
     _topic_cols = st.columns(len(_TOPIC_QUESTIONS))
     for _ti, (_tlabel, _tq) in enumerate(_TOPIC_QUESTIONS.items()):
@@ -1652,7 +1691,7 @@ if not st.session_state.get("messages"):
                 st.session_state._pending_question = _tq
                 st.rerun()
 
-    # Hero banner — only visible before any questions are asked
+    # Hero banner
     st.markdown("""
 <div class="zmb-hero">
   <h1>Zambia GeoHub AI Assistant</h1>
@@ -1660,33 +1699,23 @@ if not st.session_state.get("messages"):
 </div>
 """, unsafe_allow_html=True)
 
-    st.markdown("---")
+    # Nudge user to set an API key when none is configured (local dev only)
+    _welcome_key = _resolve_ai_key(st.session_state.get("ai_provider", DEFAULT_PROVIDER))
+    if not _welcome_key:
+        st.info(
+            "**No API key detected.** Add your API key to the `.env` file to enable AI responses. "
+            "On World Bank Posit Connect the key is set in the Vars tab — nothing to do here.",
+            icon="🔑",
+        )
 
-    # Feature cards
-    st.markdown("""
-<div class="zmb-card-grid">
-  <div class="zmb-card">
-    <div class="zmb-card-icon">💬</div>
-    <div class="zmb-card-title">Ask anything</div>
-    <div class="zmb-card-desc">Ask questions about health, education, roads, or any Zambia dataset in plain English.</div>
-  </div>
-  <div class="zmb-card">
-    <div class="zmb-card-icon">📄</div>
-    <div class="zmb-card-title">Generate reports</div>
-    <div class="zmb-card-desc">Say <em>"generate a report on health facilities in Eastern Province"</em> to get a Word/PDF report.</div>
-  </div>
-  <div class="zmb-card">
-    <div class="zmb-card-icon">📐</div>
-    <div class="zmb-card-title">Draw an area</div>
-    <div class="zmb-card-desc">Draw a rectangle on the sidebar map to count features within any custom region.</div>
-  </div>
-  <div class="zmb-card">
-    <div class="zmb-card-icon">⚖️</div>
-    <div class="zmb-card-title">Compare areas</div>
-    <div class="zmb-card-desc">Use <strong>Compare Two Areas</strong> in the sidebar to compare districts side by side.</div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
+    # Compact hint — replaces the large feature cards
+    st.markdown(
+        '<p style="color:#6a8aaa;font-size:0.82rem;margin:10px 0 0 2px;">'
+        'Try: <em>"How many health facilities are in Lusaka?"</em> · '
+        '<em>"Generate a report on schools in Eastern Province"</em> · '
+        'Use <strong>Compare Two Areas</strong> in the sidebar</p>',
+        unsafe_allow_html=True,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1755,15 +1784,15 @@ for i, msg in enumerate(st.session_state.messages):
             if msg.get("intent", "chat") == "chat" and msg.get("ds_name"):
                 _render_ondemand_panel(i, msg)
 
-            # Row 1: compact icon toolbar (left-aligned)
+            # Action toolbar — compact inline row of text buttons
             _prev_q_hist = next((m["content"] for m in reversed(st.session_state.messages[:i]) if m["role"] == "user"), "")
-            _ta, _tb, _tc, _td, _te, _tf, _ = st.columns([0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 8])
-            with _ta:
-                if st.button("✏️", key=f"edit_{i}", help="Edit question"):
+            _tool_cols = st.columns([1, 1, 1, 1, 1, 1, 6])
+            with _tool_cols[0]:
+                if st.button("Edit", key=f"edit_{i}", help="Edit question", use_container_width=True):
                     st.session_state.edit_idx = i - 1
                     st.rerun()
-            with _tb:
-                if st.button("🔄", key=f"regen_{i}", help="Regenerate answer"):
+            with _tool_cols[1]:
+                if st.button("Retry", key=f"regen_{i}", help="Regenerate answer", use_container_width=True):
                     _prev_user = next(
                         (m["content"] for m in reversed(st.session_state.messages[:i])
                          if m["role"] == "user"), None
@@ -1772,43 +1801,43 @@ for i, msg in enumerate(st.session_state.messages):
                         st.session_state.messages = st.session_state.messages[:i - 1]
                         st.session_state._pending_question = _prev_user
                         st.rerun()
-            with _tc:
+            with _tool_cols[2]:
                 _copy_text = msg.get("content", "")
-                st.download_button("📋", _copy_text, file_name="answer.txt",
-                                   mime="text/plain", key=f"copy_{i}", help="Copy answer")
-            with _td:
+                st.download_button("Copy", _copy_text, file_name="answer.txt",
+                                   mime="text/plain", key=f"copy_{i}", help="Copy answer", use_container_width=True)
+            with _tool_cols[3]:
                 _prev_q_save = next((m["content"] for m in reversed(st.session_state.messages[:i]) if m["role"] == "user"), "Question")
                 _save_text = f"Question:\n{_prev_q_save}\n\nAnswer:\n{msg.get('content','')}"
-                st.download_button("💾", _save_text, file_name="saved_answer.txt",
-                                   mime="text/plain", key=f"save_{i}", help="Save answer")
-            with _te:
-                if st.button("🗑️", key=f"clear_{i}", help="Delete this answer"):
+                st.download_button("Save", _save_text, file_name="saved_answer.txt",
+                                   mime="text/plain", key=f"save_{i}", help="Save answer", use_container_width=True)
+            with _tool_cols[4]:
+                if st.button("Delete", key=f"clear_{i}", help="Delete this answer", use_container_width=True):
                     _start = max(0, i - 1)
                     st.session_state.messages = st.session_state.messages[:_start] + st.session_state.messages[i + 1:]
                     st.rerun()
-            with _tf:
+            with _tool_cols[5]:
                 _fb = msg.get("_feedback", "")
                 if _fb == "up":
-                    st.markdown("👍", help="You liked this")
+                    st.caption("👍")
                 elif _fb == "down":
-                    st.markdown("👎", help="You disliked this")
+                    st.caption("👎")
                 else:
-                    _fc1, _fc2 = st.columns(2)
-                    with _fc1:
-                        if st.button("👍", key=f"fb_up_{i}", help="Good answer"):
+                    _fup, _fdn = st.columns(2)
+                    with _fup:
+                        if st.button("👍", key=f"fb_up_{i}", help="Good answer", use_container_width=True):
                             msg["_feedback"] = "up"
                             _fbc = st.session_state.get("_feedback_counts", {"up": 0, "down": 0})
                             _fbc["up"] += 1
                             st.session_state["_feedback_counts"] = _fbc
-                            st.toast("Thanks for the feedback!", icon="👍")
+                            st.toast("Thanks for the feedback!")
                             st.rerun()
-                    with _fc2:
-                        if st.button("👎", key=f"fb_dn_{i}", help="Bad answer"):
+                    with _fdn:
+                        if st.button("👎", key=f"fb_dn_{i}", help="Bad answer", use_container_width=True):
                             msg["_feedback"] = "down"
                             _fbc = st.session_state.get("_feedback_counts", {"up": 0, "down": 0})
                             _fbc["down"] += 1
                             st.session_state["_feedback_counts"] = _fbc
-                            st.toast("Thanks, we'll use this to improve.", icon="👎")
+                            st.toast("Thanks, we'll use this to improve.")
                             st.rerun()
 
             # Row 2: follow-up suggestions — only on the most recent answer
