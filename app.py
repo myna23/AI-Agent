@@ -651,7 +651,7 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
 /* Invisible marker placed immediately before the toolbar columns */
 .zmb-tb { display: none; }
 
-/* Base style for every button in the toolbar — square, no text */
+/* Base style for every button in the toolbar — square SVG icon */
 .element-container:has(.zmb-tb) + .element-container button,
 .element-container:has(.zmb-tb) + .element-container [data-testid="stDownloadButton"] button {
     background-color: transparent !important;
@@ -666,9 +666,11 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
     height: 32px !important;
     min-height: 32px !important;
     padding: 0 !important;
-    color: transparent !important;
-    font-size: 0 !important;
     overflow: hidden !important;
+}
+/* Liked/disliked confirmation tick */
+.zmb-tb-liked {
+    color: #4caf50; font-size: 14px; text-align: center; line-height: 32px;
 }
 .element-container:has(.zmb-tb) + .element-container button:hover,
 .element-container:has(.zmb-tb) + .element-container [data-testid="stDownloadButton"] button:hover {
@@ -1857,11 +1859,11 @@ for i, msg in enumerate(st.session_state.messages):
             _prev_q_hist = next((m["content"] for m in reversed(st.session_state.messages[:i]) if m["role"] == "user"), "")
             _tool_cols = st.columns([1, 1, 1, 1, 1, 1, 1, 5])
             with _tool_cols[0]:
-                if st.button("✏️", key=f"edit_{i}", help="Edit question", use_container_width=True):
+                if st.button("\u00a0", key=f"edit_{i}", help="Edit question", use_container_width=True):
                     st.session_state.edit_idx = i - 1
                     st.rerun()
             with _tool_cols[1]:
-                if st.button("🔁", key=f"regen_{i}", help="Regenerate answer", use_container_width=True):
+                if st.button("\u00a0", key=f"regen_{i}", help="Regenerate answer", use_container_width=True):
                     _prev_user = next(
                         (m["content"] for m in reversed(st.session_state.messages[:i])
                          if m["role"] == "user"), None
@@ -1872,22 +1874,22 @@ for i, msg in enumerate(st.session_state.messages):
                         st.rerun()
             with _tool_cols[2]:
                 _copy_text = msg.get("content", "")
-                st.download_button("📋", _copy_text, file_name="answer.txt",
+                st.download_button("\u00a0", _copy_text, file_name="answer.txt",
                                    mime="text/plain", key=f"copy_{i}", help="Copy answer", use_container_width=True)
             with _tool_cols[3]:
                 _prev_q_save = next((m["content"] for m in reversed(st.session_state.messages[:i]) if m["role"] == "user"), "Question")
                 _save_text = f"Question:\n{_prev_q_save}\n\nAnswer:\n{msg.get('content','')}"
-                st.download_button("💾", _save_text, file_name="saved_answer.txt",
+                st.download_button("\u00a0", _save_text, file_name="saved_answer.txt",
                                    mime="text/plain", key=f"save_{i}", help="Save answer", use_container_width=True)
             with _tool_cols[4]:
-                if st.button("🗑️", key=f"clear_{i}", help="Delete this answer", use_container_width=True):
+                if st.button("\u00a0", key=f"clear_{i}", help="Delete this answer", use_container_width=True):
                     _start = max(0, i - 1)
                     st.session_state.messages = st.session_state.messages[:_start] + st.session_state.messages[i + 1:]
                     st.rerun()
             _fb = msg.get("_feedback", "")
             with _tool_cols[5]:
                 if _fb != "up":
-                    if st.button("👍", key=f"fb_up_{i}", help="Good answer", use_container_width=True):
+                    if st.button("\u00a0", key=f"fb_up_{i}", help="Good answer", use_container_width=True):
                         msg["_feedback"] = "up"
                         _fbc = st.session_state.get("_feedback_counts", {"up": 0, "down": 0})
                         _fbc["up"] += 1
@@ -1895,10 +1897,10 @@ for i, msg in enumerate(st.session_state.messages):
                         st.toast("Thanks for the feedback!")
                         st.rerun()
                 else:
-                    st.markdown("👍")
+                    st.markdown('<div class="zmb-tb-liked">✓</div>', unsafe_allow_html=True)
             with _tool_cols[6]:
                 if _fb != "down":
-                    if st.button("👎", key=f"fb_dn_{i}", help="Bad answer", use_container_width=True):
+                    if st.button("\u00a0", key=f"fb_dn_{i}", help="Bad answer", use_container_width=True):
                         msg["_feedback"] = "down"
                         _fbc = st.session_state.get("_feedback_counts", {"up": 0, "down": 0})
                         _fbc["down"] += 1
@@ -1906,7 +1908,7 @@ for i, msg in enumerate(st.session_state.messages):
                         st.toast("Thanks, we'll use this to improve.")
                         st.rerun()
                 else:
-                    st.markdown("👎")
+                    st.markdown('<div class="zmb-tb-liked">✓</div>', unsafe_allow_html=True)
 
             # Row 2: follow-up suggestions — only on the most recent answer
             if i == _last_assistant_idx and msg.get("intent", "chat") == "chat" and _prev_q_hist:
