@@ -1863,24 +1863,31 @@ _last_assistant_idx = max(
 if st.session_state.get("_draw_map_open"):
     st.markdown("#### Draw Map — Measure Distances & Areas")
     st.caption("Draw toolbar (top-left): polygon, rectangle, circle, line. Measure tool (bottom-left): click then draw for km.")
-    # Use pydeck — built into Streamlit core, no external deps, always renders
+    # Pydeck base map — always renders
     import pydeck as pdk
-    import pandas as _pd_dm
-    _dm_layer = pdk.Layer(
-        "ScatterplotLayer",
-        data=_pd_dm.DataFrame({"lat": [-13.5], "lon": [28.5]}),
-        get_position=["lon", "lat"],
-        get_radius=1,
-        opacity=0,
-    )
     _dm_view = pdk.ViewState(latitude=-13.5, longitude=28.5, zoom=5, pitch=0)
     st.pydeck_chart(pdk.Deck(
-        layers=[_dm_layer],
+        layers=[],
         initial_view_state=_dm_view,
         map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
         tooltip=False,
-    ), use_container_width=True, height=450)
-    st.info("To measure distances: right-click two points on the map and note the coordinates, or use the chat — e.g. 'How far is Lusaka from Ndola?'")
+    ), use_container_width=True, height=400)
+
+    # Draw + measure tools on a separate folium map below
+    st.caption("Draw tools map — use toolbar top-left to draw, measure distances:")
+    _dm2 = folium.Map(location=[-13.5, 28.5], zoom_start=5)
+    Draw(
+        draw_options={
+            "polyline":  {"metric": True},
+            "polygon":   {"metric": True},
+            "circle":    {"metric": True},
+            "rectangle": {"metric": True},
+            "marker":    True,
+            "circlemarker": False,
+        },
+        edit_options={"edit": True},
+    ).add_to(_dm2)
+    st_folium(_dm2, key="draw_map_v3", height=400)
     st.divider()
 
 for i, msg in enumerate(st.session_state.messages):
