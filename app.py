@@ -1865,8 +1865,7 @@ _last_assistant_idx = max(
 # Draw map panel — shown in main area when toggled from sidebar
 # ---------------------------------------------------------------------------
 if st.session_state.get("_draw_map_open"):
-    st.markdown("#### Zambia Map — Click Two Cities to Measure Distance")
-    st.caption("Click a city dot to select it as **From**, click another as **To** — distance line appears instantly.")
+    st.markdown("#### Zambia Map — Distance Measurement")
 
     import pydeck as pdk
     import pandas as _pd_map
@@ -1885,77 +1884,52 @@ if st.session_state.get("_draw_map_open"):
         "Serenje": (-13.23, 30.23), "Senanga": (-16.10, 23.27),
         "Siavonga": (-16.53, 28.72), "Petauke": (-14.25, 31.33),
     }
+    _city_names = sorted(_CITY_COORDS.keys())
 
-    _city_a = st.session_state.get("_map_city_a")
-    _city_b = st.session_state.get("_map_city_b")
+    # Dropdowns to pick two cities
+    _sel_col1, _sel_col2 = st.columns(2)
+    with _sel_col1:
+        _city_a = st.selectbox("From city", ["— select —"] + _city_names, key="map_city_a")
+    with _sel_col2:
+        _city_b = st.selectbox("To city", ["— select —"] + _city_names, key="map_city_b")
 
-    # Color: selected cities highlighted in orange, others dark blue
+    # Build layers
+    _city_a = None if _city_a == "— select —" else _city_a
+    _city_b = None if _city_b == "— select —" else _city_b
+
     _city_df = _pd_map.DataFrame([
         {
             "name": k, "lat": v[0], "lon": v[1],
-            "color": [255, 140, 0] if k in [_city_a, _city_b] else [29, 53, 87],
-            "radius": 14000 if k in [_city_a, _city_b] else 9000,
+            "color": [255, 100, 0] if k in [_city_a, _city_b] else [29, 53, 87],
+            "radius": 16000 if k in [_city_a, _city_b] else 9000,
         }
         for k, v in _CITY_COORDS.items()
     ])
 
-    _layers = [
-        pdk.Layer("ScatterplotLayer", data=_city_df,
-                  get_position=["lon", "lat"],
-                  get_radius="radius",
-                  get_fill_color="color",
-                  pickable=True, auto_highlight=True),
-    ]
+    _layers = [pdk.Layer("ScatterplotLayer", data=_city_df,
+                         get_position=["lon", "lat"], get_radius="radius",
+                         get_fill_color="color", pickable=True)]
 
-    # Draw line between selected cities
-    if _city_a and _city_b and _city_a in _CITY_COORDS and _city_b in _CITY_COORDS:
+    if _city_a and _city_b:
         _ca, _cb = _CITY_COORDS[_city_a], _CITY_COORDS[_city_b]
-        _line_df = _pd_map.DataFrame([{
-            "from": [_ca[1], _ca[0]], "to": [_cb[1], _cb[0]]
-        }])
+        _line_df = _pd_map.DataFrame([{"from": [_ca[1], _ca[0]], "to": [_cb[1], _cb[0]]}])
         _layers.append(pdk.Layer("LineLayer", data=_line_df,
-                                 get_source_position="from",
-                                 get_target_position="to",
-                                 get_color=[220, 50, 50],
-                                 get_width=4))
+                                 get_source_position="from", get_target_position="to",
+                                 get_color=[220, 50, 50], get_width=5))
 
-    _map_event = st.pydeck_chart(
-        pdk.Deck(
-            layers=_layers,
-            initial_view_state=pdk.ViewState(latitude=-13.5, longitude=28.5, zoom=5, pitch=0),
-            map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-            tooltip={"text": "{name}"},
-        ),
-        use_container_width=True, height=430,
-        on_select="rerun", selection_mode="single-object",
-    )
+    st.pydeck_chart(pdk.Deck(
+        layers=_layers,
+        initial_view_state=pdk.ViewState(latitude=-13.5, longitude=28.5, zoom=5, pitch=0),
+        map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+        tooltip={"text": "{name}"},
+    ), use_container_width=True, height=430)
 
-    # Handle click — first click = city A, second = city B, third resets
-    _clicked = (_map_event.selection.get("objects", {}).get("ScatterplotLayer") or [None])[0] if hasattr(_map_event, "selection") else None
-    if _clicked:
-        _clicked_name = _clicked.get("name")
-        if not _city_a:
-            st.session_state["_map_city_a"] = _clicked_name
-            st.session_state.pop("_map_city_b", None)
-        elif not _city_b and _clicked_name != _city_a:
-            st.session_state["_map_city_b"] = _clicked_name
-        else:
-            st.session_state["_map_city_a"] = _clicked_name
-            st.session_state.pop("_map_city_b", None)
-
-    # Show result
-    if _city_a and not _city_b:
-        st.info(f"**{_city_a}** selected. Now click a second city.")
-    elif _city_a and _city_b and _city_a in _CITY_COORDS and _city_b in _CITY_COORDS:
+    if _city_a and _city_b:
         _d = haversine_km(_CITY_COORDS[_city_a][0], _CITY_COORDS[_city_a][1],
                           _CITY_COORDS[_city_b][0], _CITY_COORDS[_city_b][1])
-        st.success(f"**{_city_a}** → **{_city_b}**: {_d:.1f} km straight line")
-        if st.button("Reset", key="reset_map_sel"):
-            st.session_state.pop("_map_city_a", None)
-            st.session_state.pop("_map_city_b", None)
-            st.rerun()
-    else:
-        st.caption("Click any city dot on the map to start.")
+        st.success(f"**{_city_a}** → **{_city_b}**: **{_d:.1f} km** straight line")
+    elif _city_a:
+        st.info(f"**{_city_a}** selected — now pick a second city above.")
 
     st.divider()
 
