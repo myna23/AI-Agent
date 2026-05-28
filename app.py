@@ -1927,9 +1927,64 @@ if st.session_state.get("_draw_map_open"):
     if _city_a and _city_b:
         _d = haversine_km(_CITY_COORDS[_city_a][0], _CITY_COORDS[_city_a][1],
                           _CITY_COORDS[_city_b][0], _CITY_COORDS[_city_b][1])
-        st.success(f"**{_city_a}** → **{_city_b}**: **{_d:.1f} km** straight line")
+        _road_est = _d * 1.3
+        st.success(f"**{_city_a}** → **{_city_b}**: **{_d:.1f} km** straight line · ~{_road_est:.0f} km by road")
     elif _city_a:
         st.info(f"**{_city_a}** selected — now pick a second city above.")
+
+    # ── Radius tool ────────────────────────────────────────────────────────
+    st.markdown("**Radius tool — which cities are within X km of a location?**")
+    _r1, _r2, _r3 = st.columns([2, 2, 1])
+    with _r1:
+        _rad_city = st.selectbox("Centre city", ["— select —"] + _city_names, key="rad_city")
+    with _r2:
+        _rad_km = st.slider("Radius (km)", 50, 600, 150, step=25, key="rad_km")
+    with _r3:
+        st.markdown("<div style='margin-top:28px'></div>", unsafe_allow_html=True)
+
+    _rad_city = None if _rad_city == "— select —" else _rad_city
+    if _rad_city:
+        _rc = _CITY_COORDS[_rad_city]
+        # Find cities within radius
+        _within = sorted([
+            (haversine_km(_rc[0], _rc[1], v[0], v[1]), k)
+            for k, v in _CITY_COORDS.items() if k != _rad_city
+        ])
+        _inside = [(d, c) for d, c in _within if d <= _rad_km]
+
+        # Build circle layer using many points
+        import math as _math
+        _circle_pts = _pd_map.DataFrame([{
+            "lon": _rc[1] + (_rad_km / 111) * _math.cos(_math.radians(a)) / _math.cos(_math.radians(_rc[0])),
+            "lat": _rc[0] + (_rad_km / 111) * _math.sin(_math.radians(a)),
+        } for a in range(0, 361, 5)])
+
+        _rad_city_df = _pd_map.DataFrame([
+            {"name": k, "lat": v[0], "lon": v[1],
+             "color": [220, 50, 50] if k == _rad_city else ([0, 160, 80] if any(c == k for _, c in _inside) else [29, 53, 87]),
+             "radius": 18000 if k == _rad_city else 10000}
+            for k, v in _CITY_COORDS.items()
+        ])
+        _rad_layers = [
+            pdk.Layer("ScatterplotLayer", data=_rad_city_df,
+                      get_position=["lon", "lat"], get_radius="radius",
+                      get_fill_color="color", pickable=True),
+            pdk.Layer("ScatterplotLayer", data=_circle_pts,
+                      get_position=["lon", "lat"], get_radius=3000,
+                      get_fill_color=[220, 50, 50, 60]),
+        ]
+        st.pydeck_chart(pdk.Deck(
+            layers=_rad_layers,
+            initial_view_state=pdk.ViewState(latitude=_rc[0], longitude=_rc[1], zoom=5, pitch=0),
+            map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+            tooltip={"text": "{name}"},
+        ), use_container_width=True, height=380)
+
+        if _inside:
+            st.success(f"**{len(_inside)} cities within {_rad_km} km of {_rad_city}:** " +
+                       ", ".join(f"{c} ({d:.0f} km)" for d, c in _inside))
+        else:
+            st.warning(f"No other cities within {_rad_km} km of {_rad_city}.")
 
     st.divider()
 
