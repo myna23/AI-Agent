@@ -1863,26 +1863,43 @@ _last_assistant_idx = max(
 if st.session_state.get("_draw_map_open"):
     st.markdown("#### Draw Map — Measure Distances & Areas")
     st.caption("Draw toolbar (top-left): polygon, rectangle, circle, line. Measure tool (bottom-left): click then draw for km.")
-    _dm = folium.Map(location=[-13.5, 28.5], zoom_start=5, tiles="CartoDB positron")
-    Draw(
-        draw_options={
-            "polyline": {"metric": True},
-            "polygon":  {"metric": True},
-            "circle":   {"metric": True},
-            "rectangle":{"metric": True},
-            "marker":   True,
-            "circlemarker": False,
-        },
-        edit_options={"edit": True},
-    ).add_to(_dm)
-    MeasureControl(
-        position="bottomleft",
-        primary_length_unit="kilometers",
-        secondary_length_unit="meters",
-        primary_area_unit="sqkilometers",
-    ).add_to(_dm)
-    st_folium(_dm, key="main_draw_map", use_container_width=True, height=450,
-              returned_objects=[])
+    try:
+        _dm = folium.Map(location=[-13.5, 28.5], zoom_start=5, tiles="CartoDB positron")
+        Draw(
+            draw_options={
+                "polyline": {"metric": True},
+                "polygon":  {"metric": True},
+                "circle":   {"metric": True},
+                "rectangle":{"metric": True},
+                "marker":   True,
+                "circlemarker": False,
+            },
+            edit_options={"edit": True},
+        ).add_to(_dm)
+        MeasureControl(
+            position="bottomleft",
+            primary_length_unit="kilometers",
+            secondary_length_unit="meters",
+            primary_area_unit="sqkilometers",
+        ).add_to(_dm)
+        st_folium(_dm, key="main_draw_map", width=900, height=450, returned_objects=[])
+    except Exception as _e:
+        st.error(f"Map error: {_e}")
+        import streamlit.components.v1 as _stc2
+        _stc2.html("""<!DOCTYPE html><html><head>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
+<style>*{margin:0;padding:0}html,body,#m{width:100%;height:450px}</style>
+</head><body><div id="m"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script>
+var map=L.map('m').setView([-13.5,28.5],5);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'OSM'}).addTo(map);
+var items=new L.FeatureGroup();map.addLayer(items);
+map.addControl(new L.Control.Draw({edit:{featureGroup:items},draw:{polyline:{metric:true},polygon:{metric:true},rectangle:{metric:true},circle:{metric:true},marker:true,circlemarker:false}}));
+map.on(L.Draw.Event.CREATED,function(e){items.addLayer(e.layer);if(e.layerType==='circle'){e.layer.bindPopup('Radius: '+(e.layer.getRadius()/1000).toFixed(2)+' km').openPopup();}if(e.layerType==='polyline'){var ll=e.layer.getLatLngs(),d=0;for(var i=1;i<ll.length;i++)d+=ll[i-1].distanceTo(ll[i]);e.layer.bindPopup('Length: '+(d/1000).toFixed(2)+' km').openPopup();}});
+</script></body></html>""", height=460)
     st.divider()
 
 for i, msg in enumerate(st.session_state.messages):
