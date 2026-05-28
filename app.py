@@ -3418,6 +3418,105 @@ if hasattr(st.session_state, "_pending_question") and st.session_state._pending_
 
 
 # ---------------------------------------------------------------------------
+# Voice input — floating mic button using Web Speech API
+# ---------------------------------------------------------------------------
+import streamlit.components.v1 as _components
+
+_voice_html = """
+<style>
+#zmb-mic-wrap {
+    position: fixed;
+    bottom: 72px;
+    right: 18px;
+    z-index: 9999;
+}
+#zmb-mic {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    border: none;
+    background: #1d3557;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+}
+#zmb-mic.listening { background: #c0392b; animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,0.5)} 50%{box-shadow:0 0 0 8px rgba(192,57,43,0)} }
+#zmb-mic-status {
+    position: fixed; bottom: 120px; right: 14px;
+    background: #1d3557; color: white;
+    font-size: 12px; padding: 4px 10px; border-radius: 12px;
+    display: none; z-index: 9999;
+}
+</style>
+<div id="zmb-mic-wrap">
+  <div id="zmb-mic-status">Listening…</div>
+  <button id="zmb-mic" title="Voice input">🎤</button>
+</div>
+<script>
+(function(){
+  const btn = document.getElementById('zmb-mic');
+  const status = document.getElementById('zmb-mic-status');
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    btn.title = 'Voice not supported in this browser';
+    btn.style.opacity = '0.4';
+    return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const rec = new SR();
+  rec.lang = 'en-US';
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+  let active = false;
+
+  btn.addEventListener('click', () => {
+    if (active) { rec.stop(); return; }
+    rec.start();
+  });
+
+  rec.onstart = () => {
+    active = true;
+    btn.classList.add('listening');
+    btn.textContent = '⏹';
+    status.style.display = 'block';
+  };
+  rec.onend = () => {
+    active = false;
+    btn.classList.remove('listening');
+    btn.textContent = '🎤';
+    status.style.display = 'none';
+  };
+  rec.onerror = (e) => {
+    active = false;
+    btn.classList.remove('listening');
+    btn.textContent = '🎤';
+    status.style.display = 'none';
+  };
+  rec.onresult = (e) => {
+    const transcript = e.results[0][0].transcript;
+    // Find Streamlit chat input and inject the transcript
+    const tryInject = (attempts) => {
+      const inputs = window.parent.document.querySelectorAll('textarea[data-testid="stChatInputTextArea"]');
+      if (inputs.length > 0) {
+        const inp = inputs[0];
+        const nativeSetter = Object.getOwnPropertyDescriptor(window.parent.HTMLTextAreaElement.prototype, 'value').set;
+        nativeSetter.call(inp, transcript);
+        inp.dispatchEvent(new Event('input', { bubbles: true }));
+        inp.focus();
+      } else if (attempts > 0) {
+        setTimeout(() => tryInject(attempts - 1), 200);
+      }
+    };
+    tryInject(5);
+  };
+})();
+</script>
+"""
+_components.html(_voice_html, height=0)
+
+# ---------------------------------------------------------------------------
 # Chat input — paperclip built into bar via accept_file
 # ---------------------------------------------------------------------------
 _chat_placeholder = (
