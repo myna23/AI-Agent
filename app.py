@@ -1859,19 +1859,29 @@ _last_assistant_idx = max(
 # Draw map panel — shown in main area when toggled from sidebar
 # ---------------------------------------------------------------------------
 if st.session_state.get("_draw_map_open"):
-    st.markdown("#### Zambia Map — Distance Calculator")
-    # Interactive Zambia map
-    import pydeck as pdk
-    _dm_view = pdk.ViewState(latitude=-13.5, longitude=28.5, zoom=5, pitch=0)
-    st.pydeck_chart(pdk.Deck(
-        layers=[],
-        initial_view_state=_dm_view,
-        map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-        tooltip=False,
-    ), use_container_width=True, height=420)
+    st.markdown("#### Zambia Map — Draw & Measure")
+    st.caption("Use the draw toolbar on the left of the map to draw shapes. Click a shape after drawing to see its size/distance.")
 
-    # Distance calculator
-    st.markdown("**Measure distance between two locations:**")
+    # folium + Draw — bare minimum, no extra params that cause silent failure
+    import folium as _folium
+    from folium.plugins import Draw as _Draw
+    _dm = _folium.Map(location=[-13.5, 28.5], zoom_start=5, tiles="CartoDB positron")
+    _Draw(
+        draw_options={
+            "polyline":   {"metric": True, "showLength": True},
+            "polygon":    {"metric": True, "showArea": True},
+            "circle":     {"metric": True},
+            "rectangle":  {"metric": True, "showArea": True},
+            "marker":     True,
+            "circlemarker": False,
+        },
+        edit_options={"edit": True},
+    ).add_to(_dm)
+    st_folium(_dm, height=480)
+
+    st.divider()
+    # Distance calculator as a fallback for typing-based queries
+    st.markdown("**Or type to calculate distance:**")
     _dc1, _dc2, _dc3 = st.columns([2, 2, 1])
     with _dc1:
         _loc_a = st.text_input("From", placeholder="e.g. Lusaka", key="dist_from", label_visibility="collapsed")
@@ -1880,7 +1890,6 @@ if st.session_state.get("_draw_map_open"):
     with _dc3:
         _calc_dist = st.button("Calculate", key="calc_dist_btn", use_container_width=True)
     if _calc_dist and _loc_a.strip() and _loc_b.strip():
-        # Known Zambian city coordinates
         _CITY_COORDS = {
             "lusaka": (-15.42, 28.28), "ndola": (-12.97, 28.64),
             "kitwe": (-12.80, 28.21), "livingstone": (-17.85, 25.87),
@@ -1898,7 +1907,6 @@ if st.session_state.get("_draw_map_open"):
             _dist = haversine_km(_ca[0], _ca[1], _cb[0], _cb[1])
             st.success(f"{_loc_a.strip().title()} → {_loc_b.strip().title()}: **{_dist:.1f} km** (straight line)")
         else:
-            # Fall back to AI chat
             st.session_state._pending_question = f"How far is {_loc_a.strip()} from {_loc_b.strip()} in Zambia? Give distance in km."
             st.rerun()
     st.divider()
