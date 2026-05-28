@@ -1865,25 +1865,44 @@ _last_assistant_idx = max(
 # Draw map panel — shown in main area when toggled from sidebar
 # ---------------------------------------------------------------------------
 if st.session_state.get("_draw_map_open"):
-    st.markdown("#### Zambia Map — Draw & Measure")
-    st.caption("Use the draw toolbar on the left of the map to draw shapes. Click a shape after drawing to see its size/distance.")
+    st.markdown("#### Zambia Map — Distance Calculator")
 
-    # folium + Draw — bare minimum, no extra params that cause silent failure
-    import folium as _folium
-    from folium.plugins import Draw as _Draw
-    _dm = _folium.Map(location=[-13.5, 28.5], zoom_start=5, tiles="CartoDB positron")
-    _Draw(
-        draw_options={
-            "polyline":   {"metric": True, "showLength": True},
-            "polygon":    {"metric": True, "showArea": True},
-            "circle":     {"metric": True},
-            "rectangle":  {"metric": True, "showArea": True},
-            "marker":     True,
-            "circlemarker": False,
-        },
-        edit_options={"edit": True},
-    ).add_to(_dm)
-    st_folium(_dm, key="draw_tool_map", height=480)
+    import pydeck as pdk
+    _CITY_COORDS = {
+        "lusaka":        (-15.42, 28.28), "ndola":          (-12.97, 28.64),
+        "kitwe":         (-12.80, 28.21), "livingstone":    (-17.85, 25.87),
+        "chipata":       (-13.64, 32.65), "solwezi":        (-12.17, 26.40),
+        "kasama":        (-10.21, 31.18), "mansa":          (-11.09, 28.89),
+        "mongu":         (-15.28, 23.12), "kabwe":          (-14.44, 28.45),
+        "chingola":      (-12.52, 27.87), "mufulira":       (-12.55, 28.24),
+        "luanshya":      (-13.13, 28.40), "mazabuka":       (-15.86, 27.76),
+        "choma":         (-16.80, 26.97), "kafue":          (-15.77, 28.18),
+        "kapiri mposhi": (-13.97, 28.69), "mpika":          (-11.90, 31.45),
+        "nakonde":       (-9.33,  32.75), "samfya":         (-11.37, 29.55),
+        "serenje":       (-13.23, 30.23), "senanga":        (-16.10, 23.27),
+        "siavonga":      (-16.53, 28.72), "petauke":        (-14.25, 31.33),
+    }
+    # Dot layer — all major cities
+    import pandas as _pd_cities
+    _city_df = _pd_cities.DataFrame([
+        {"name": k.title(), "lat": v[0], "lon": v[1]}
+        for k, v in _CITY_COORDS.items()
+    ])
+    _city_layer = pdk.Layer(
+        "ScatterplotLayer",
+        data=_city_df,
+        get_position=["lon", "lat"],
+        get_radius=8000,
+        get_fill_color=[29, 53, 87, 220],
+        pickable=True,
+    )
+    st.pydeck_chart(pdk.Deck(
+        layers=[_city_layer],
+        initial_view_state=pdk.ViewState(latitude=-13.5, longitude=28.5, zoom=5, pitch=0),
+        map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+        tooltip={"text": "{name}"},
+    ), use_container_width=True, height=420)
+    st.caption("Hover over dots to see city names.")
 
     st.divider()
     # Distance calculator as a fallback for typing-based queries
