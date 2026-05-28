@@ -12,8 +12,6 @@ Run locally:
 """
 
 import streamlit as st
-import folium
-from folium.plugins import Draw, MeasureControl
 from streamlit_folium import st_folium
 
 from hub.client import HubClient
@@ -1863,7 +1861,7 @@ _last_assistant_idx = max(
 if st.session_state.get("_draw_map_open"):
     st.markdown("#### Draw Map — Measure Distances & Areas")
     st.caption("Draw toolbar (top-left): polygon, rectangle, circle, line. Measure tool (bottom-left): click then draw for km.")
-    # Pydeck base map — always renders
+    # Interactive Zambia map
     import pydeck as pdk
     _dm_view = pdk.ViewState(latitude=-13.5, longitude=28.5, zoom=5, pitch=0)
     st.pydeck_chart(pdk.Deck(
@@ -1871,23 +1869,39 @@ if st.session_state.get("_draw_map_open"):
         initial_view_state=_dm_view,
         map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
         tooltip=False,
-    ), use_container_width=True, height=400)
+    ), use_container_width=True, height=420)
 
-    # Draw + measure tools on a separate folium map below
-    st.caption("Draw tools map — use toolbar top-left to draw, measure distances:")
-    _dm2 = folium.Map(location=[-13.5, 28.5], zoom_start=5)
-    Draw(
-        draw_options={
-            "polyline":  {"metric": True},
-            "polygon":   {"metric": True},
-            "circle":    {"metric": True},
-            "rectangle": {"metric": True},
-            "marker":    True,
-            "circlemarker": False,
-        },
-        edit_options={"edit": True},
-    ).add_to(_dm2)
-    st_folium(_dm2, key="draw_map_v3", height=400)
+    # Distance calculator
+    st.markdown("**Measure distance between two locations:**")
+    _dc1, _dc2, _dc3 = st.columns([2, 2, 1])
+    with _dc1:
+        _loc_a = st.text_input("From", placeholder="e.g. Lusaka", key="dist_from", label_visibility="collapsed")
+    with _dc2:
+        _loc_b = st.text_input("To", placeholder="e.g. Ndola", key="dist_to", label_visibility="collapsed")
+    with _dc3:
+        _calc_dist = st.button("Calculate", key="calc_dist_btn", use_container_width=True)
+    if _calc_dist and _loc_a.strip() and _loc_b.strip():
+        # Known Zambian city coordinates
+        _CITY_COORDS = {
+            "lusaka": (-15.42, 28.28), "ndola": (-12.97, 28.64),
+            "kitwe": (-12.80, 28.21), "livingstone": (-17.85, 25.87),
+            "chipata": (-13.64, 32.65), "solwezi": (-12.17, 26.40),
+            "kasama": (-10.21, 31.18), "mansa": (-11.09, 28.89),
+            "mongu": (-15.28, 23.12), "kabwe": (-14.44, 28.45),
+            "chingola": (-12.52, 27.87), "mufulira": (-12.55, 28.24),
+            "luanshya": (-13.13, 28.40), "mazabuka": (-15.86, 27.76),
+            "choma": (-16.80, 26.97), "kafue": (-15.77, 28.18),
+            "kapiri mposhi": (-13.97, 28.69), "mpika": (-11.90, 31.45),
+        }
+        _ca = _CITY_COORDS.get(_loc_a.strip().lower())
+        _cb = _CITY_COORDS.get(_loc_b.strip().lower())
+        if _ca and _cb:
+            _dist = haversine_km(_ca[0], _ca[1], _cb[0], _cb[1])
+            st.success(f"{_loc_a.strip().title()} → {_loc_b.strip().title()}: **{_dist:.1f} km** (straight line)")
+        else:
+            # Fall back to AI chat
+            st.session_state._pending_question = f"How far is {_loc_a.strip()} from {_loc_b.strip()} in Zambia? Give distance in km."
+            st.rerun()
     st.divider()
 
 for i, msg in enumerate(st.session_state.messages):
