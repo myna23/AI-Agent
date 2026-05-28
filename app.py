@@ -1196,7 +1196,7 @@ with st.sidebar:
         # Draw map — toggle button opens the map in the main content area
         _draw_open = st.session_state.get("_draw_map_open", False)
         if st.button(
-            "Close Draw Map" if _draw_open else "Open Draw Map",
+            "Close Map" if _draw_open else "Open Map & Distance Tool",
             key="toggle_draw_map", use_container_width=True
         ):
             st.session_state["_draw_map_open"] = not _draw_open
@@ -1859,8 +1859,7 @@ _last_assistant_idx = max(
 # Draw map panel — shown in main area when toggled from sidebar
 # ---------------------------------------------------------------------------
 if st.session_state.get("_draw_map_open"):
-    st.markdown("#### Draw Map — Measure Distances & Areas")
-    st.caption("Draw toolbar (top-left): polygon, rectangle, circle, line. Measure tool (bottom-left): click then draw for km.")
+    st.markdown("#### Zambia Map — Distance Calculator")
     # Interactive Zambia map
     import pydeck as pdk
     _dm_view = pdk.ViewState(latitude=-13.5, longitude=28.5, zoom=5, pitch=0)
