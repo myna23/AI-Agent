@@ -40,6 +40,48 @@ import io as _io_mod
 import math
 
 # ---------------------------------------------------------------------------
+# Map helper functions — road routing (OSRM) + elevation (Open-Elevation)
+# ---------------------------------------------------------------------------
+@st.cache_data(show_spinner=False, ttl=3600)
+def _osrm_route(lon1, lat1, lon2, lat2):
+    """Return (road_km, drive_seconds) from public OSRM, or None on failure."""
+    import requests as _req
+    try:
+        url = (f"http://router.project-osrm.org/route/v1/driving/"
+               f"{lon1},{lat1};{lon2},{lat2}?overview=false")
+        r = _req.get(url, timeout=8)
+        data = r.json()
+        if data.get("code") == "Ok":
+            leg = data["routes"][0]
+            return leg["distance"] / 1000, leg["duration"]
+    except Exception:
+        pass
+    return None, None
+
+@st.cache_data(show_spinner=False, ttl=86400)
+def _get_elevations(locations):
+    """Return list of elevations (metres) for [(lat,lon),...], or None on failure."""
+    import requests as _req
+    try:
+        payload = {"locations": [{"latitude": la, "longitude": lo} for la, lo in locations]}
+        r = _req.post("https://api.open-elevation.com/api/v1/lookup",
+                      json=payload, timeout=10)
+        return [res["elevation"] for res in r.json()["results"]]
+    except Exception:
+        return None
+
+def _compass(bearing_deg):
+    dirs = ["N","NE","E","SE","S","SW","W","NW"]
+    return dirs[round(bearing_deg / 45) % 8]
+
+def _bearing(lat1, lon1, lat2, lon2):
+    import math as _m
+    la1, lo1, la2, lo2 = map(_m.radians, [lat1, lon1, lat2, lon2])
+    x = _m.sin(lo2 - lo1) * _m.cos(la2)
+    y = _m.cos(la1) * _m.sin(la2) - _m.sin(la1) * _m.cos(la2) * _m.cos(lo2 - lo1)
+    return (_m.degrees(_m.atan2(x, y)) + 360) % 360
+
+# ---------------------------------------------------------------------------
 # Toolbar icon SVGs — inline, rendered directly in HTML (no JS/CSS tricks)
 # ---------------------------------------------------------------------------
 _S = 'width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'
@@ -1920,6 +1962,14 @@ if st.session_state.get("_draw_map_open"):
                                      get_source_position="from", get_target_position="to",
                                      get_color=[220, 50, 50], get_width=5))
 
+        # Midpoint dot
+        if _city_a and _city_b:
+            _mid_lat, _mid_lon = (_ca[0] + _cb[0]) / 2, (_ca[1] + _cb[1]) / 2
+            _mid_df = _pd_map.DataFrame([{"name": "Midpoint", "lat": _mid_lat, "lon": _mid_lon}])
+            _layers.append(pdk.Layer("ScatterplotLayer", data=_mid_df,
+                                     get_position=["lon", "lat"], get_radius=12000,
+                                     get_fill_color=[80, 200, 120]))
+
         st.pydeck_chart(pdk.Deck(
             layers=_layers,
             initial_view_state=pdk.ViewState(latitude=-13.5, longitude=28.5, zoom=5, pitch=0),
@@ -1928,10 +1978,41 @@ if st.session_state.get("_draw_map_open"):
         ), use_container_width=True, height=430)
 
         if _city_a and _city_b:
-            _d = haversine_km(_CITY_COORDS[_city_a][0], _CITY_COORDS[_city_a][1],
-                              _CITY_COORDS[_city_b][0], _CITY_COORDS[_city_b][1])
-            _road_est = _d * 1.3
-            st.success(f"**{_city_a}** → **{_city_b}**: **{_d:.1f} km** straight line · ~{_road_est:.0f} km by road")
+            _ca, _cb = _CITY_COORDS[_city_a], _CITY_COORDS[_city_b]
+            _d = haversine_km(_ca[0], _ca[1], _cb[0], _cb[1])
+            _brng = _bearing(_ca[0], _ca[1], _cb[0], _cb[1])
+            _dir = _compass(_brng)
+
+            # Road distance + drive time via OSRM
+            with st.spinner("Fetching road distance…"):
+                _road_km, _drive_sec = _osrm_route(_ca[1], _ca[0], _cb[1], _cb[0])
+
+            # Elevation for both cities
+            with st.spinner("Fetching elevation…"):
+                _elevs = _get_elevations([(_ca[0], _ca[1]), (_cb[0], _cb[1])])
+
+            # Results grid
+            _mc1, _mc2, _mc3 = st.columns(3)
+            with _mc1:
+                st.metric("Straight-line distance", f"{_d:.1f} km")
+                if _road_km:
+                    st.metric("Road distance (OSRM)", f"{_road_km:.1f} km")
+                else:
+                    st.metric("Road estimate", f"{_d * 1.3:.0f} km", help="×1.3 fallback — OSRM unavailable")
+            with _mc2:
+                st.metric("Direction", f"{_dir} ({_brng:.0f}°)",
+                          help=f"{_city_a} → {_city_b} compass bearing")
+                st.metric("Midpoint coords", f"{_mid_lat:.2f}°N, {_mid_lon:.2f}°E")
+            with _mc3:
+                if _drive_sec:
+                    _hrs = int(_drive_sec // 3600)
+                    _mins = int((_drive_sec % 3600) // 60)
+                    st.metric("Drive time (car ~80 km/h)", f"{_hrs}h {_mins}m" if _hrs else f"{_mins} min")
+                    _bus_min = int(_road_km / 55 * 60) if _road_km else int(_d * 1.3 / 55 * 60)
+                    st.metric("Bus estimate (~55 km/h)", f"{_bus_min // 60}h {_bus_min % 60}m")
+                if _elevs:
+                    st.metric(f"Elevation — {_city_a}", f"{_elevs[0]:,} m")
+                    st.metric(f"Elevation — {_city_b}", f"{_elevs[1]:,} m")
         elif _city_a:
             st.info(f"**{_city_a}** selected — now pick a second city.")
 
