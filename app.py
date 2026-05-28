@@ -12,8 +12,6 @@ Run locally:
 """
 
 import streamlit as st
-import folium
-from folium.plugins import Draw, MeasureControl
 from streamlit_folium import st_folium
 
 from hub.client import HubClient
@@ -1862,50 +1860,31 @@ _last_assistant_idx = max(
 # ---------------------------------------------------------------------------
 if st.session_state.get("_draw_map_open"):
     st.markdown("#### Draw Map — Measure Distances & Areas")
-    st.caption("Use the toolbar (top-left) to draw shapes. Circles show radius in km on click.")
-    _dm = folium.Map(location=[-13.5, 28.5], zoom_start=5, tiles="CartoDB positron")
-    Draw(
-        export=False,
-        draw_options={
-            "polyline":  {"metric": True},
-            "polygon":   {"metric": True},
-            "circle":    {"metric": True},
-            "rectangle": {"metric": True},
-            "marker":    True,
-            "circlemarker": False,
-        },
-        edit_options={"edit": True},
-    ).add_to(_dm)
-    MeasureControl(
-        position="bottomleft",
-        primary_length_unit="kilometers",
-        secondary_length_unit="meters",
-        primary_area_unit="sqkilometers",
-    ).add_to(_dm)
-    _dm_result = st_folium(_dm, key="main_draw_map", use_container_width=True, height=450,
-                           returned_objects=["last_active_drawing"])
-    _dm_drawn = (_dm_result or {}).get("last_active_drawing")
-    if _dm_drawn:
-        try:
-            _gm = _dm_drawn.get("geometry", {})
-            _fc = []
-            def _fl(c):
-                if c and isinstance(c[0], (int, float)): _fc.append(c)
-                elif c:
-                    for x in c: _fl(x)
-            _fl(_gm.get("coordinates", []))
-            if _fc:
-                _lo = [c[0] for c in _fc]; _la = [c[1] for c in _fc]
-                st.session_state["draw_bbox"] = {
-                    "min_lat": min(_la), "max_lat": max(_la),
-                    "min_lon": min(_lo), "max_lon": max(_lo),
-                    "measurement": "Drawn area",
-                }
-                _w = haversine_km(min(_la), min(_lo), min(_la), max(_lo))
-                _h = haversine_km(min(_la), min(_lo), max(_la), min(_lo))
-                st.success(f"Area selected: ~{_w:.1f} km wide × {_h:.1f} km tall ({_w*_h:.0f} km²)")
-        except Exception:
-            pass
+    st.caption("Toolbar top-left: draw polygon, rectangle, circle, line. Measure tool bottom-left: click then draw for distances in km.")
+    import streamlit.components.v1 as _stc
+    _stc.html("""<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
+<style>*{margin:0;padding:0}body,html{width:100%;height:450px}#m{width:100%;height:450px}</style>
+</head><body><div id="m"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script>
+var map=L.map('m').setView([-13.5,28.5],5);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OSM'}).addTo(map);
+var items=new L.FeatureGroup();map.addLayer(items);
+map.addControl(new L.Control.Draw({edit:{featureGroup:items},draw:{polyline:{shapeOptions:{color:'#1d3557'},metric:true},polygon:{shapeOptions:{color:'#1d3557'},metric:true},rectangle:{shapeOptions:{color:'#1d3557'},metric:true},circle:{shapeOptions:{color:'#1d3557'},metric:true},marker:true,circlemarker:false}}));
+map.on(L.Draw.Event.CREATED,function(e){
+  items.addLayer(e.layer);
+  if(e.layerType==='circle'){e.layer.bindPopup('Radius: '+(e.layer.getRadius()/1000).toFixed(2)+' km').openPopup();}
+  if(e.layerType==='polyline'){
+    var ll=e.layer.getLatLngs(),d=0;
+    for(var i=1;i<ll.length;i++)d+=ll[i-1].distanceTo(ll[i]);
+    e.layer.bindPopup('Length: '+(d/1000).toFixed(2)+' km').openPopup();
+  }
+});
+</script></body></html>""", height=460)
     st.divider()
 
 for i, msg in enumerate(st.session_state.messages):
