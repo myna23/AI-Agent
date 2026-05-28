@@ -1195,46 +1195,14 @@ with st.sidebar:
             key=f"area_selector_{_area_ver}", label_visibility="collapsed",
         )
 
-        # Draw map — pure Leaflet HTML, no folium rendering issues
-        import streamlit.components.v1 as _stc
-        _map_html = """<!DOCTYPE html>
-<html><head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
-<style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body { width:100%; height:300px; overflow:hidden; }
-#map { width:100%; height:300px; }
-</style>
-</head><body>
-<div id="map"></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-<script>
-var map = L.map('map', {zoomControl:true}).setView([-13.5, 28.5], 5);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
-  attribution:'&copy; OpenStreetMap',maxZoom:18,crossOrigin:true
-}).addTo(map);
-var drawn = new L.FeatureGroup();
-map.addLayer(drawn);
-map.addControl(new L.Control.Draw({
-  edit:{featureGroup:drawn},
-  draw:{polyline:{metric:true},polygon:{metric:true},rectangle:{metric:true},circle:{metric:true},marker:true,circlemarker:false}
-}));
-map.on(L.Draw.Event.CREATED,function(e){
-  drawn.addLayer(e.layer);
-  if(e.layerType==='circle'){
-    var r=(e.layer.getRadius()/1000).toFixed(2);
-    e.layer.bindPopup('Radius: '+r+' km').openPopup();
-  }
-});
-setTimeout(function(){map.invalidateSize();},200);
-</script>
-</body></html>"""
-        _stc.html(_map_html, height=310, scrolling=False)
-        st.caption("Draw shapes or use the measure tool (bottom-left) for distances in km.")
+        # Draw map — toggle button opens the map in the main content area
+        _draw_open = st.session_state.get("_draw_map_open", False)
+        if st.button(
+            "Close Draw Map" if _draw_open else "Open Draw Map",
+            key="toggle_draw_map", use_container_width=True
+        ):
+            st.session_state["_draw_map_open"] = not _draw_open
+            st.rerun()
 
         # Mini-map — Zambia outline + province centroids, highlight selected area
         if _sel_area != "— Select area —":
@@ -1888,6 +1856,57 @@ _last_assistant_idx = max(
     (i for i, m in enumerate(st.session_state.messages) if m["role"] == "assistant"),
     default=-1
 )
+
+# ---------------------------------------------------------------------------
+# Draw map panel — shown in main area when toggled from sidebar
+# ---------------------------------------------------------------------------
+if st.session_state.get("_draw_map_open"):
+    st.markdown("#### Draw Map — Measure Distances & Areas")
+    st.caption("Use the toolbar (top-left) to draw shapes. Circles show radius in km on click.")
+    _dm = folium.Map(location=[-13.5, 28.5], zoom_start=5, tiles="CartoDB positron")
+    Draw(
+        export=False,
+        draw_options={
+            "polyline":  {"metric": True},
+            "polygon":   {"metric": True},
+            "circle":    {"metric": True},
+            "rectangle": {"metric": True},
+            "marker":    True,
+            "circlemarker": False,
+        },
+        edit_options={"edit": True},
+    ).add_to(_dm)
+    MeasureControl(
+        position="bottomleft",
+        primary_length_unit="kilometers",
+        secondary_length_unit="meters",
+        primary_area_unit="sqkilometers",
+    ).add_to(_dm)
+    _dm_result = st_folium(_dm, key="main_draw_map", width="100%", height=420,
+                           returned_objects=["last_active_drawing"])
+    _dm_drawn = (_dm_result or {}).get("last_active_drawing")
+    if _dm_drawn:
+        try:
+            _gm = _dm_drawn.get("geometry", {})
+            _fc = []
+            def _fl(c):
+                if c and isinstance(c[0], (int, float)): _fc.append(c)
+                elif c:
+                    for x in c: _fl(x)
+            _fl(_gm.get("coordinates", []))
+            if _fc:
+                _lo = [c[0] for c in _fc]; _la = [c[1] for c in _fc]
+                st.session_state["draw_bbox"] = {
+                    "min_lat": min(_la), "max_lat": max(_la),
+                    "min_lon": min(_lo), "max_lon": max(_lo),
+                    "measurement": "Drawn area",
+                }
+                _w = haversine_km(min(_la), min(_lo), min(_la), max(_lo))
+                _h = haversine_km(min(_la), min(_lo), max(_la), min(_lo))
+                st.success(f"Area selected: ~{_w:.1f} km wide × {_h:.1f} km tall ({_w*_h:.0f} km²)")
+        except Exception:
+            pass
+    st.divider()
 
 for i, msg in enumerate(st.session_state.messages):
     if msg["role"] == "user":
