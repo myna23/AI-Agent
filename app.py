@@ -1865,75 +1865,98 @@ _last_assistant_idx = max(
 # Draw map panel — shown in main area when toggled from sidebar
 # ---------------------------------------------------------------------------
 if st.session_state.get("_draw_map_open"):
-    st.markdown("#### Zambia Map — Distance Calculator")
+    st.markdown("#### Zambia Map — Click Two Cities to Measure Distance")
+    st.caption("Click a city dot to select it as **From**, click another as **To** — distance line appears instantly.")
 
     import pydeck as pdk
+    import pandas as _pd_map
+
     _CITY_COORDS = {
-        "lusaka":        (-15.42, 28.28), "ndola":          (-12.97, 28.64),
-        "kitwe":         (-12.80, 28.21), "livingstone":    (-17.85, 25.87),
-        "chipata":       (-13.64, 32.65), "solwezi":        (-12.17, 26.40),
-        "kasama":        (-10.21, 31.18), "mansa":          (-11.09, 28.89),
-        "mongu":         (-15.28, 23.12), "kabwe":          (-14.44, 28.45),
-        "chingola":      (-12.52, 27.87), "mufulira":       (-12.55, 28.24),
-        "luanshya":      (-13.13, 28.40), "mazabuka":       (-15.86, 27.76),
-        "choma":         (-16.80, 26.97), "kafue":          (-15.77, 28.18),
-        "kapiri mposhi": (-13.97, 28.69), "mpika":          (-11.90, 31.45),
-        "nakonde":       (-9.33,  32.75), "samfya":         (-11.37, 29.55),
-        "serenje":       (-13.23, 30.23), "senanga":        (-16.10, 23.27),
-        "siavonga":      (-16.53, 28.72), "petauke":        (-14.25, 31.33),
+        "Lusaka": (-15.42, 28.28), "Ndola": (-12.97, 28.64),
+        "Kitwe": (-12.80, 28.21), "Livingstone": (-17.85, 25.87),
+        "Chipata": (-13.64, 32.65), "Solwezi": (-12.17, 26.40),
+        "Kasama": (-10.21, 31.18), "Mansa": (-11.09, 28.89),
+        "Mongu": (-15.28, 23.12), "Kabwe": (-14.44, 28.45),
+        "Chingola": (-12.52, 27.87), "Mufulira": (-12.55, 28.24),
+        "Luanshya": (-13.13, 28.40), "Mazabuka": (-15.86, 27.76),
+        "Choma": (-16.80, 26.97), "Kafue": (-15.77, 28.18),
+        "Kapiri Mposhi": (-13.97, 28.69), "Mpika": (-11.90, 31.45),
+        "Nakonde": (-9.33, 32.75), "Samfya": (-11.37, 29.55),
+        "Serenje": (-13.23, 30.23), "Senanga": (-16.10, 23.27),
+        "Siavonga": (-16.53, 28.72), "Petauke": (-14.25, 31.33),
     }
-    # Dot layer — all major cities
-    import pandas as _pd_cities
-    _city_df = _pd_cities.DataFrame([
-        {"name": k.title(), "lat": v[0], "lon": v[1]}
+
+    _city_a = st.session_state.get("_map_city_a")
+    _city_b = st.session_state.get("_map_city_b")
+
+    # Color: selected cities highlighted in orange, others dark blue
+    _city_df = _pd_map.DataFrame([
+        {
+            "name": k, "lat": v[0], "lon": v[1],
+            "color": [255, 140, 0] if k in [_city_a, _city_b] else [29, 53, 87],
+            "radius": 14000 if k in [_city_a, _city_b] else 9000,
+        }
         for k, v in _CITY_COORDS.items()
     ])
-    _city_layer = pdk.Layer(
-        "ScatterplotLayer",
-        data=_city_df,
-        get_position=["lon", "lat"],
-        get_radius=8000,
-        get_fill_color=[29, 53, 87, 220],
-        pickable=True,
-    )
-    st.pydeck_chart(pdk.Deck(
-        layers=[_city_layer],
-        initial_view_state=pdk.ViewState(latitude=-13.5, longitude=28.5, zoom=5, pitch=0),
-        map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-        tooltip={"text": "{name}"},
-    ), use_container_width=True, height=420)
-    st.caption("Hover over dots to see city names.")
 
-    st.divider()
-    # Distance calculator as a fallback for typing-based queries
-    st.markdown("**Or type to calculate distance:**")
-    _dc1, _dc2, _dc3 = st.columns([2, 2, 1])
-    with _dc1:
-        _loc_a = st.text_input("From", placeholder="e.g. Lusaka", key="dist_from", label_visibility="collapsed")
-    with _dc2:
-        _loc_b = st.text_input("To", placeholder="e.g. Ndola", key="dist_to", label_visibility="collapsed")
-    with _dc3:
-        _calc_dist = st.button("Calculate", key="calc_dist_btn", use_container_width=True)
-    if _calc_dist and _loc_a.strip() and _loc_b.strip():
-        _CITY_COORDS = {
-            "lusaka": (-15.42, 28.28), "ndola": (-12.97, 28.64),
-            "kitwe": (-12.80, 28.21), "livingstone": (-17.85, 25.87),
-            "chipata": (-13.64, 32.65), "solwezi": (-12.17, 26.40),
-            "kasama": (-10.21, 31.18), "mansa": (-11.09, 28.89),
-            "mongu": (-15.28, 23.12), "kabwe": (-14.44, 28.45),
-            "chingola": (-12.52, 27.87), "mufulira": (-12.55, 28.24),
-            "luanshya": (-13.13, 28.40), "mazabuka": (-15.86, 27.76),
-            "choma": (-16.80, 26.97), "kafue": (-15.77, 28.18),
-            "kapiri mposhi": (-13.97, 28.69), "mpika": (-11.90, 31.45),
-        }
-        _ca = _CITY_COORDS.get(_loc_a.strip().lower())
-        _cb = _CITY_COORDS.get(_loc_b.strip().lower())
-        if _ca and _cb:
-            _dist = haversine_km(_ca[0], _ca[1], _cb[0], _cb[1])
-            st.success(f"{_loc_a.strip().title()} → {_loc_b.strip().title()}: **{_dist:.1f} km** (straight line)")
+    _layers = [
+        pdk.Layer("ScatterplotLayer", data=_city_df,
+                  get_position=["lon", "lat"],
+                  get_radius="radius",
+                  get_fill_color="color",
+                  pickable=True, auto_highlight=True),
+    ]
+
+    # Draw line between selected cities
+    if _city_a and _city_b and _city_a in _CITY_COORDS and _city_b in _CITY_COORDS:
+        _ca, _cb = _CITY_COORDS[_city_a], _CITY_COORDS[_city_b]
+        _line_df = _pd_map.DataFrame([{
+            "from": [_ca[1], _ca[0]], "to": [_cb[1], _cb[0]]
+        }])
+        _layers.append(pdk.Layer("LineLayer", data=_line_df,
+                                 get_source_position="from",
+                                 get_target_position="to",
+                                 get_color=[220, 50, 50],
+                                 get_width=4))
+
+    _map_event = st.pydeck_chart(
+        pdk.Deck(
+            layers=_layers,
+            initial_view_state=pdk.ViewState(latitude=-13.5, longitude=28.5, zoom=5, pitch=0),
+            map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+            tooltip={"text": "{name}"},
+        ),
+        use_container_width=True, height=430,
+        on_select="rerun", selection_mode="single-object",
+    )
+
+    # Handle click — first click = city A, second = city B, third resets
+    _clicked = (_map_event.selection.get("objects", {}).get("ScatterplotLayer") or [None])[0] if hasattr(_map_event, "selection") else None
+    if _clicked:
+        _clicked_name = _clicked.get("name")
+        if not _city_a:
+            st.session_state["_map_city_a"] = _clicked_name
+            st.session_state.pop("_map_city_b", None)
+        elif not _city_b and _clicked_name != _city_a:
+            st.session_state["_map_city_b"] = _clicked_name
         else:
-            st.session_state._pending_question = f"How far is {_loc_a.strip()} from {_loc_b.strip()} in Zambia? Give distance in km."
+            st.session_state["_map_city_a"] = _clicked_name
+            st.session_state.pop("_map_city_b", None)
+
+    # Show result
+    if _city_a and not _city_b:
+        st.info(f"**{_city_a}** selected. Now click a second city.")
+    elif _city_a and _city_b and _city_a in _CITY_COORDS and _city_b in _CITY_COORDS:
+        _d = haversine_km(_CITY_COORDS[_city_a][0], _CITY_COORDS[_city_a][1],
+                          _CITY_COORDS[_city_b][0], _CITY_COORDS[_city_b][1])
+        st.success(f"**{_city_a}** → **{_city_b}**: {_d:.1f} km straight line")
+        if st.button("Reset", key="reset_map_sel"):
+            st.session_state.pop("_map_city_a", None)
+            st.session_state.pop("_map_city_b", None)
             st.rerun()
+    else:
+        st.caption("Click any city dot on the map to start.")
+
     st.divider()
 
 for i, msg in enumerate(st.session_state.messages):
