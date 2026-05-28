@@ -3424,11 +3424,12 @@ import streamlit.components.v1 as _components
 
 _voice_html = """
 <style>
+body { margin: 0; padding: 0; background: transparent; }
 #zmb-mic-wrap {
-    position: fixed;
-    bottom: 72px;
-    right: 18px;
-    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
 }
 #zmb-mic {
     width: 42px; height: 42px;
@@ -3438,22 +3439,21 @@ _voice_html = """
     color: white;
     font-size: 18px;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    flex-shrink: 0;
     transition: background 0.2s;
 }
 #zmb-mic.listening { background: #c0392b; animation: pulse 1s infinite; }
 @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,0.5)} 50%{box-shadow:0 0 0 8px rgba(192,57,43,0)} }
-#zmb-mic-status {
-    position: fixed; bottom: 120px; right: 14px;
-    background: #1d3557; color: white;
-    font-size: 12px; padding: 4px 10px; border-radius: 12px;
-    display: none; z-index: 9999;
+#zmb-mic-label {
+    font-size: 13px;
+    color: #555;
+    font-family: sans-serif;
 }
 </style>
 <div id="zmb-mic-wrap">
-  <div id="zmb-mic-status">Listening…</div>
-  <button id="zmb-mic" title="Voice input">🎤</button>
+  <button id="zmb-mic" title="Click to speak">🎤</button>
+  <span id="zmb-mic-label">Click mic to speak — transcript goes into chat</span>
 </div>
 <script>
 (function(){
@@ -3476,29 +3476,32 @@ _voice_html = """
     rec.start();
   });
 
+  const lbl = document.getElementById('zmb-mic-label');
   rec.onstart = () => {
     active = true;
     btn.classList.add('listening');
     btn.textContent = '⏹';
-    status.style.display = 'block';
+    lbl.textContent = 'Listening… click to stop';
   };
   rec.onend = () => {
     active = false;
     btn.classList.remove('listening');
     btn.textContent = '🎤';
-    status.style.display = 'none';
+    lbl.textContent = 'Click mic to speak — transcript goes into chat';
   };
   rec.onerror = (e) => {
     active = false;
     btn.classList.remove('listening');
     btn.textContent = '🎤';
-    status.style.display = 'none';
+    lbl.textContent = 'Error: ' + e.error + ' — try again';
   };
   rec.onresult = (e) => {
     const transcript = e.results[0][0].transcript;
-    // Find Streamlit chat input and inject the transcript
+    lbl.textContent = '✓ Got: "' + transcript + '" — press Enter in chat to send';
+    // Inject into Streamlit chat input (searches parent frame)
     const tryInject = (attempts) => {
-      const inputs = window.parent.document.querySelectorAll('textarea[data-testid="stChatInputTextArea"]');
+      const doc = window.parent ? window.parent.document : document;
+      const inputs = doc.querySelectorAll('textarea[data-testid="stChatInputTextArea"]');
       if (inputs.length > 0) {
         const inp = inputs[0];
         const nativeSetter = Object.getOwnPropertyDescriptor(window.parent.HTMLTextAreaElement.prototype, 'value').set;
@@ -3514,7 +3517,7 @@ _voice_html = """
 })();
 </script>
 """
-_components.html(_voice_html, height=0)
+_components.html(_voice_html, height=55)
 
 # ---------------------------------------------------------------------------
 # Chat input — paperclip built into bar via accept_file
