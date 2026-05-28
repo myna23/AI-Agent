@@ -683,42 +683,44 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
     padding: 0 !important;
     margin: 0 !important;
     line-height: 0 !important;
+    position: static !important;
 }
-/* SVG overlay: floats centered over the button below it */
+/* SVG overlay: sits behind the button, centered in the column */
 .zmb-ic {
     position: absolute !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) !important;
-    width: 16px !important;
-    height: 16px !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     pointer-events: none !important;
-    z-index: 10 !important;
+    z-index: 1 !important;
 }
 .zmb-ic svg { display: block !important; }
 
-/* Toolbar buttons: square, transparent, bordered */
+/* Toolbar buttons: invisible click zone sitting on top of the SVG icon */
 .element-container:has(.zmb-tb) + .element-container button,
 .element-container:has(.zmb-tb) + .element-container [data-testid="stDownloadButton"] button {
     background-color: transparent !important;
     color: transparent !important;
     font-size: 0 !important;
-    border: 1px solid #dde3ed !important;
-    border-radius: 6px !important;
+    border: none !important;
     box-shadow: none !important;
-    width: 32px !important;
-    min-width: 32px !important;
-    height: 32px !important;
-    min-height: 32px !important;
+    outline: none !important;
+    width: 28px !important;
+    min-width: 28px !important;
+    height: 28px !important;
+    min-height: 28px !important;
     padding: 0 !important;
+    position: relative !important;
+    z-index: 5 !important;
 }
 .element-container:has(.zmb-tb) + .element-container button:hover,
 .element-container:has(.zmb-tb) + .element-container [data-testid="stDownloadButton"] button:hover {
-    background-color: #f0f4f9 !important;
-    border-color: #b0c4d8 !important;
+    background-color: rgba(0,0,0,0.06) !important;
+    border-radius: 6px !important;
 }
 /* Liked/disliked confirmation tick */
 .zmb-tb-liked {
