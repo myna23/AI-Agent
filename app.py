@@ -1203,43 +1203,37 @@ with st.sidebar:
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-measure@3.1.0/dist/leaflet-measure.css"/>
-<style>html,body,#map{margin:0;padding:0;width:100%;height:100%}</style>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { width:100%; height:300px; overflow:hidden; }
+#map { width:100%; height:300px; }
+</style>
 </head><body>
 <div id="map"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/leaflet-measure@3.1.0/dist/leaflet-measure.js"></script>
 <script>
-var map = L.map('map').setView([-13.5, 28.5], 5);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-  attribution:'&copy; OpenStreetMap contributors', maxZoom:18
+var map = L.map('map', {zoomControl:true}).setView([-13.5, 28.5], 5);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  attribution:'&copy; OpenStreetMap',maxZoom:18,crossOrigin:true
 }).addTo(map);
-var drawnItems = new L.FeatureGroup();
-map.addLayer(drawnItems);
-var drawControl = new L.Control.Draw({
-  edit:{featureGroup:drawnItems},
-  draw:{
-    polyline:{metric:true},
-    polygon:{metric:true},
-    rectangle:{metric:true},
-    circle:{metric:true},
-    marker:true,
-    circlemarker:false
+var drawn = new L.FeatureGroup();
+map.addLayer(drawn);
+map.addControl(new L.Control.Draw({
+  edit:{featureGroup:drawn},
+  draw:{polyline:{metric:true},polygon:{metric:true},rectangle:{metric:true},circle:{metric:true},marker:true,circlemarker:false}
+}));
+map.on(L.Draw.Event.CREATED,function(e){
+  drawn.addLayer(e.layer);
+  if(e.layerType==='circle'){
+    var r=(e.layer.getRadius()/1000).toFixed(2);
+    e.layer.bindPopup('Radius: '+r+' km').openPopup();
   }
 });
-map.addControl(drawControl);
-map.on(L.Draw.Event.CREATED,function(e){drawnItems.addLayer(e.layer);});
-var measureControl = new L.Control.Measure({
-  position:'bottomleft',
-  primaryLengthUnit:'kilometers',
-  secondaryLengthUnit:'meters',
-  primaryAreaUnit:'sqkilometers'
-});
-measureControl.addTo(map);
+setTimeout(function(){map.invalidateSize();},200);
 </script>
 </body></html>"""
-        _stc.html(_map_html, height=320, scrolling=False)
+        _stc.html(_map_html, height=310, scrolling=False)
         st.caption("Draw shapes or use the measure tool (bottom-left) for distances in km.")
 
         # Mini-map — Zambia outline + province centroids, highlight selected area
