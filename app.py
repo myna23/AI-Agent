@@ -1783,7 +1783,6 @@ if not st.session_state.get("messages"):
         with _topic_cols[_ti]:
             if st.button(_tp["label"], key=f"topic_btn_{_ti}", use_container_width=True):
                 st.session_state["_open_url"] = _tp["url"]
-                st.session_state.messages.append({"role": "user", "content": _tp["question"]})
                 st.session_state._pending_question = _tp["question"]
                 st.rerun()
 
