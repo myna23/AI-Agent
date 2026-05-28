@@ -700,27 +700,29 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
 }
 .zmb-ic svg { display: block !important; }
 
-/* Toolbar buttons: invisible click zone sitting on top of the SVG icon */
-.element-container:has(.zmb-tb) + .element-container button,
-.element-container:has(.zmb-tb) + .element-container [data-testid="stDownloadButton"] button {
+/* Toolbar buttons — fully invisible, just the click zone */
+[data-testid="stColumn"]:has(.zmb-ic) button {
+    background: transparent !important;
     background-color: transparent !important;
     color: transparent !important;
     font-size: 0 !important;
     border: none !important;
+    border-color: transparent !important;
     box-shadow: none !important;
     outline: none !important;
-    width: 28px !important;
-    min-width: 28px !important;
-    height: 28px !important;
-    min-height: 28px !important;
-    padding: 0 !important;
     position: relative !important;
     z-index: 5 !important;
 }
-.element-container:has(.zmb-tb) + .element-container button:hover,
-.element-container:has(.zmb-tb) + .element-container [data-testid="stDownloadButton"] button:hover {
-    background-color: rgba(0,0,0,0.06) !important;
+[data-testid="stColumn"]:has(.zmb-ic) button:hover {
+    background-color: rgba(0,0,0,0.07) !important;
     border-radius: 6px !important;
+}
+[data-testid="stColumn"]:has(.zmb-ic) button:focus,
+[data-testid="stColumn"]:has(.zmb-ic) button:active {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
 }
 /* Liked/disliked confirmation tick */
 .zmb-tb-liked {
