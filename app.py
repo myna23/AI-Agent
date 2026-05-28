@@ -1195,29 +1195,52 @@ with st.sidebar:
             key=f"area_selector_{_area_ver}", label_visibility="collapsed",
         )
 
-        # Draw map — rendered via st.components.v1.html (works in sidebar expanders)
+        # Draw map — pure Leaflet HTML, no folium rendering issues
         import streamlit.components.v1 as _stc
-        _draw_m = folium.Map(location=[-13.5, 28.5], zoom_start=5, tiles="CartoDB positron")
-        Draw(
-            export=False,
-            draw_options={
-                "polyline":  {"metric": True},
-                "polygon":   {"metric": True},
-                "circle":    {"metric": True},
-                "rectangle": {"metric": True},
-                "marker":    True,
-                "circlemarker": False,
-            },
-            edit_options={"edit": True},
-        ).add_to(_draw_m)
-        MeasureControl(
-            position="bottomleft",
-            primary_length_unit="kilometers",
-            secondary_length_unit="meters",
-            primary_area_unit="sqkilometers",
-        ).add_to(_draw_m)
-        _stc.html(_draw_m.get_root().render(), height=300)
-        st.caption("Draw a shape to measure distance/area in km.")
+        _map_html = """<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-measure@3.1.0/dist/leaflet-measure.css"/>
+<style>html,body,#map{margin:0;padding:0;width:100%;height:100%}</style>
+</head><body>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet-measure@3.1.0/dist/leaflet-measure.js"></script>
+<script>
+var map = L.map('map').setView([-13.5, 28.5], 5);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  attribution:'&copy; OpenStreetMap contributors', maxZoom:18
+}).addTo(map);
+var drawnItems = new L.FeatureGroup();
+map.addLayer(drawnItems);
+var drawControl = new L.Control.Draw({
+  edit:{featureGroup:drawnItems},
+  draw:{
+    polyline:{metric:true},
+    polygon:{metric:true},
+    rectangle:{metric:true},
+    circle:{metric:true},
+    marker:true,
+    circlemarker:false
+  }
+});
+map.addControl(drawControl);
+map.on(L.Draw.Event.CREATED,function(e){drawnItems.addLayer(e.layer);});
+var measureControl = new L.Control.Measure({
+  position:'bottomleft',
+  primaryLengthUnit:'kilometers',
+  secondaryLengthUnit:'meters',
+  primaryAreaUnit:'sqkilometers'
+});
+measureControl.addTo(map);
+</script>
+</body></html>"""
+        _stc.html(_map_html, height=320, scrolling=False)
+        st.caption("Draw shapes or use the measure tool (bottom-left) for distances in km.")
 
         # Mini-map — Zambia outline + province centroids, highlight selected area
         if _sel_area != "— Select area —":
