@@ -817,6 +817,12 @@ html, body, [class*="css"] { font-family: 'Inter', 'Segoe UI', sans-serif; }
     height: 320px !important;
     display: block !important;
 }
+/* folium / st_folium in main content area */
+[data-testid="stMain"] [data-testid="stCustomComponentV1"],
+[data-testid="stMain"] iframe {
+    display: block !important;
+    min-height: 480px !important;
+}
 [data-testid="stSidebar"] .element-container:has(iframe) {
     min-height: 320px !important;
     height: 320px !important;
