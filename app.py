@@ -1877,7 +1877,7 @@ if st.session_state.get("_draw_map_open"):
         },
         edit_options={"edit": True},
     ).add_to(_dm)
-    st_folium(_dm, height=480)
+    st_folium(_dm, key="draw_tool_map", height=480)
 
     st.divider()
     # Distance calculator as a fallback for typing-based queries
