@@ -1882,7 +1882,7 @@ if st.session_state.get("_draw_map_open"):
         secondary_length_unit="meters",
         primary_area_unit="sqkilometers",
     ).add_to(_dm)
-    _dm_result = st_folium(_dm, key="main_draw_map", width="100%", height=420,
+    _dm_result = st_folium(_dm, key="main_draw_map", use_container_width=True, height=450,
                            returned_objects=["last_active_drawing"])
     _dm_drawn = (_dm_result or {}).get("last_active_drawing")
     if _dm_drawn:
