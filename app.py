@@ -1216,7 +1216,7 @@ with st.sidebar:
             secondary_length_unit="meters",
             primary_area_unit="sqkilometers",
         ).add_to(_draw_m)
-        _stc.html(_draw_m._repr_html_(), height=300)
+        _stc.html(_draw_m.get_root().render(), height=300)
         st.caption("Draw a shape to measure distance/area in km.")
 
         # Mini-map — Zambia outline + province centroids, highlight selected area
