@@ -1195,20 +1195,17 @@ with st.sidebar:
             key=f"area_selector_{_area_ver}", label_visibility="collapsed",
         )
 
-        # Draw map — lets user draw polygon/circle and measure distances
-        _draw_m = folium.Map(
-            location=[-13.5, 28.5], zoom_start=5,
-            tiles="CartoDB positron",
-            width="100%", height=260,
-        )
+        # Draw map — rendered via st.components.v1.html (works in sidebar expanders)
+        import streamlit.components.v1 as _stc
+        _draw_m = folium.Map(location=[-13.5, 28.5], zoom_start=5, tiles="CartoDB positron")
         Draw(
             export=False,
             draw_options={
-                "polyline": {"metric": True},
-                "polygon":  {"metric": True},
-                "circle":   {"metric": True},
-                "rectangle":{"metric": True},
-                "marker":   True,
+                "polyline":  {"metric": True},
+                "polygon":   {"metric": True},
+                "circle":    {"metric": True},
+                "rectangle": {"metric": True},
+                "marker":    True,
                 "circlemarker": False,
             },
             edit_options={"edit": True},
@@ -1219,37 +1216,8 @@ with st.sidebar:
             secondary_length_unit="meters",
             primary_area_unit="sqkilometers",
         ).add_to(_draw_m)
-        _draw_result = st_folium(
-            _draw_m, key="sidebar_draw_map",
-            width="100%", height=260,
-            returned_objects=["last_active_drawing"],
-        )
-        # If user drew a shape, extract bbox and store it
-        _drawn = (_draw_result or {}).get("last_active_drawing")
-        if _drawn:
-            try:
-                _geom = _drawn.get("geometry", {})
-                _coords_flat = []
-                def _flatten(c):
-                    if isinstance(c[0], (int, float)):
-                        _coords_flat.append(c)
-                    else:
-                        for x in c:
-                            _flatten(x)
-                _flatten(_geom.get("coordinates", []))
-                if _coords_flat:
-                    _lons = [c[0] for c in _coords_flat]
-                    _lats = [c[1] for c in _coords_flat]
-                    st.session_state["draw_bbox"] = {
-                        "min_lat": min(_lats), "max_lat": max(_lats),
-                        "min_lon": min(_lons), "max_lon": max(_lons),
-                        "measurement": "Drawn area",
-                    }
-                    st.caption(f"Area selected: {min(_lats):.2f}–{max(_lats):.2f} lat, {min(_lons):.2f}–{max(_lons):.2f} lon")
-            except Exception:
-                pass
-
-        st.caption("Draw a shape to select an area, or pick from the list below.")
+        _stc.html(_draw_m._repr_html_(), height=300)
+        st.caption("Draw a shape to measure distance/area in km.")
 
         # Mini-map — Zambia outline + province centroids, highlight selected area
         if _sel_area != "— Select area —":
