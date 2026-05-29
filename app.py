@@ -3418,50 +3418,57 @@ if hasattr(st.session_state, "_pending_question") and st.session_state._pending_
 
 
 # ---------------------------------------------------------------------------
-# Voice input — floating mic button using Web Speech API
+# Voice input — fixed mic button via st.markdown (no iframe, sits beside chat bar)
 # ---------------------------------------------------------------------------
-import streamlit.components.v1 as _components
-
-_voice_html = """
+st.markdown("""
 <style>
-body { margin: 0; padding: 0; background: transparent; }
-#zmb-mic-wrap {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 4px 0;
-}
 #zmb-mic {
-    width: 42px; height: 42px;
+    position: fixed;
+    bottom: 18px;
+    right: 70px;
+    width: 36px; height: 36px;
     border-radius: 50%;
     border: none;
     background: #1d3557;
     color: white;
-    font-size: 18px;
+    font-size: 16px;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-    flex-shrink: 0;
+    z-index: 99999;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     transition: background 0.2s;
 }
-#zmb-mic.listening { background: #c0392b; animation: pulse 1s infinite; }
-@keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,0.5)} 50%{box-shadow:0 0 0 8px rgba(192,57,43,0)} }
-#zmb-mic-label {
-    font-size: 13px;
-    color: #555;
-    font-family: sans-serif;
+#zmb-mic.listening {
+    background: #c0392b;
+    animation: zmb-pulse 1s infinite;
+}
+@keyframes zmb-pulse {
+    0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,0.5)}
+    50%{box-shadow:0 0 0 8px rgba(192,57,43,0)}
+}
+#zmb-mic-toast {
+    position: fixed;
+    bottom: 62px;
+    right: 14px;
+    background: #1d3557;
+    color: white;
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 12px;
+    z-index: 99999;
+    display: none;
+    max-width: 280px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
 }
 </style>
-<div id="zmb-mic-wrap">
-  <button id="zmb-mic" title="Click to speak">🎤</button>
-  <span id="zmb-mic-label">Click mic to speak — transcript goes into chat</span>
-</div>
+<button id="zmb-mic" title="Voice input — click to speak">🎤</button>
+<div id="zmb-mic-toast"></div>
 <script>
 (function(){
   const btn = document.getElementById('zmb-mic');
-  const status = document.getElementById('zmb-mic-status');
+  const toast = document.getElementById('zmb-mic-toast');
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    btn.title = 'Voice not supported in this browser';
-    btn.style.opacity = '0.4';
+    btn.style.opacity = '0.35';
+    btn.title = 'Voice not supported — use Chrome or Edge';
     return;
   }
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -3471,53 +3478,54 @@ body { margin: 0; padding: 0; background: transparent; }
   rec.maxAlternatives = 1;
   let active = false;
 
+  function showToast(msg, ms) {
+    toast.textContent = msg;
+    toast.style.display = 'block';
+    if (ms) setTimeout(() => { toast.style.display = 'none'; }, ms);
+  }
+
   btn.addEventListener('click', () => {
     if (active) { rec.stop(); return; }
     rec.start();
   });
 
-  const lbl = document.getElementById('zmb-mic-label');
   rec.onstart = () => {
     active = true;
     btn.classList.add('listening');
     btn.textContent = '⏹';
-    lbl.textContent = 'Listening… click to stop';
+    showToast('Listening… click mic to stop');
   };
   rec.onend = () => {
     active = false;
     btn.classList.remove('listening');
     btn.textContent = '🎤';
-    lbl.textContent = 'Click mic to speak — transcript goes into chat';
   };
   rec.onerror = (e) => {
     active = false;
     btn.classList.remove('listening');
     btn.textContent = '🎤';
-    lbl.textContent = 'Error: ' + e.error + ' — try again';
+    showToast('Error: ' + e.error, 3000);
   };
   rec.onresult = (e) => {
     const transcript = e.results[0][0].transcript;
-    lbl.textContent = '✓ Got: "' + transcript + '" — press Enter in chat to send';
-    // Inject into Streamlit chat input (searches parent frame)
+    showToast('✓ "' + transcript + '" — press Enter to send', 4000);
     const tryInject = (attempts) => {
-      const doc = window.parent ? window.parent.document : document;
-      const inputs = doc.querySelectorAll('textarea[data-testid="stChatInputTextArea"]');
+      const inputs = document.querySelectorAll('textarea[data-testid="stChatInputTextArea"]');
       if (inputs.length > 0) {
         const inp = inputs[0];
-        const nativeSetter = Object.getOwnPropertyDescriptor(window.parent.HTMLTextAreaElement.prototype, 'value').set;
-        nativeSetter.call(inp, transcript);
+        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+        setter.call(inp, transcript);
         inp.dispatchEvent(new Event('input', { bubbles: true }));
         inp.focus();
       } else if (attempts > 0) {
         setTimeout(() => tryInject(attempts - 1), 200);
       }
     };
-    tryInject(5);
+    tryInject(8);
   };
 })();
 </script>
-"""
-_components.html(_voice_html, height=55)
+""", unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # Chat input — paperclip built into bar via accept_file
