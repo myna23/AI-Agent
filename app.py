@@ -98,16 +98,29 @@ for (_a, _b) in _ZMB_ROAD_SEGMENTS:
 
 
 def _road_route_offline(city_a, city_b, city_coords):
-    """BFS through Zambia road network, return [[lon,lat],...] path."""
-    from collections import deque
+    """Dijkstra through Zambia road network — always picks shortest distance path."""
+    import heapq, math as _m
     if city_a == city_b:
         return None
-    # BFS to find city sequence
-    queue = deque([[city_a]])
-    visited = {city_a}
-    while queue:
-        path = queue.popleft()
-        node = path[-1]
+
+    def seg_km(seg_pts):
+        """Approximate road segment length in km."""
+        total = 0.0
+        for i in range(len(seg_pts) - 1):
+            lo1, la1 = seg_pts[i]; lo2, la2 = seg_pts[i+1]
+            dlat = _m.radians(la2 - la1); dlon = _m.radians(lo2 - lo1)
+            a = _m.sin(dlat/2)**2 + _m.cos(_m.radians(la1)) * _m.cos(_m.radians(la2)) * _m.sin(dlon/2)**2
+            total += 6371 * 2 * _m.atan2(_m.sqrt(a), _m.sqrt(1 - a))
+        return total
+
+    # heap: (cost_km, node, path_list)
+    heap = [(0.0, city_a, [city_a])]
+    best = {}
+    while heap:
+        cost, node, path = heapq.heappop(heap)
+        if node in best:
+            continue
+        best[node] = cost
         if node == city_b:
             # Stitch road segments together
             coords = []
@@ -116,14 +129,14 @@ def _road_route_offline(city_a, city_b, city_coords):
                 if seg:
                     coords.extend(seg if not coords else seg[1:])
                 else:
-                    # No segment — straight line between these two nodes
                     a, b = city_coords[path[i]], city_coords[path[i+1]]
                     coords.extend([[a[1], a[0]], [b[1], b[0]]] if not coords else [[b[1], b[0]]])
             return coords
         for neighbour in _ZMB_GRAPH.get(node, []):
-            if neighbour not in visited:
-                visited.add(neighbour)
-                queue.append(path + [neighbour])
+            if neighbour not in best:
+                seg = _ZMB_ROAD_SEGMENTS.get((node, neighbour), [])
+                edge_cost = seg_km(seg) if seg else 9999
+                heapq.heappush(heap, (cost + edge_cost, neighbour, path + [neighbour]))
     return None
 
 
