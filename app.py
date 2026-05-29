@@ -3430,11 +3430,11 @@ _components.html("""
   const style = pd.createElement('style');
   style.textContent = `
     #zmb-mic {
-      position:fixed; bottom:14px; right:52px;
-      width:28px; height:28px; border-radius:50%;
-      border:none; background:transparent; color:#888;
-      font-size:18px; cursor:pointer; z-index:99999;
-      box-shadow:none; transition:color 0.2s; padding:0; line-height:1;
+      position:fixed; bottom:12px; right:100px;
+      width:30px; height:30px; border-radius:50%;
+      border:1px solid #ccc; background:white; color:#555;
+      font-size:16px; cursor:pointer; z-index:99999;
+      box-shadow:0 1px 4px rgba(0,0,0,0.15); transition:all 0.2s; padding:0; line-height:1;
     }
     #zmb-mic.zmb-on { color:#c0392b; animation:zmb-p 1s infinite; }
     @keyframes zmb-p {
