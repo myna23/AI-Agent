@@ -1285,7 +1285,6 @@ with st.sidebar:
         if st.button("Compare", key="cmp_btn", use_container_width=True):
             if _cmp_a.strip() and _cmp_b.strip() and _cmp_topic.strip():
                 _cmp_q = f"Compare {_cmp_a.strip()} and {_cmp_b.strip()} in terms of {_cmp_topic.strip()}"
-                st.session_state.messages.append({"role": "user", "content": _cmp_q})
                 st.session_state._pending_question = _cmp_q
                 st.rerun()
             else:
