@@ -42,19 +42,100 @@ import math
 # ---------------------------------------------------------------------------
 # Map helper functions — road routing (OSRM) + elevation (Open-Elevation)
 # ---------------------------------------------------------------------------
-def _osrm_route(lon1, lat1, lon2, lat2):
-    """Return (road_km, drive_seconds, coords) trying multiple routing servers."""
-    import requests as _req
+# ---------------------------------------------------------------------------
+# Offline road network — Zambia highway waypoints (no external API needed)
+# Segments follow real road geometry: T2, T1, Great East, Copperbelt roads
+# ---------------------------------------------------------------------------
+# Each segment: list of [lon, lat] points along the road
+_ZMB_ROAD_SEGMENTS = {
+    # T2 / Great North Road (south → north)
+    ("Livingstone",  "Choma"):        [[ 25.87,-17.85],[26.10,-17.50],[26.55,-17.10],[26.97,-16.80]],
+    ("Choma",        "Mazabuka"):      [[ 26.97,-16.80],[27.30,-16.40],[27.60,-16.10],[27.76,-15.86]],
+    ("Mazabuka",     "Kafue"):         [[ 27.76,-15.86],[27.90,-15.82],[28.05,-15.79],[28.18,-15.77]],
+    ("Kafue",        "Lusaka"):        [[ 28.18,-15.77],[28.22,-15.65],[28.26,-15.52],[28.28,-15.42]],
+    ("Lusaka",       "Kabwe"):         [[ 28.28,-15.42],[28.33,-15.10],[28.40,-14.75],[28.45,-14.44]],
+    ("Kabwe",        "Kapiri Mposhi"): [[ 28.45,-14.44],[28.52,-14.20],[28.61,-14.08],[28.69,-13.97]],
+    ("Kapiri Mposhi","Ndola"):         [[ 28.69,-13.97],[28.68,-13.70],[28.66,-13.35],[28.64,-12.97]],
+    ("Ndola",        "Kitwe"):         [[ 28.64,-12.97],[28.52,-12.90],[28.36,-12.85],[28.21,-12.80]],
+    ("Kitwe",        "Chingola"):      [[ 28.21,-12.80],[28.10,-12.68],[27.98,-12.58],[27.87,-12.52]],
+    ("Ndola",        "Mufulira"):      [[ 28.64,-12.97],[28.58,-12.82],[28.44,-12.67],[28.24,-12.55]],
+    ("Ndola",        "Luanshya"):      [[ 28.64,-12.97],[28.55,-13.00],[28.48,-13.07],[28.40,-13.13]],
+    ("Kitwe",        "Luanshya"):      [[ 28.21,-12.80],[28.28,-12.93],[28.34,-13.03],[28.40,-13.13]],
+    # Great East Road (T4)
+    ("Lusaka",       "Petauke"):       [[ 28.28,-15.42],[29.00,-15.20],[29.80,-14.90],[30.50,-14.60],[31.00,-14.40],[31.33,-14.25]],
+    ("Petauke",      "Chipata"):       [[ 31.33,-14.25],[31.65,-14.10],[32.00,-13.90],[32.30,-13.78],[32.65,-13.64]],
+    # Western / Barotseland
+    ("Mongu",        "Senanga"):       [[ 23.12,-15.28],[23.15,-15.55],[23.20,-15.82],[23.27,-16.10]],
+    ("Senanga",      "Livingstone"):   [[ 23.27,-16.10],[23.80,-16.50],[24.50,-17.00],[25.20,-17.50],[25.87,-17.85]],
+    ("Mongu",        "Kafue"):         [[ 23.12,-15.28],[24.50,-15.35],[25.80,-15.45],[27.00,-15.55],[28.18,-15.77]],
+    # Lake road / northern
+    ("Serenje",      "Mpika"):         [[ 30.23,-13.23],[30.60,-12.80],[31.00,-12.40],[31.45,-11.90]],
+    ("Mpika",        "Kasama"):        [[ 31.45,-11.90],[31.50,-11.50],[31.20,-11.00],[31.18,-10.21]],
+    ("Kasama",       "Nakonde"):       [[ 31.18,-10.21],[31.50,-9.80],[32.20,-9.55],[32.75,-9.33]],
+    ("Kasama",       "Mansa"):         [[ 31.18,-10.21],[30.50,-10.50],[29.80,-10.80],[28.89,-11.09]],
+    ("Mansa",        "Samfya"):        [[ 28.89,-11.09],[29.10,-11.20],[29.35,-11.30],[29.55,-11.37]],
+    ("Serenje",      "Samfya"):        [[ 30.23,-13.23],[29.90,-12.50],[29.70,-12.00],[29.55,-11.37]],
+    ("Kapiri Mposhi","Serenje"):       [[ 28.69,-13.97],[29.20,-13.70],[29.70,-13.50],[30.23,-13.23]],
+    # Copperbelt–Solwezi
+    ("Chingola",     "Solwezi"):       [[ 27.87,-12.52],[27.40,-12.35],[27.00,-12.25],[26.40,-12.17]],
+    # Siavonga
+    ("Lusaka",       "Siavonga"):      [[ 28.28,-15.42],[28.50,-15.70],[28.65,-16.00],[28.72,-16.53]],
+    ("Siavonga",     "Livingstone"):   [[ 28.72,-16.53],[28.20,-17.00],[27.50,-17.40],[26.80,-17.70],[25.87,-17.85]],
+    # Choma–Senanga
+    ("Choma",        "Senanga"):       [[ 26.97,-16.80],[25.90,-16.50],[24.80,-16.30],[23.27,-16.10]],
+}
 
-    # --- OSRM-style endpoints ---
-    osrm_urls = [
+# Build reverse segments automatically
+for (_a, _b), _pts in list(_ZMB_ROAD_SEGMENTS.items()):
+    if (_b, _a) not in _ZMB_ROAD_SEGMENTS:
+        _ZMB_ROAD_SEGMENTS[(_b, _a)] = list(reversed(_pts))
+
+# Road graph adjacency
+_ZMB_GRAPH = {}
+for (_a, _b) in _ZMB_ROAD_SEGMENTS:
+    _ZMB_GRAPH.setdefault(_a, set()).add(_b)
+    _ZMB_GRAPH.setdefault(_b, set()).add(_a)
+
+
+def _road_route_offline(city_a, city_b, city_coords):
+    """BFS through Zambia road network, return [[lon,lat],...] path."""
+    from collections import deque
+    if city_a == city_b:
+        return None
+    # BFS to find city sequence
+    queue = deque([[city_a]])
+    visited = {city_a}
+    while queue:
+        path = queue.popleft()
+        node = path[-1]
+        if node == city_b:
+            # Stitch road segments together
+            coords = []
+            for i in range(len(path) - 1):
+                seg = _ZMB_ROAD_SEGMENTS.get((path[i], path[i+1]))
+                if seg:
+                    coords.extend(seg if not coords else seg[1:])
+                else:
+                    # No segment — straight line between these two nodes
+                    a, b = city_coords[path[i]], city_coords[path[i+1]]
+                    coords.extend([[a[1], a[0]], [b[1], b[0]]] if not coords else [[b[1], b[0]]])
+            return coords
+        for neighbour in _ZMB_GRAPH.get(node, []):
+            if neighbour not in visited:
+                visited.add(neighbour)
+                queue.append(path + [neighbour])
+    return None
+
+
+def _osrm_route(lon1, lat1, lon2, lat2):
+    """Return (road_km, drive_seconds, coords) trying OSRM, falls back to offline."""
+    import requests as _req
+    for url in [
         f"https://routing.openstreetmap.de/routed-car/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=full&geometries=geojson",
         f"https://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=full&geometries=geojson",
-        f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=full&geometries=geojson",
-    ]
-    for url in osrm_urls:
+    ]:
         try:
-            r = _req.get(url, timeout=10)
+            r = _req.get(url, timeout=6)
             data = r.json()
             if data.get("code") == "Ok":
                 route = data["routes"][0]
@@ -63,34 +144,6 @@ def _osrm_route(lon1, lat1, lon2, lat2):
                     return route["distance"] / 1000, route["duration"], coords
         except Exception:
             continue
-
-    # --- Valhalla fallback (openstreetmap.de public instance) ---
-    try:
-        valhalla_url = "https://valhalla1.openstreetmap.de/route"
-        payload = {
-            "locations": [
-                {"lon": lon1, "lat": lat1},
-                {"lon": lon2, "lat": lat2},
-            ],
-            "costing": "auto",
-            "shape_format": "geojson",
-            "directions_options": {"units": "kilometers"},
-        }
-        r = _req.post(valhalla_url, json=payload, timeout=10)
-        data = r.json()
-        if "trip" in data:
-            legs = data["trip"]["legs"]
-            coords = []
-            for leg in legs:
-                for pt in leg["shape"]:
-                    coords.append([pt["lon"], pt["lat"]])
-            dist_km = data["trip"]["summary"]["length"]
-            duration = data["trip"]["summary"]["time"]
-            if coords and len(coords) > 1:
-                return dist_km, duration, coords
-    except Exception:
-        pass
-
     return None, None, None
 
 @st.cache_data(show_spinner=False, ttl=86400)
@@ -1994,12 +2047,19 @@ if st.session_state.get("_draw_map_open"):
         _route_status = None
         if _city_a and _city_b:
             _ca, _cb = _CITY_COORDS[_city_a], _CITY_COORDS[_city_b]
-            with st.spinner("Fetching road route from OSRM…"):
+
+            # 1. Try live OSRM
+            with st.spinner("Loading route…"):
                 _road_km_pre, _drive_sec_pre, _road_coords = _osrm_route(_ca[1], _ca[0], _cb[1], _cb[0])
 
+            # 2. Offline Zambia road network fallback
+            if not _road_coords or len(_road_coords) <= 1:
+                _road_coords = _road_route_offline(_city_a, _city_b, _CITY_COORDS)
+                _road_km_pre, _drive_sec_pre = None, None
+
             if _road_coords and len(_road_coords) > 1:
-                _route_status = "road"
-                _path_df = _pd_map.DataFrame([{"path": _road_coords, "name": f"{_city_a} → {_city_b} (road)"}])
+                _route_status = "offline" if _road_km_pre is None else "road"
+                _path_df = _pd_map.DataFrame([{"path": _road_coords, "name": f"{_city_a} → {_city_b}"}])
                 _layers.append(pdk.Layer("PathLayer", data=_path_df,
                                          get_path="path", get_color=[220, 50, 50],
                                          get_width=5, width_min_pixels=3, pickable=True))
@@ -2024,9 +2084,11 @@ if st.session_state.get("_draw_map_open"):
         _view_zoom = 5 if not (_city_a and _city_b) else max(4, min(7, int(10 - haversine_km(_ca[0], _ca[1], _cb[0], _cb[1]) / 120)))
 
         if _route_status == "road":
-            st.caption("🟢 Showing real road route (OSRM)")
+            st.caption("🟢 Live road route (OSRM)")
+        elif _route_status == "offline":
+            st.caption("🔵 Zambia highway route (offline)")
         elif _route_status == "straight":
-            st.caption("🟡 OSRM unavailable — showing straight line. Route will load on next selection.")
+            st.caption("🟡 Straight line — cities not connected in road network")
 
         st.pydeck_chart(pdk.Deck(
             layers=_layers,
