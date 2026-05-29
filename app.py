@@ -2175,15 +2175,25 @@ if st.session_state.get("_draw_map_open"):
         with _r1:
             _rad_city = st.selectbox("Centre city", ["— select —"] + _city_names, key="rad_city")
         with _r2:
-            _rad_km = st.slider("Radius (km)", 50, 600, 150, step=25, key="rad_km")
+            _rad_km = st.slider("Radius (km by road)", 50, 800, 200, step=25, key="rad_km")
 
         _rad_city = None if _rad_city == "— select —" else _rad_city
         if _rad_city:
             _rc = _CITY_COORDS[_rad_city]
-            _within = sorted([
-                (haversine_km(_rc[0], _rc[1], v[0], v[1]), k)
-                for k, v in _CITY_COORDS.items() if k != _rad_city
-            ])
+            # Compute road distance for each city via offline route
+            _within = []
+            for k, v in _CITY_COORDS.items():
+                if k == _rad_city:
+                    continue
+                _rcoords = _road_route_offline(_rad_city, k, _CITY_COORDS)
+                if _rcoords and len(_rcoords) > 1:
+                    _road_d = sum(haversine_km(_rcoords[i][1], _rcoords[i][0],
+                                               _rcoords[i+1][1], _rcoords[i+1][0])
+                                  for i in range(len(_rcoords)-1))
+                else:
+                    _road_d = haversine_km(_rc[0], _rc[1], v[0], v[1])  # fallback
+                _within.append((_road_d, k))
+            _within = sorted(_within)
             _inside = [(d, c) for d, c in _within if d <= _rad_km]
 
             _circle_pts = _pd_map.DataFrame([{
@@ -2213,7 +2223,7 @@ if st.session_state.get("_draw_map_open"):
             ), use_container_width=True, height=430)
 
             if _inside:
-                st.success(f"**{len(_inside)} cities within {_rad_km} km of {_rad_city}**")
+                st.success(f"**{len(_inside)} cities within {_rad_km} km by road of {_rad_city}**")
                 # Show table with straight-line + road distance for each
                 _rad_rows = []
                 for _rd, _rc_name in _inside:
@@ -2232,7 +2242,7 @@ if st.session_state.get("_draw_map_open"):
                 import pandas as _pd_rad
                 st.dataframe(_pd_rad.DataFrame(_rad_rows), use_container_width=True, hide_index=True)
             else:
-                st.warning(f"No other cities within {_rad_km} km of {_rad_city}.")
+                st.warning(f"No other cities within {_rad_km} km by road of {_rad_city}.")
         else:
             st.info("Select a centre city to see which other cities fall within the radius.")
 
