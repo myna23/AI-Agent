@@ -43,24 +43,54 @@ import math
 # Map helper functions — road routing (OSRM) + elevation (Open-Elevation)
 # ---------------------------------------------------------------------------
 def _osrm_route(lon1, lat1, lon2, lat2):
-    """Return (road_km, drive_seconds, coords) from public OSRM, or (None, None, None)."""
+    """Return (road_km, drive_seconds, coords) trying multiple routing servers."""
     import requests as _req
-    # Try two OSRM endpoints
-    urls = [
+
+    # --- OSRM-style endpoints ---
+    osrm_urls = [
+        f"https://routing.openstreetmap.de/routed-car/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=full&geometries=geojson",
         f"https://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=full&geometries=geojson",
         f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=full&geometries=geojson",
     ]
-    for url in urls:
+    for url in osrm_urls:
         try:
-            r = _req.get(url, timeout=12)
+            r = _req.get(url, timeout=10)
             data = r.json()
             if data.get("code") == "Ok":
                 route = data["routes"][0]
-                coords = route["geometry"]["coordinates"]  # [[lon,lat], ...]
+                coords = route["geometry"]["coordinates"]
                 if coords and len(coords) > 1:
                     return route["distance"] / 1000, route["duration"], coords
         except Exception:
             continue
+
+    # --- Valhalla fallback (openstreetmap.de public instance) ---
+    try:
+        valhalla_url = "https://valhalla1.openstreetmap.de/route"
+        payload = {
+            "locations": [
+                {"lon": lon1, "lat": lat1},
+                {"lon": lon2, "lat": lat2},
+            ],
+            "costing": "auto",
+            "shape_format": "geojson",
+            "directions_options": {"units": "kilometers"},
+        }
+        r = _req.post(valhalla_url, json=payload, timeout=10)
+        data = r.json()
+        if "trip" in data:
+            legs = data["trip"]["legs"]
+            coords = []
+            for leg in legs:
+                for pt in leg["shape"]:
+                    coords.append([pt["lon"], pt["lat"]])
+            dist_km = data["trip"]["summary"]["length"]
+            duration = data["trip"]["summary"]["time"]
+            if coords and len(coords) > 1:
+                return dist_km, duration, coords
+    except Exception:
+        pass
+
     return None, None, None
 
 @st.cache_data(show_spinner=False, ttl=86400)
