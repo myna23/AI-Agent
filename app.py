@@ -3418,114 +3418,82 @@ if hasattr(st.session_state, "_pending_question") and st.session_state._pending_
 
 
 # ---------------------------------------------------------------------------
-# Voice input — fixed mic button via st.markdown (no iframe, sits beside chat bar)
+# Voice input — inject mic button into parent page via components.html iframe JS
 # ---------------------------------------------------------------------------
-st.markdown("""
-<style>
-#zmb-mic {
-    position: fixed;
-    bottom: 18px;
-    right: 70px;
-    width: 36px; height: 36px;
-    border-radius: 50%;
-    border: none;
-    background: #1d3557;
-    color: white;
-    font-size: 16px;
-    cursor: pointer;
-    z-index: 99999;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    transition: background 0.2s;
-}
-#zmb-mic.listening {
-    background: #c0392b;
-    animation: zmb-pulse 1s infinite;
-}
-@keyframes zmb-pulse {
-    0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,0.5)}
-    50%{box-shadow:0 0 0 8px rgba(192,57,43,0)}
-}
-#zmb-mic-toast {
-    position: fixed;
-    bottom: 62px;
-    right: 14px;
-    background: #1d3557;
-    color: white;
-    font-size: 12px;
-    padding: 5px 12px;
-    border-radius: 12px;
-    z-index: 99999;
-    display: none;
-    max-width: 280px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-}
-</style>
-<button id="zmb-mic" title="Voice input — click to speak">🎤</button>
-<div id="zmb-mic-toast"></div>
+import streamlit.components.v1 as _components
+_components.html("""
 <script>
 (function(){
-  const btn = document.getElementById('zmb-mic');
-  const toast = document.getElementById('zmb-mic-toast');
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    btn.style.opacity = '0.35';
-    btn.title = 'Voice not supported — use Chrome or Edge';
-    return;
-  }
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const rec = new SR();
-  rec.lang = 'en-US';
-  rec.interimResults = false;
-  rec.maxAlternatives = 1;
-  let active = false;
+  const pd = window.parent.document;
+  if (pd.getElementById('zmb-mic')) return;
+
+  const style = pd.createElement('style');
+  style.textContent = `
+    #zmb-mic {
+      position:fixed; bottom:18px; right:70px;
+      width:36px; height:36px; border-radius:50%;
+      border:none; background:#1d3557; color:white;
+      font-size:16px; cursor:pointer; z-index:99999;
+      box-shadow:0 2px 6px rgba(0,0,0,0.3); transition:background 0.2s;
+    }
+    #zmb-mic.zmb-on { background:#c0392b; animation:zmb-p 1s infinite; }
+    @keyframes zmb-p {
+      0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,0.5)}
+      50%{box-shadow:0 0 0 10px rgba(192,57,43,0)}
+    }
+    #zmb-toast {
+      position:fixed; bottom:62px; right:14px;
+      background:#1d3557; color:white; font-size:12px;
+      padding:5px 12px; border-radius:12px; z-index:99999;
+      display:none; max-width:280px; box-shadow:0 2px 8px rgba(0,0,0,0.25);
+    }
+  `;
+  pd.head.appendChild(style);
+
+  const btn = pd.createElement('button');
+  btn.id = 'zmb-mic'; btn.title = 'Voice input'; btn.textContent = '🎤';
+  pd.body.appendChild(btn);
+
+  const toast = pd.createElement('div');
+  toast.id = 'zmb-toast';
+  pd.body.appendChild(toast);
 
   function showToast(msg, ms) {
-    toast.textContent = msg;
-    toast.style.display = 'block';
+    toast.textContent = msg; toast.style.display = 'block';
     if (ms) setTimeout(() => { toast.style.display = 'none'; }, ms);
   }
 
-  btn.addEventListener('click', () => {
-    if (active) { rec.stop(); return; }
-    rec.start();
-  });
+  const pw = window.parent;
+  if (!('webkitSpeechRecognition' in pw) && !('SpeechRecognition' in pw)) {
+    btn.style.opacity = '0.35'; btn.title = 'Voice not supported — use Chrome/Edge'; return;
+  }
+  const SR = pw.SpeechRecognition || pw.webkitSpeechRecognition;
+  const rec = new SR();
+  rec.lang = 'en-US'; rec.interimResults = false; rec.maxAlternatives = 1;
+  let active = false;
 
-  rec.onstart = () => {
-    active = true;
-    btn.classList.add('listening');
-    btn.textContent = '⏹';
-    showToast('Listening… click mic to stop');
-  };
-  rec.onend = () => {
-    active = false;
-    btn.classList.remove('listening');
-    btn.textContent = '🎤';
-  };
-  rec.onerror = (e) => {
-    active = false;
-    btn.classList.remove('listening');
-    btn.textContent = '🎤';
-    showToast('Error: ' + e.error, 3000);
-  };
+  btn.addEventListener('click', () => { if (active) { rec.stop(); return; } rec.start(); });
+  rec.onstart = () => { active=true; btn.classList.add('zmb-on'); btn.textContent='⏹'; showToast('Listening… click to stop'); };
+  rec.onend   = () => { active=false; btn.classList.remove('zmb-on'); btn.textContent='🎤'; };
+  rec.onerror = (e) => { active=false; btn.classList.remove('zmb-on'); btn.textContent='🎤'; showToast('Error: '+e.error, 3000); };
   rec.onresult = (e) => {
-    const transcript = e.results[0][0].transcript;
-    showToast('✓ "' + transcript + '" — press Enter to send', 4000);
-    const tryInject = (attempts) => {
-      const inputs = document.querySelectorAll('textarea[data-testid="stChatInputTextArea"]');
-      if (inputs.length > 0) {
-        const inp = inputs[0];
-        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
-        setter.call(inp, transcript);
-        inp.dispatchEvent(new Event('input', { bubbles: true }));
+    const t = e.results[0][0].transcript;
+    showToast('✓ "'+t+'" — press Enter to send', 4000);
+    const inject = (n) => {
+      const els = pd.querySelectorAll('textarea[data-testid="stChatInputTextArea"]');
+      if (els.length) {
+        const inp = els[0];
+        const setter = Object.getOwnPropertyDescriptor(pw.HTMLTextAreaElement.prototype,'value').set;
+        setter.call(inp, t);
+        inp.dispatchEvent(new pw.Event('input',{bubbles:true}));
         inp.focus();
-      } else if (attempts > 0) {
-        setTimeout(() => tryInject(attempts - 1), 200);
-      }
+      } else if (n>0) { setTimeout(()=>inject(n-1), 200); }
     };
-    tryInject(8);
+    inject(8);
   };
 })();
 </script>
-""", unsafe_allow_html=True)
+""", height=0)
 
 # ---------------------------------------------------------------------------
 # Chat input — paperclip built into bar via accept_file
