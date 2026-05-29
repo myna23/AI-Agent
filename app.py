@@ -2133,39 +2133,45 @@ if st.session_state.get("_draw_map_open"):
             with st.spinner("Fetching elevation…"):
                 _elevs = _get_elevations([(_ca[0], _ca[1]), (_cb[0], _cb[1])])
 
-            # Drive/bus time based on road km
-            _dist_for_time = _road_km if _road_km else _d * 1.3
+            # All time estimates based on road km
             if _drive_sec:
                 _hrs = int(_drive_sec // 3600)
                 _mins = int((_drive_sec % 3600) // 60)
                 _car_str = f"{_hrs}h {_mins}m" if _hrs else f"{_mins} min"
-                _car_label = "Drive time (car)"
             else:
-                _car_min = int(_dist_for_time / 80 * 60)
+                _car_min = int(_road_km / 80 * 60)
                 _car_str = f"{_car_min // 60}h {_car_min % 60}m"
-                _car_label = "Drive time (~80 km/h)"
-            _bus_min = int(_dist_for_time / 55 * 60)
+            _bus_min = int(_road_km / 55 * 60)
             _bus_str = f"{_bus_min // 60}h {_bus_min % 60}m"
+            _walk_hrs = _road_km / 5
+            _walk_str = f"{int(_walk_hrs)}h {int((_walk_hrs % 1)*60)}m"
 
-            # Results grid
-            _mc1, _mc2, _mc3 = st.columns(3)
+            # Results grid — 4 columns, all road-based
+            _mc1, _mc2, _mc3, _mc4 = st.columns(4)
             with _mc1:
-                st.metric("Straight-line", f"{_d:.1f} km")
                 _road_src = "OSRM" if _road_km_pre else "highway route"
-                st.metric(f"Road distance ({_road_src})", f"{_road_km:.1f} km" if _road_km else "N/A")
+                st.metric("Road distance", f"{_road_km:.1f} km",
+                          help=f"Via {_road_src} — follows actual roads")
             with _mc2:
                 st.metric("Direction", f"{_dir}  {_brng:.0f}°",
-                          help=f"{_city_a} → {_city_b} compass bearing")
+                          help=f"Compass bearing {_city_a} → {_city_b}")
                 st.metric("Midpoint", f"{_mid_lat:.1f}°N  {_mid_lon:.1f}°E")
             with _mc3:
-                st.metric(_car_label, _car_str)
+                st.metric("Drive time (~80 km/h)", _car_str)
                 st.metric("Bus (~55 km/h)", _bus_str)
+            with _mc4:
+                st.metric("Walk (~5 km/h)", _walk_str)
+                if _elevs:
+                    _elev_diff = abs(_elevs[1] - _elevs[0])
+                    _higher = _city_a if _elevs[0] > _elevs[1] else _city_b
+                    st.metric("Elevation difference", f"{_elev_diff:,} m",
+                              help=f"{_higher} is higher")
             if _elevs:
                 _ev1, _ev2 = st.columns(2)
                 with _ev1:
-                    st.metric(f"Elevation {_city_a}", f"{_elevs[0]:,} m asl")
+                    st.metric(f"Elevation — {_city_a}", f"{_elevs[0]:,} m asl")
                 with _ev2:
-                    st.metric(f"Elevation {_city_b}", f"{_elevs[1]:,} m asl")
+                    st.metric(f"Elevation — {_city_b}", f"{_elevs[1]:,} m asl")
         elif _city_a:
             st.info(f"**{_city_a}** selected — now pick a second city.")
 
