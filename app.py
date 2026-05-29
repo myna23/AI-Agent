@@ -42,21 +42,25 @@ import math
 # ---------------------------------------------------------------------------
 # Map helper functions — road routing (OSRM) + elevation (Open-Elevation)
 # ---------------------------------------------------------------------------
-@st.cache_data(show_spinner=False, ttl=3600)
 def _osrm_route(lon1, lat1, lon2, lat2):
     """Return (road_km, drive_seconds, coords) from public OSRM, or (None, None, None)."""
     import requests as _req
-    try:
-        url = (f"http://router.project-osrm.org/route/v1/driving/"
-               f"{lon1},{lat1};{lon2},{lat2}?overview=full&geometries=geojson")
-        r = _req.get(url, timeout=8)
-        data = r.json()
-        if data.get("code") == "Ok":
-            route = data["routes"][0]
-            coords = route["geometry"]["coordinates"]  # [[lon,lat], ...]
-            return route["distance"] / 1000, route["duration"], coords
-    except Exception:
-        pass
+    # Try two OSRM endpoints
+    urls = [
+        f"https://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=full&geometries=geojson",
+        f"http://router.project-osrm.org/route/v1/driving/{lon1},{lat1};{lon2},{lat2}?overview=full&geometries=geojson",
+    ]
+    for url in urls:
+        try:
+            r = _req.get(url, timeout=12)
+            data = r.json()
+            if data.get("code") == "Ok":
+                route = data["routes"][0]
+                coords = route["geometry"]["coordinates"]  # [[lon,lat], ...]
+                if coords and len(coords) > 1:
+                    return route["distance"] / 1000, route["duration"], coords
+        except Exception:
+            continue
     return None, None, None
 
 @st.cache_data(show_spinner=False, ttl=86400)
@@ -1957,25 +1961,24 @@ if st.session_state.get("_draw_map_open"):
                              get_fill_color="color", pickable=True)]
 
         _road_coords = None
+        _route_status = None
         if _city_a and _city_b:
             _ca, _cb = _CITY_COORDS[_city_a], _CITY_COORDS[_city_b]
-            # Fetch real road route geometry
-            with st.spinner("Loading road route…"):
+            with st.spinner("Fetching road route from OSRM…"):
                 _road_km_pre, _drive_sec_pre, _road_coords = _osrm_route(_ca[1], _ca[0], _cb[1], _cb[0])
 
-            if _road_coords:
-                # Draw actual road path using PathLayer
-                _path_df = _pd_map.DataFrame([{"path": _road_coords, "name": f"{_city_a} → {_city_b}"}])
+            if _road_coords and len(_road_coords) > 1:
+                _route_status = "road"
+                _path_df = _pd_map.DataFrame([{"path": _road_coords, "name": f"{_city_a} → {_city_b} (road)"}])
                 _layers.append(pdk.Layer("PathLayer", data=_path_df,
                                          get_path="path", get_color=[220, 50, 50],
-                                         get_width=4, width_min_pixels=3, pickable=True))
+                                         get_width=5, width_min_pixels=3, pickable=True))
             else:
-                # Fallback straight line if OSRM unavailable
+                _route_status = "straight"
                 _line_df = _pd_map.DataFrame([{"from": [_ca[1], _ca[0]], "to": [_cb[1], _cb[0]]}])
                 _layers.append(pdk.Layer("LineLayer", data=_line_df,
                                          get_source_position="from", get_target_position="to",
-                                         get_color=[220, 50, 50, 140], get_width=3,
-                                         dashArray=[6, 4]))
+                                         get_color=[220, 50, 50, 160], get_width=3))
 
         # Midpoint dot
         if _city_a and _city_b:
@@ -1989,6 +1992,11 @@ if st.session_state.get("_draw_map_open"):
         _view_lat = (_ca[0] + _cb[0]) / 2 if (_city_a and _city_b) else -13.5
         _view_lon = (_ca[1] + _cb[1]) / 2 if (_city_a and _city_b) else 28.5
         _view_zoom = 5 if not (_city_a and _city_b) else max(4, min(7, int(10 - haversine_km(_ca[0], _ca[1], _cb[0], _cb[1]) / 120)))
+
+        if _route_status == "road":
+            st.caption("🟢 Showing real road route (OSRM)")
+        elif _route_status == "straight":
+            st.caption("🟡 OSRM unavailable — showing straight line. Route will load on next selection.")
 
         st.pydeck_chart(pdk.Deck(
             layers=_layers,
