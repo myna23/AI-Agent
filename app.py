@@ -3427,20 +3427,24 @@ _components.html("""
   const pd = window.parent.document;
   if (pd.getElementById('zmb-mic')) return;
 
+  const micSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>`;
+  const stopSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>`;
+
   const style = pd.createElement('style');
   style.textContent = `
     #zmb-mic {
-      position:fixed; bottom:20px; right:108px;
-      width:32px; height:32px; border-radius:50%;
-      border:none; background:transparent; color:#888;
+      position:absolute;
+      width:28px; height:28px; border-radius:50%;
+      border:none; background:transparent; color:#999;
       cursor:pointer; z-index:99999;
-      transition:all 0.2s; padding:4px; display:flex; align-items:center; justify-content:center;
+      transition:color 0.2s; padding:4px;
+      display:flex; align-items:center; justify-content:center;
     }
     #zmb-mic:hover { color:#1d3557; }
     #zmb-mic.zmb-on { color:#c0392b; animation:zmb-p 0.8s infinite; }
     @keyframes zmb-p { 0%,100%{opacity:1} 50%{opacity:0.3} }
     #zmb-toast {
-      position:fixed; bottom:62px; right:14px;
+      position:fixed; bottom:80px; right:20px;
       background:#1d3557; color:white; font-size:12px;
       padding:5px 12px; border-radius:12px; z-index:99999;
       display:none; max-width:280px; box-shadow:0 2px 8px rgba(0,0,0,0.25);
@@ -3448,16 +3452,24 @@ _components.html("""
   `;
   pd.head.appendChild(style);
 
-  const micSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>`;
-  const stopSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>`;
-
   const btn = pd.createElement('button');
   btn.id = 'zmb-mic'; btn.title = 'Voice input'; btn.innerHTML = micSVG;
-  pd.body.appendChild(btn);
+
+  // Find the chat input bar and inject mic button inside it
+  function attachMic() {
+    const bar = pd.querySelector('[data-testid="stChatInput"]');
+    if (!bar) { setTimeout(attachMic, 300); return; }
+    bar.style.position = 'relative';
+    // Place mic just to the left of the send button (which is on the right)
+    btn.style.right = '44px';
+    btn.style.top = '50%';
+    btn.style.transform = 'translateY(-50%)';
+    bar.appendChild(btn);
+  }
+  attachMic();
 
   const toast = pd.createElement('div');
-  toast.id = 'zmb-toast';
-  pd.body.appendChild(toast);
+  toast.id = 'zmb-toast'; pd.body.appendChild(toast);
 
   function showToast(msg, ms) {
     toast.textContent = msg; toast.style.display = 'block';
