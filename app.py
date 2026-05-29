@@ -3430,16 +3430,15 @@ _components.html("""
   const style = pd.createElement('style');
   style.textContent = `
     #zmb-mic {
-      position:fixed; bottom:12px; right:100px;
-      width:30px; height:30px; border-radius:50%;
-      border:1px solid #ccc; background:white; color:#555;
-      font-size:16px; cursor:pointer; z-index:99999;
-      box-shadow:0 1px 4px rgba(0,0,0,0.15); transition:all 0.2s; padding:0; line-height:1;
+      position:fixed; bottom:20px; right:108px;
+      width:32px; height:32px; border-radius:50%;
+      border:none; background:transparent; color:#888;
+      cursor:pointer; z-index:99999;
+      transition:all 0.2s; padding:4px; display:flex; align-items:center; justify-content:center;
     }
-    #zmb-mic.zmb-on { color:#c0392b; animation:zmb-p 1s infinite; }
-    @keyframes zmb-p {
-      0%,100%{opacity:1} 50%{opacity:0.4}
-    }
+    #zmb-mic:hover { color:#1d3557; }
+    #zmb-mic.zmb-on { color:#c0392b; animation:zmb-p 0.8s infinite; }
+    @keyframes zmb-p { 0%,100%{opacity:1} 50%{opacity:0.3} }
     #zmb-toast {
       position:fixed; bottom:62px; right:14px;
       background:#1d3557; color:white; font-size:12px;
@@ -3449,8 +3448,11 @@ _components.html("""
   `;
   pd.head.appendChild(style);
 
+  const micSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>`;
+  const stopSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>`;
+
   const btn = pd.createElement('button');
-  btn.id = 'zmb-mic'; btn.title = 'Voice input'; btn.textContent = '🎤';
+  btn.id = 'zmb-mic'; btn.title = 'Voice input'; btn.innerHTML = micSVG;
   pd.body.appendChild(btn);
 
   const toast = pd.createElement('div');
@@ -3472,9 +3474,9 @@ _components.html("""
   let active = false;
 
   btn.addEventListener('click', () => { if (active) { rec.stop(); return; } rec.start(); });
-  rec.onstart = () => { active=true; btn.classList.add('zmb-on'); btn.textContent='⏹'; showToast('Listening… click to stop'); };
-  rec.onend   = () => { active=false; btn.classList.remove('zmb-on'); btn.textContent='🎤'; };
-  rec.onerror = (e) => { active=false; btn.classList.remove('zmb-on'); btn.textContent='🎤'; showToast('Error: '+e.error, 3000); };
+  rec.onstart = () => { active=true; btn.classList.add('zmb-on'); btn.innerHTML=stopSVG; showToast('Listening… click to stop'); };
+  rec.onend   = () => { active=false; btn.classList.remove('zmb-on'); btn.innerHTML=micSVG; };
+  rec.onerror = (e) => { active=false; btn.classList.remove('zmb-on'); btn.innerHTML=micSVG; showToast('Error: '+e.error, 3000); };
   rec.onresult = (e) => {
     const t = e.results[0][0].transcript;
     showToast('✓ "'+t+'" — press Enter to send', 4000);
