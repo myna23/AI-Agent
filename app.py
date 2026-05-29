@@ -2239,12 +2239,20 @@ if st.session_state.get("_draw_map_open"):
                         _road_d = sum(haversine_km(_rcoords[i][1], _rcoords[i][0], _rcoords[i+1][1], _rcoords[i+1][0])
                                       for i in range(len(_rcoords)-1))
                         _drive_t = int(_road_d / 80 * 60)
-                        _rad_rows.append({"City": _rc_name, "Straight-line": f"{_rd:.0f} km",
-                                          "Road distance": f"{_road_d:.0f} km",
-                                          "Drive time": f"{_drive_t//60}h {_drive_t%60}m"})
+                        _bus_t = int(_road_d / 55 * 60)
+                        _rad_rows.append({
+                            "City": _rc_name,
+                            "Road distance": f"{_road_d:.0f} km",
+                            "Drive (~80 km/h)": f"{_drive_t//60}h {_drive_t%60}m",
+                            "Bus (~55 km/h)": f"{_bus_t//60}h {_bus_t%60}m",
+                        })
                     else:
-                        _rad_rows.append({"City": _rc_name, "Straight-line": f"{_rd:.0f} km",
-                                          "Road distance": "—", "Drive time": "—"})
+                        _rad_rows.append({
+                            "City": _rc_name,
+                            "Road distance": f"{_rd:.0f} km",
+                            "Drive (~80 km/h)": f"{int(_rd/80*60)//60}h {int(_rd/80*60)%60}m",
+                            "Bus (~55 km/h)": f"{int(_rd/55*60)//60}h {int(_rd/55*60)%60}m",
+                        })
                 import pandas as _pd_rad
                 st.dataframe(_pd_rad.DataFrame(_rad_rows), use_container_width=True, hide_index=True)
             else:
