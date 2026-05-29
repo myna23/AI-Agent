@@ -44,19 +44,20 @@ import math
 # ---------------------------------------------------------------------------
 @st.cache_data(show_spinner=False, ttl=3600)
 def _osrm_route(lon1, lat1, lon2, lat2):
-    """Return (road_km, drive_seconds) from public OSRM, or None on failure."""
+    """Return (road_km, drive_seconds, coords) from public OSRM, or (None, None, None)."""
     import requests as _req
     try:
         url = (f"http://router.project-osrm.org/route/v1/driving/"
-               f"{lon1},{lat1};{lon2},{lat2}?overview=false")
+               f"{lon1},{lat1};{lon2},{lat2}?overview=full&geometries=geojson")
         r = _req.get(url, timeout=8)
         data = r.json()
         if data.get("code") == "Ok":
-            leg = data["routes"][0]
-            return leg["distance"] / 1000, leg["duration"]
+            route = data["routes"][0]
+            coords = route["geometry"]["coordinates"]  # [[lon,lat], ...]
+            return route["distance"] / 1000, route["duration"], coords
     except Exception:
         pass
-    return None, None
+    return None, None, None
 
 @st.cache_data(show_spinner=False, ttl=86400)
 def _get_elevations(locations):
@@ -1955,12 +1956,26 @@ if st.session_state.get("_draw_map_open"):
                              get_position=["lon", "lat"], get_radius="radius",
                              get_fill_color="color", pickable=True)]
 
+        _road_coords = None
         if _city_a and _city_b:
             _ca, _cb = _CITY_COORDS[_city_a], _CITY_COORDS[_city_b]
-            _line_df = _pd_map.DataFrame([{"from": [_ca[1], _ca[0]], "to": [_cb[1], _cb[0]]}])
-            _layers.append(pdk.Layer("LineLayer", data=_line_df,
-                                     get_source_position="from", get_target_position="to",
-                                     get_color=[220, 50, 50], get_width=5))
+            # Fetch real road route geometry
+            with st.spinner("Loading road route…"):
+                _road_km_pre, _drive_sec_pre, _road_coords = _osrm_route(_ca[1], _ca[0], _cb[1], _cb[0])
+
+            if _road_coords:
+                # Draw actual road path using PathLayer
+                _path_df = _pd_map.DataFrame([{"path": _road_coords, "name": f"{_city_a} → {_city_b}"}])
+                _layers.append(pdk.Layer("PathLayer", data=_path_df,
+                                         get_path="path", get_color=[220, 50, 50],
+                                         get_width=4, width_min_pixels=3, pickable=True))
+            else:
+                # Fallback straight line if OSRM unavailable
+                _line_df = _pd_map.DataFrame([{"from": [_ca[1], _ca[0]], "to": [_cb[1], _cb[0]]}])
+                _layers.append(pdk.Layer("LineLayer", data=_line_df,
+                                         get_source_position="from", get_target_position="to",
+                                         get_color=[220, 50, 50, 140], get_width=3,
+                                         dashArray=[6, 4]))
 
         # Midpoint dot
         if _city_a and _city_b:
@@ -1970,9 +1985,14 @@ if st.session_state.get("_draw_map_open"):
                                      get_position=["lon", "lat"], get_radius=12000,
                                      get_fill_color=[80, 200, 120]))
 
+        # Zoom to fit both cities if selected
+        _view_lat = (_ca[0] + _cb[0]) / 2 if (_city_a and _city_b) else -13.5
+        _view_lon = (_ca[1] + _cb[1]) / 2 if (_city_a and _city_b) else 28.5
+        _view_zoom = 5 if not (_city_a and _city_b) else max(4, min(7, int(10 - haversine_km(_ca[0], _ca[1], _cb[0], _cb[1]) / 120)))
+
         st.pydeck_chart(pdk.Deck(
             layers=_layers,
-            initial_view_state=pdk.ViewState(latitude=-13.5, longitude=28.5, zoom=5, pitch=0),
+            initial_view_state=pdk.ViewState(latitude=_view_lat, longitude=_view_lon, zoom=_view_zoom, pitch=0),
             map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
             tooltip={"text": "{name}"},
         ), use_container_width=True, height=430)
@@ -1983,9 +2003,9 @@ if st.session_state.get("_draw_map_open"):
             _brng = _bearing(_ca[0], _ca[1], _cb[0], _cb[1])
             _dir = _compass(_brng)
 
-            # Road distance + drive time via OSRM
+            # Use pre-fetched OSRM data (already fetched above for the map)
             with st.spinner("Fetching road distance…"):
-                _road_km, _drive_sec = _osrm_route(_ca[1], _ca[0], _cb[1], _cb[0])
+                _road_km, _drive_sec, _ = _osrm_route(_ca[1], _ca[0], _cb[1], _cb[0])
 
             # Elevation for both cities
             with st.spinner("Fetching elevation…"):
