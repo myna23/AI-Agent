@@ -2108,7 +2108,7 @@ if st.session_state.get("_draw_map_open"):
         st.pydeck_chart(pdk.Deck(
             layers=_layers,
             initial_view_state=pdk.ViewState(latitude=_view_lat, longitude=_view_lon, zoom=_view_zoom, pitch=0),
-            map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+            map_style="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
             tooltip={"text": "{name}"},
         ), use_container_width=True, height=430)
 
@@ -2203,7 +2203,7 @@ if st.session_state.get("_draw_map_open"):
             st.pydeck_chart(pdk.Deck(
                 layers=_rad_layers,
                 initial_view_state=pdk.ViewState(latitude=_rc[0], longitude=_rc[1], zoom=5, pitch=0),
-                map_style="https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+                map_style="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
                 tooltip={"text": "{name}"},
             ), use_container_width=True, height=430)
 
