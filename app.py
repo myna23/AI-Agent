@@ -3430,16 +3430,15 @@ _components.html("""
   const style = pd.createElement('style');
   style.textContent = `
     #zmb-mic {
-      position:fixed; bottom:18px; right:70px;
-      width:36px; height:36px; border-radius:50%;
-      border:none; background:#1d3557; color:white;
-      font-size:16px; cursor:pointer; z-index:99999;
-      box-shadow:0 2px 6px rgba(0,0,0,0.3); transition:background 0.2s;
+      position:fixed; bottom:14px; right:52px;
+      width:28px; height:28px; border-radius:50%;
+      border:none; background:transparent; color:#888;
+      font-size:18px; cursor:pointer; z-index:99999;
+      box-shadow:none; transition:color 0.2s; padding:0; line-height:1;
     }
-    #zmb-mic.zmb-on { background:#c0392b; animation:zmb-p 1s infinite; }
+    #zmb-mic.zmb-on { color:#c0392b; animation:zmb-p 1s infinite; }
     @keyframes zmb-p {
-      0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,0.5)}
-      50%{box-shadow:0 0 0 10px rgba(192,57,43,0)}
+      0%,100%{opacity:1} 50%{opacity:0.4}
     }
     #zmb-toast {
       position:fixed; bottom:62px; right:14px;
