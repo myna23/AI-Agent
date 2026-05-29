@@ -2118,15 +2118,22 @@ if st.session_state.get("_draw_map_open"):
             _brng = _bearing(_ca[0], _ca[1], _cb[0], _cb[1])
             _dir = _compass(_brng)
 
-            # Use pre-fetched OSRM data (already fetched above for the map)
-            with st.spinner("Fetching road distance…"):
-                _road_km, _drive_sec, _ = _osrm_route(_ca[1], _ca[0], _cb[1], _cb[0])
+            # Road km: use OSRM if available, else compute from offline route coords
+            _road_km = _road_km_pre  # from OSRM fetch above
+            _drive_sec = _drive_sec_pre
+            if not _road_km and _road_coords and len(_road_coords) > 1:
+                # Sum haversine along each segment of the offline route
+                _road_km = 0.0
+                for _ri in range(len(_road_coords) - 1):
+                    _rlo1, _rla1 = _road_coords[_ri]
+                    _rlo2, _rla2 = _road_coords[_ri + 1]
+                    _road_km += haversine_km(_rla1, _rlo1, _rla2, _rlo2)
 
             # Elevation for both cities
             with st.spinner("Fetching elevation…"):
                 _elevs = _get_elevations([(_ca[0], _ca[1]), (_cb[0], _cb[1])])
 
-            # Always compute drive/bus time — use road km if available, else straight-line ×1.3
+            # Drive/bus time based on road km
             _dist_for_time = _road_km if _road_km else _d * 1.3
             if _drive_sec:
                 _hrs = int(_drive_sec // 3600)
@@ -2136,7 +2143,7 @@ if st.session_state.get("_draw_map_open"):
             else:
                 _car_min = int(_dist_for_time / 80 * 60)
                 _car_str = f"{_car_min // 60}h {_car_min % 60}m"
-                _car_label = "Drive time (est. ~80 km/h)"
+                _car_label = "Drive time (~80 km/h)"
             _bus_min = int(_dist_for_time / 55 * 60)
             _bus_str = f"{_bus_min // 60}h {_bus_min % 60}m"
 
@@ -2144,10 +2151,8 @@ if st.session_state.get("_draw_map_open"):
             _mc1, _mc2, _mc3 = st.columns(3)
             with _mc1:
                 st.metric("Straight-line", f"{_d:.1f} km")
-                if _road_km:
-                    st.metric("Road distance", f"{_road_km:.1f} km")
-                else:
-                    st.metric("Road estimate", f"{_d * 1.3:.0f} km", help="×1.3 fallback — OSRM unavailable")
+                _road_src = "OSRM" if _road_km_pre else "highway route"
+                st.metric(f"Road distance ({_road_src})", f"{_road_km:.1f} km" if _road_km else "N/A")
             with _mc2:
                 st.metric("Direction", f"{_dir}  {_brng:.0f}°",
                           help=f"{_city_a} → {_city_b} compass bearing")
@@ -2208,8 +2213,24 @@ if st.session_state.get("_draw_map_open"):
             ), use_container_width=True, height=430)
 
             if _inside:
-                st.success(f"**{len(_inside)} cities within {_rad_km} km of {_rad_city}:** " +
-                           ", ".join(f"{c} ({d:.0f} km)" for d, c in _inside))
+                st.success(f"**{len(_inside)} cities within {_rad_km} km of {_rad_city}**")
+                # Show table with straight-line + road distance for each
+                _rad_rows = []
+                for _rd, _rc_name in _inside:
+                    _rc2 = _CITY_COORDS[_rc_name]
+                    _rcoords = _road_route_offline(_rad_city, _rc_name, _CITY_COORDS)
+                    if _rcoords and len(_rcoords) > 1:
+                        _road_d = sum(haversine_km(_rcoords[i][1], _rcoords[i][0], _rcoords[i+1][1], _rcoords[i+1][0])
+                                      for i in range(len(_rcoords)-1))
+                        _drive_t = int(_road_d / 80 * 60)
+                        _rad_rows.append({"City": _rc_name, "Straight-line": f"{_rd:.0f} km",
+                                          "Road distance": f"{_road_d:.0f} km",
+                                          "Drive time": f"{_drive_t//60}h {_drive_t%60}m"})
+                    else:
+                        _rad_rows.append({"City": _rc_name, "Straight-line": f"{_rd:.0f} km",
+                                          "Road distance": "—", "Drive time": "—"})
+                import pandas as _pd_rad
+                st.dataframe(_pd_rad.DataFrame(_rad_rows), use_container_width=True, hide_index=True)
             else:
                 st.warning(f"No other cities within {_rad_km} km of {_rad_city}.")
         else:
