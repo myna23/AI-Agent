@@ -17,6 +17,20 @@ import time
 # Provider catalogue — shown in the settings UI
 # ---------------------------------------------------------------------------
 PROVIDERS = {
+    # ── World Bank Azure OpenAI — Desktop/POC (Device Code auth) ────────
+    # For local demos on a WB office machine. Authenticates via browser
+    # Device Code flow (no API key needed). Store the Azure endpoint in
+    # WB_AZURE_ENDPOINT in your .env file.
+    "WB Azure OpenAI (Desktop)": {
+        "best":       "gpt-4o-mini",
+        "models":     ["gpt-4o", "gpt-4o-mini"],
+        "env_key":    "WB_AZURE_ENDPOINT",
+        "package":    "azure-openai",
+        "docs_url":   "https://ai.worldbank.org/",
+        "tenant_id":  "31a2fec0-266b-4c67-b56e-2796d8f59c36",
+        "client_id":  "00c104af-b0ae-4557-9787-6e6cfced741e",
+        "api_version": "2024-12-01-preview",
+    },
     # ── World Bank mAI Factory (primary for WB deployment) ──────────────
     # Single token from mAI Factory replaces all individual provider keys.
     # Routes to Claude, GPT, and Gemini through the WB internal gateway.
@@ -79,11 +93,12 @@ DEFAULT_MODEL    = "claude-sonnet-4-5"        if _mai_token else "claude-opus-4-
 
 # Best models shown in the quick selector (one per meaningful provider)
 BEST_MODELS = [
-    ("WB mAI Factory (Claude)", "claude-sonnet-4-5"),
-    ("WB mAI Factory (GPT)",    "gpt-4o"),
-    ("Anthropic (Claude)",      "claude-opus-4-7"),
-    ("OpenAI (GPT)",            "gpt-4o"),
-    ("Google (Gemini)",         "gemini-2.0-flash"),
+    ("WB Azure OpenAI (Desktop)", "gpt-4o-mini"),
+    ("WB mAI Factory (Claude)",   "claude-sonnet-4-5"),
+    ("WB mAI Factory (GPT)",      "gpt-4o"),
+    ("Anthropic (Claude)",        "claude-opus-4-7"),
+    ("OpenAI (GPT)",              "gpt-4o"),
+    ("Google (Gemini)",           "gemini-2.0-flash"),
 ]
 
 
@@ -175,6 +190,9 @@ class ModelClient:
     def _is_gemini(self):
         return PROVIDERS[self.provider].get("package") == "google-generativeai"
 
+    def _is_azure_openai(self):
+        return PROVIDERS[self.provider].get("package") == "azure-openai"
+
     # ------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------
@@ -187,6 +205,8 @@ class ModelClient:
             return self._openai_ask(system, user, max_tokens)
         if self._is_gemini():
             return self._gemini_ask(system, user, max_tokens)
+        if self._is_azure_openai():
+            return self._azure_openai_ask(system, user, max_tokens)
         raise ValueError(f"Unsupported provider: {self.provider}")
 
     def stream(self, system: str, user: str, max_tokens: int = 2048):
@@ -195,8 +215,10 @@ class ModelClient:
             yield from self._anthropic_stream(system, user, max_tokens)
         elif self._is_openai():
             yield from self._openai_stream(system, user, max_tokens)
-        elif self.provider == "Google (Gemini)":
+        elif self._is_gemini():
             yield from self._gemini_stream(system, user, max_tokens)
+        elif self._is_azure_openai():
+            yield from self._azure_openai_stream(system, user, max_tokens)
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
@@ -208,6 +230,8 @@ class ModelClient:
             yield from self._openai_stream_history(system, messages, max_tokens)
         elif self._is_gemini():
             yield from self._gemini_stream_history(system, messages, max_tokens)
+        elif self._is_azure_openai():
+            yield from self._azure_openai_stream_history(system, messages, max_tokens)
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
@@ -329,6 +353,68 @@ class ModelClient:
             if hasattr(block, "text")
         )
         return {"text": text, "tool_calls": tool_calls_log, "verified_facts": verified_facts}
+
+    # ------------------------------------------------------------------
+    # WB Azure OpenAI (Device Code auth)
+    # ------------------------------------------------------------------
+
+    def _azure_openai_client(self):
+        try:
+            from azure.identity import DeviceCodeCredential, get_bearer_token_provider
+            from openai import AzureOpenAI
+        except ImportError:
+            raise ImportError("Install: pip install azure-identity openai")
+        pinfo = PROVIDERS[self.provider]
+        token_provider = get_bearer_token_provider(
+            DeviceCodeCredential(
+                tenant_id=pinfo["tenant_id"],
+                client_id=pinfo["client_id"],
+            ),
+            "https://cognitiveservices.azure.com/.default",
+        )
+        return AzureOpenAI(
+            azure_endpoint=self.api_key,
+            azure_ad_token_provider=token_provider,
+            api_version=pinfo.get("api_version", "2024-12-01-preview"),
+        )
+
+    def _azure_openai_ask(self, system, user, max_tokens):
+        client = self._azure_openai_client()
+        resp = client.chat.completions.create(
+            model=self.model,
+            max_tokens=max_tokens,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user",   "content": user},
+            ],
+        )
+        return resp.choices[0].message.content or ""
+
+    def _azure_openai_stream(self, system, user, max_tokens):
+        client = self._azure_openai_client()
+        stream = client.chat.completions.create(
+            model=self.model, max_tokens=max_tokens, stream=True,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user",   "content": user},
+            ],
+        )
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                yield delta
+
+    def _azure_openai_stream_history(self, system, messages, max_tokens):
+        client = self._azure_openai_client()
+        full_messages = [{"role": "system", "content": system}] + messages
+        stream = client.chat.completions.create(
+            model=self.model, max_tokens=max_tokens, stream=True,
+            messages=full_messages,
+        )
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                yield delta
 
     # ------------------------------------------------------------------
     # Anthropic
