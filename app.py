@@ -1241,7 +1241,13 @@ with st.sidebar:
         st.session_state.chat_sessions = st.session_state.chat_sessions[:20]
 
     # Model — at top so it's always accessible without scrolling
-    if _mai_configured:
+    _wb_azure_configured = bool(_os.getenv("WB_AZURE_ENDPOINT", ""))
+    if _wb_azure_configured:
+        _sb_model_opts = [
+            ("GPT-4o mini (WB)",  "WB Azure OpenAI (Desktop)", "gpt-4o-mini"),
+            ("GPT-4o (WB)",       "WB Azure OpenAI (Desktop)", "gpt-4o"),
+        ]
+    elif _mai_configured:
         _sb_model_opts = [
             ("Claude Sonnet", "WB mAI Factory (Claude)", "claude-sonnet-4-5"),
             ("Claude Haiku",  "WB mAI Factory (Claude)", "claude-haiku-4-5"),
