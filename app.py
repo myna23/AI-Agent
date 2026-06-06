@@ -11,6 +11,9 @@ Run locally:
     streamlit run app.py
 """
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import streamlit as st
 from streamlit_folium import st_folium
 
