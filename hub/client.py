@@ -354,17 +354,15 @@ class HubClient:
         # Build WHERE clause
         where = "1=1"
 
-        # POI dataset: filter by Type and Name keywords based on query keyword
+        # POI dataset: filter by Type in the query; name filtering done in Python after fetch
+        _poi_name_filter = []  # applied after fetch
         if "Points_of_Interest" in base or "POI" in base:
             hint_lower = query_hint.lower()
             for keyword, (poi_type, name_kws) in self._POI_TYPE_MAP.items():
                 if keyword in hint_lower:
                     where = f"Type='{poi_type}'"
                     if name_kws:
-                        name_clause = " OR ".join(
-                            f"LOWER(Name) LIKE '%{kw}%'" for kw in name_kws
-                        )
-                        where += f" AND ({name_clause})"
+                        _poi_name_filter = name_kws
                     break
 
         # Global datasets: restrict to Zambia to avoid worldwide results
@@ -448,6 +446,14 @@ class HubClient:
                     }
             except Exception:
                 pass
+
+        # Apply name-based POI filter in Python (ArcGIS doesn't support LOWER())
+        if _poi_name_filter and geojson.get("features"):
+            geojson["features"] = [
+                f for f in geojson["features"]
+                if any(kw in (f.get("properties", {}).get("Name", "") or "").lower()
+                       for kw in _poi_name_filter)
+            ]
 
         # Last resort: use pre-downloaded static sample data.
         # This ensures the app works even when the ArcGIS server blocks cloud IPs.
