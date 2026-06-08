@@ -267,33 +267,24 @@ class HubClient:
                 ds["id"] = cached
         return results
 
-    # Mapping of user query keywords to (Type, name_keywords) filter values.
-    # name_keywords: list of strings to match in the Name field (OR logic), or None for no name filter.
+    # Mapping of user query keywords to POI Type filter values.
     _POI_TYPE_MAP = {
-        "church": ("Religion", ["church", "chapel", "cathedral", "christian", "christ", "parish"]),
-        "churches": ("Religion", ["church", "chapel", "cathedral", "christian", "christ", "parish"]),
-        "mosque": ("Religion", ["mosque", "masjid", "islamic", "muslim"]),
-        "mosques": ("Religion", ["mosque", "masjid", "islamic", "muslim"]),
-        "temple": ("Religion", ["temple", "hindu", "sikh", "buddhist"]),
-        "religion": ("Religion", None),
-        "market": ("Commercial", ["market", "bazaar"]),
-        "markets": ("Commercial", ["market", "bazaar"]),
-        "marketplace": ("Commercial", ["market", "bazaar"]),
-        "shop": ("Commercial", ["shop", "store", "retail"]),
-        "shops": ("Commercial", ["shop", "store", "retail"]),
-        "business": ("Commercial", None), "trade": ("Commercial", None),
-        "commercial": ("Commercial", None),
-        "farm": ("Farm", None), "farming": ("Farm", None), "agriculture": ("Farm", None),
-        "well": ("Well", None), "borehole": ("Borehole", None),
-        "water facility": ("Water Facility", None),
-        "bridge": ("Bridge", None), "dam": ("Dam", None), "airport": ("Airport", None),
-        "bank": ("Bank", None), "police": ("Police", None),
-        "post office": ("Post Office", None),
-        "mining": ("Mining", None), "fisheries": ("Fisheries", None),
-        "cooperative": ("Cooperative", None), "pharmacy": ("Pharmacy", None),
-        "cemetery": ("Cemetery", None), "railway": ("Railway", None),
-        "bus stop": ("Bus Stop", None), "prison": ("Prison", None),
-        "mill": ("Mill", None),
+        "church": "Religion", "churches": "Religion",
+        "mosque": "Religion", "mosques": "Religion",
+        "temple": "Religion", "religion": "Religion",
+        "market": "Commercial", "markets": "Commercial",
+        "marketplace": "Commercial", "shop": "Commercial",
+        "shops": "Commercial", "business": "Commercial",
+        "trade": "Commercial", "commercial": "Commercial",
+        "farm": "Farm", "farming": "Farm", "agriculture": "Farm",
+        "well": "Well", "borehole": "Borehole",
+        "water facility": "Water Facility",
+        "bridge": "Bridge", "dam": "Dam", "airport": "Airport",
+        "bank": "Bank", "police": "Police", "post office": "Post Office",
+        "mining": "Mining", "fisheries": "Fisheries",
+        "cooperative": "Cooperative", "pharmacy": "Pharmacy",
+        "cemetery": "Cemetery", "railway": "Railway",
+        "bus stop": "Bus Stop", "prison": "Prison", "mill": "Mill",
     }
 
     def _discover_item_id(self, layer_url: str) -> str:
@@ -354,15 +345,12 @@ class HubClient:
         # Build WHERE clause
         where = "1=1"
 
-        # POI dataset: filter by Type in the query; name filtering done in Python after fetch
-        _poi_name_filter = []  # applied after fetch
+        # POI dataset: filter by Type based on the query keyword
         if "Points_of_Interest" in base or "POI" in base:
             hint_lower = query_hint.lower()
-            for keyword, (poi_type, name_kws) in self._POI_TYPE_MAP.items():
+            for keyword, poi_type in self._POI_TYPE_MAP.items():
                 if keyword in hint_lower:
                     where = f"Type='{poi_type}'"
-                    if name_kws:
-                        _poi_name_filter = name_kws
                     break
 
         # Global datasets: restrict to Zambia to avoid worldwide results
@@ -446,14 +434,6 @@ class HubClient:
                     }
             except Exception:
                 pass
-
-        # Apply name-based POI filter in Python (ArcGIS doesn't support LOWER())
-        if _poi_name_filter and geojson.get("features"):
-            geojson["features"] = [
-                f for f in geojson["features"]
-                if any(kw in (f.get("properties", {}).get("Name", "") or "").lower()
-                       for kw in _poi_name_filter)
-            ]
 
         # Last resort: use pre-downloaded static sample data.
         # This ensures the app works even when the ArcGIS server blocks cloud IPs.
