@@ -267,15 +267,20 @@ class HubClient:
                 ds["id"] = cached
         return results
 
-    # Mapping of user query keywords to (Type, SubType) filter values.
-    # SubType=None means filter by Type only (broad category).
+    # Mapping of user query keywords to (Type, name_keywords) filter values.
+    # name_keywords: list of strings to match in the Name field (OR logic), or None for no name filter.
     _POI_TYPE_MAP = {
-        "church": ("Religion", "Church"), "churches": ("Religion", "Church"),
-        "mosque": ("Religion", "Mosque"), "mosques": ("Religion", "Mosque"),
-        "temple": ("Religion", "Temple"), "religion": ("Religion", None),
-        "marketplace": ("Commercial", "Market"), "marketplaces": ("Commercial", "Market"),
-        "market": ("Commercial", "Market"), "markets": ("Commercial", "Market"),
-        "shop": ("Commercial", "Shop"), "shops": ("Commercial", "Shop"),
+        "church": ("Religion", ["church", "chapel", "cathedral", "christian", "christ", "parish"]),
+        "churches": ("Religion", ["church", "chapel", "cathedral", "christian", "christ", "parish"]),
+        "mosque": ("Religion", ["mosque", "masjid", "islamic", "muslim"]),
+        "mosques": ("Religion", ["mosque", "masjid", "islamic", "muslim"]),
+        "temple": ("Religion", ["temple", "hindu", "sikh", "buddhist"]),
+        "religion": ("Religion", None),
+        "market": ("Commercial", ["market", "bazaar"]),
+        "markets": ("Commercial", ["market", "bazaar"]),
+        "marketplace": ("Commercial", ["market", "bazaar"]),
+        "shop": ("Commercial", ["shop", "store", "retail"]),
+        "shops": ("Commercial", ["shop", "store", "retail"]),
         "business": ("Commercial", None), "trade": ("Commercial", None),
         "commercial": ("Commercial", None),
         "farm": ("Farm", None), "farming": ("Farm", None), "agriculture": ("Farm", None),
@@ -349,15 +354,17 @@ class HubClient:
         # Build WHERE clause
         where = "1=1"
 
-        # POI dataset: filter by Type (and SubType when specific) based on query keyword
+        # POI dataset: filter by Type and Name keywords based on query keyword
         if "Points_of_Interest" in base or "POI" in base:
             hint_lower = query_hint.lower()
-            for keyword, (poi_type, poi_subtype) in self._POI_TYPE_MAP.items():
+            for keyword, (poi_type, name_kws) in self._POI_TYPE_MAP.items():
                 if keyword in hint_lower:
-                    if poi_subtype:
-                        where = f"Type='{poi_type}' AND SubType='{poi_subtype}'"
-                    else:
-                        where = f"Type='{poi_type}'"
+                    where = f"Type='{poi_type}'"
+                    if name_kws:
+                        name_clause = " OR ".join(
+                            f"LOWER(Name) LIKE '%{kw}%'" for kw in name_kws
+                        )
+                        where += f" AND ({name_clause})"
                     break
 
         # Global datasets: restrict to Zambia to avoid worldwide results
