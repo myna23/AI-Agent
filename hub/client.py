@@ -352,6 +352,7 @@ class HubClient:
                 if keyword in hint_lower:
                     where = f"Type='{poi_type}'"
                     break
+        print(f"DEBUG fetch_geojson WHERE: {where} | hint: {query_hint[:50]}", flush=True)
 
         # Global datasets: restrict to Zambia to avoid worldwide results
         if "Border_Crossing" in base or "GLOBAL_Border" in base:
