@@ -393,34 +393,17 @@ class ModelClient:
         return resp.choices[0].message.content or ""
 
     def _azure_openai_stream(self, system, user, max_tokens):
-        client = self._azure_openai_client()
-        stream = client.chat.completions.create(
-            model=self.model, max_tokens=max_tokens, stream=True,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user",   "content": user},
-            ],
-        )
-        for chunk in stream:
-            if not chunk.choices:
-                continue
-            delta = chunk.choices[0].delta.content
-            if delta:
-                yield delta
+        yield self._azure_openai_ask(system, user, max_tokens)
 
     def _azure_openai_stream_history(self, system, messages, max_tokens):
         client = self._azure_openai_client()
         full_messages = [{"role": "system", "content": system}] + messages
-        stream = client.chat.completions.create(
-            model=self.model, max_tokens=max_tokens, stream=True,
+        resp = client.chat.completions.create(
+            model=self.model, max_tokens=max_tokens,
             messages=full_messages,
         )
-        for chunk in stream:
-            if not chunk.choices:
-                continue
-            delta = chunk.choices[0].delta.content
-            if delta:
-                yield delta
+        if resp.choices:
+            yield resp.choices[0].message.content or ""
 
     # ------------------------------------------------------------------
     # Anthropic
