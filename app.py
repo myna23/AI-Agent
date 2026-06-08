@@ -368,7 +368,6 @@ def _suggestion_chips(question: str, has_location: bool, has_data: bool, ds_name
     with _sug_col:
         for j, sug in enumerate(suggestions):
             if st.button(sug, key=f"{key_prefix}_sug_{j}", use_container_width=True):
-                st.session_state.messages.append({"role": "user", "content": sug})
                 st.session_state._pending_question = sug
                 st.rerun()
 
@@ -2399,7 +2398,6 @@ for i, msg in enumerate(st.session_state.messages):
                     with _sug_col:
                         for _si, _stxt in enumerate(_hist_sugs[:3]):
                             if st.button(_stxt, key=f"hsug_{i}_{_si}", use_container_width=True):
-                                st.session_state.messages.append({"role": "user", "content": _stxt})
                                 st.session_state._pending_question = _stxt
                                 st.rerun()
 
