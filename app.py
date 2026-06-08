@@ -3067,10 +3067,19 @@ def process_question(question: str):
                             _base_url = candidate["url"].rstrip("/")
                             _query_url = f"{_base_url}/query"
                             _tok = _hub_client_module._ARCGIS_TOKEN
+                            # Apply POI Type filter even in bbox queries
+                            _bbox_where = "1=1"
+                            if "Points_of_Interest" in _base_url or "POI" in _base_url:
+                                _q_lower = question.lower()
+                                for _kw, _ptype in _hub_client_module.HubClient._POI_TYPE_MAP.items():
+                                    if _kw in _q_lower:
+                                        _bbox_where = f"Type='{_ptype}'"
+                                        break
                             _draw_params = {
                                 "geometry": _bbox_str_draw,
                                 "geometryType": "esriGeometryEnvelope",
                                 "spatialRel": "esriSpatialRelIntersects",
+                                "where": _bbox_where,
                                 "outFields": "*",
                                 "resultRecordCount": 200,
                                 "f": "geojson",
