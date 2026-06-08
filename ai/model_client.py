@@ -388,6 +388,8 @@ class ModelClient:
                 {"role": "user",   "content": user},
             ],
         )
+        if not resp.choices:
+            return ""
         return resp.choices[0].message.content or ""
 
     def _azure_openai_stream(self, system, user, max_tokens):
