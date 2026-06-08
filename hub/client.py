@@ -267,19 +267,28 @@ class HubClient:
                 ds["id"] = cached
         return results
 
-    # Mapping of user query keywords to POI Type filter values
+    # Mapping of user query keywords to (Type, SubType) filter values.
+    # SubType=None means filter by Type only (broad category).
     _POI_TYPE_MAP = {
-        "marketplace": "Commercial", "marketplaces": "Commercial", "market": "Commercial",
-        "markets": "Commercial", "shop": "Commercial", "shops": "Commercial",
-        "business": "Commercial", "trade": "Commercial", "commercial": "Commercial",
-        "church": "Religion", "mosque": "Religion", "religion": "Religion",
-        "farm": "Farm", "farming": "Farm", "agriculture": "Farm",
-        "well": "Well", "borehole": "Borehole", "water facility": "Water Facility",
-        "bridge": "Bridge", "dam": "Dam", "airport": "Airport",
-        "bank": "Bank", "police": "Police", "post office": "Post Office",
-        "mining": "Mining", "fisheries": "Fisheries", "cooperative": "Cooperative",
-        "pharmacy": "Pharmacy", "cemetery": "Cemetery", "railway": "Railway",
-        "bus stop": "Bus Stop", "prison": "Prison", "mill": "Mill",
+        "church": ("Religion", "Church"), "churches": ("Religion", "Church"),
+        "mosque": ("Religion", "Mosque"), "mosques": ("Religion", "Mosque"),
+        "temple": ("Religion", "Temple"), "religion": ("Religion", None),
+        "marketplace": ("Commercial", "Market"), "marketplaces": ("Commercial", "Market"),
+        "market": ("Commercial", "Market"), "markets": ("Commercial", "Market"),
+        "shop": ("Commercial", "Shop"), "shops": ("Commercial", "Shop"),
+        "business": ("Commercial", None), "trade": ("Commercial", None),
+        "commercial": ("Commercial", None),
+        "farm": ("Farm", None), "farming": ("Farm", None), "agriculture": ("Farm", None),
+        "well": ("Well", None), "borehole": ("Borehole", None),
+        "water facility": ("Water Facility", None),
+        "bridge": ("Bridge", None), "dam": ("Dam", None), "airport": ("Airport", None),
+        "bank": ("Bank", None), "police": ("Police", None),
+        "post office": ("Post Office", None),
+        "mining": ("Mining", None), "fisheries": ("Fisheries", None),
+        "cooperative": ("Cooperative", None), "pharmacy": ("Pharmacy", None),
+        "cemetery": ("Cemetery", None), "railway": ("Railway", None),
+        "bus stop": ("Bus Stop", None), "prison": ("Prison", None),
+        "mill": ("Mill", None),
     }
 
     def _discover_item_id(self, layer_url: str) -> str:
@@ -340,12 +349,15 @@ class HubClient:
         # Build WHERE clause
         where = "1=1"
 
-        # POI dataset: filter by Type based on the query keyword
+        # POI dataset: filter by Type (and SubType when specific) based on query keyword
         if "Points_of_Interest" in base or "POI" in base:
             hint_lower = query_hint.lower()
-            for keyword, poi_type in self._POI_TYPE_MAP.items():
+            for keyword, (poi_type, poi_subtype) in self._POI_TYPE_MAP.items():
                 if keyword in hint_lower:
-                    where = f"Type='{poi_type}'"
+                    if poi_subtype:
+                        where = f"Type='{poi_type}' AND SubType='{poi_subtype}'"
+                    else:
+                        where = f"Type='{poi_type}'"
                     break
 
         # Global datasets: restrict to Zambia to avoid worldwide results
