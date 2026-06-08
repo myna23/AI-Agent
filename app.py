@@ -3543,13 +3543,14 @@ def process_question(question: str):
                 # Recover any partial text already streamed
                 response = _STREAM_BUFFERS.get(_sess_buf_key, "")
                 _err_str = str(e)
+                print(f"AI ERROR: {_err_str}", flush=True)
                 if not response:
                     if "overloaded" in _err_str.lower():
                         response = "⚠️ The AI is temporarily overloaded. Please try again in a few seconds."
                     elif "rate_limit" in _err_str.lower():
                         response = "⚠️ Rate limit reached. Please wait a moment and try again."
                     else:
-                        response = "⚠️ Something went wrong with the AI response. Please try again."
+                        response = f"⚠️ Error: {_err_str}"
                     _ai_error = True
                     st.warning(response)
             finally:
