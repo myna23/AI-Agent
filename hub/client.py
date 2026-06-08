@@ -15,6 +15,12 @@ import os
 import requests
 from dotenv import load_dotenv
 
+try:
+    import truststore
+    truststore.inject_into_ssl()
+except Exception:
+    pass
+
 # ArcGIS API for Python — optional parallel fetch path
 try:
     from hub import arcgis_client as _agis
