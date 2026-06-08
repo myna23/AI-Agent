@@ -360,13 +360,13 @@ class ModelClient:
 
     def _azure_openai_client(self):
         try:
-            from azure.identity import InteractiveBrowserCredential, get_bearer_token_provider
+            from azure.identity import DeviceCodeCredential, get_bearer_token_provider
             from openai import AzureOpenAI
         except ImportError:
             raise ImportError("Install: pip install azure-identity openai")
         pinfo = PROVIDERS[self.provider]
         token_provider = get_bearer_token_provider(
-            InteractiveBrowserCredential(
+            DeviceCodeCredential(
                 tenant_id=pinfo["tenant_id"],
                 client_id=pinfo["client_id"],
             ),
