@@ -2729,6 +2729,12 @@ def process_question(question: str):
                                 if _loc_type == "district"
                                 else f"Province='{_location}' OR PROVINCE='{_location}'"
                             )
+                            # Add POI Type filter when querying Points of Interest
+                            if "Points_of_Interest" in _base_url or "POI" in _base_url:
+                                for _kw, _ptype in _hub_client_module.HubClient._POI_TYPE_MAP.items():
+                                    if _kw in question.lower():
+                                        _where += f" AND Type='{_ptype}'"
+                                        break
                             # Count-only query for exact total
                             try:
                                 _cnt_resp = _req.get(f"{_base_url}/query",
