@@ -383,23 +383,20 @@ def _render_ondemand_panel(msg_idx: int, msg: dict, ctx_layers: list = None):
     if not has_geojson and not has_data:
         return
 
-    # Toggle buttons — label changes to hide when already shown
-    _ba, _bb, _bc, _bz = st.columns([1.4, 1.4, 1.4, 8])
-    with _ba:
-        if has_geojson:
-            if st.button("🗺️ Map", key=f"mapbtn_{msg_idx}", use_container_width=True):
-                msg["map_shown"] = not msg.get("map_shown", False)
-                st.rerun()
-    with _bb:
-        if has_data:
-            if st.button("📊 Table", key=f"tblbtn_{msg_idx}", use_container_width=True):
-                msg["table_shown"] = not msg.get("table_shown", False)
-                st.rerun()
-    with _bc:
-        if has_data:
-            if st.button("📈 Chart", key=f"chtbtn_{msg_idx}", use_container_width=True):
-                msg["chart_shown"] = not msg.get("chart_shown", False)
-                st.rerun()
+    # Toggle buttons — only create columns for buttons that are available
+    _btn_defs = []
+    if has_geojson:
+        _btn_defs.append(("🗺️ Map",    f"mapbtn_{msg_idx}",  "map_shown"))
+    if has_data:
+        _btn_defs.append(("📊 Table",  f"tblbtn_{msg_idx}",  "table_shown"))
+        _btn_defs.append(("📈 Chart",  f"chtbtn_{msg_idx}",  "chart_shown"))
+    if _btn_defs:
+        _btn_cols = st.columns([1] * len(_btn_defs) + [8 - len(_btn_defs)])
+        for _col, (_label, _key, _state) in zip(_btn_cols, _btn_defs):
+            with _col:
+                if st.button(_label, key=_key, use_container_width=True):
+                    msg[_state] = not msg.get(_state, False)
+                    st.rerun()
 
     # Render requested components
     if msg.get("map_shown") and has_geojson:
