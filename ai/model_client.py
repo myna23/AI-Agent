@@ -67,8 +67,16 @@ PROVIDERS = {
 # Default: use WB mAI Factory if token is set, otherwise OpenAI direct
 import os as _os
 _mai_token = _os.getenv("MAI_FACTORY_TOKEN", "")
-DEFAULT_PROVIDER = "WB mAI Factory (GPT)" if _mai_token else "OpenAI (GPT)"
-DEFAULT_MODEL    = "gpt-4o"               if _mai_token else "gpt-4o"
+_wb_azure = _os.getenv("WB_AZURE_ENDPOINT", "")
+if _wb_azure:
+    DEFAULT_PROVIDER = "WB Azure OpenAI (Desktop)"
+    DEFAULT_MODEL    = "gpt-4o-mini"
+elif _mai_token:
+    DEFAULT_PROVIDER = "WB mAI Factory (GPT)"
+    DEFAULT_MODEL    = "gpt-4o"
+else:
+    DEFAULT_PROVIDER = "OpenAI (GPT)"
+    DEFAULT_MODEL    = "gpt-4o"
 
 # Best models shown in the quick selector (one per meaningful provider)
 BEST_MODELS = [
