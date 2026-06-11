@@ -1199,7 +1199,7 @@ _ai_provider = st.session_state.get("ai_provider", DEFAULT_PROVIDER)
 _ai_model    = st.session_state.get("ai_model",    DEFAULT_MODEL)
 _ai_key      = _resolve_ai_key(_ai_provider)
 # Cache key includes the actual key value so changing it invalidates the cache
-claude = get_ai_client(_ai_provider, _ai_model, _ai_key)
+ai_client = get_ai_client(_ai_provider, _ai_model, _ai_key)
 
 # ---------------------------------------------------------------------------
 # Session state — must be initialised before the sidebar reads them
@@ -1248,16 +1248,13 @@ with st.sidebar:
         ]
     elif _mai_configured:
         _sb_model_opts = [
-            ("Claude Sonnet", "WB mAI Factory (Claude)", "claude-sonnet-4-5"),
-            ("Claude Haiku",  "WB mAI Factory (Claude)", "claude-haiku-4-5"),
             ("GPT-4o",        "WB mAI Factory (GPT)",    "gpt-4o"),
             ("GPT-4o mini",   "WB mAI Factory (GPT)",    "gpt-4o-mini"),
         ]
     else:
         _sb_model_opts = [
-            ("Claude Sonnet", "Anthropic (Claude)", "claude-sonnet-4-6"),
-            ("Claude Opus",   "Anthropic (Claude)", "claude-opus-4-6"),
             ("GPT-4o",        "OpenAI (GPT)",       "gpt-4o"),
+            ("GPT-4o mini",   "OpenAI (GPT)",       "gpt-4o-mini"),
             ("Gemini Flash",  "Google (Gemini)",    "gemini-2.0-flash"),
         ]
     _sb_opt_labels = [o[0] for o in _sb_model_opts]
@@ -1707,7 +1704,7 @@ if "is_generating" not in st.session_state:
     st.session_state.is_generating = False
 
 # ---------------------------------------------------------------------------
-# Fixed-bottom stop button — shown while AI is generating (matches Claude UI)
+# Fixed-bottom stop button — shown while AI is generating
 # ---------------------------------------------------------------------------
 if st.session_state.get("is_generating"):
     # Dim the chat input so users know not to type while generating
@@ -2724,17 +2721,25 @@ def process_question(question: str):
                                 live_feats = _gjson.get("features", [])
                         else:
                             # Standard district/province field filter
-                            _where = (
+                            _loc_clause = (
                                 f"District='{_location}' OR DISTRICT='{_location}'"
                                 if _loc_type == "district"
                                 else f"Province='{_location}' OR PROVINCE='{_location}'"
                             )
-                            # Add POI Type filter when querying Points of Interest
+                            # Add POI Type filter when querying Points of Interest.
+                            # Wrap _loc_clause in parentheses so AND binds to the whole
+                            # OR expression — without parens, SQL precedence gives
+                            # "A OR B AND C" = "A OR (B AND C)" which returns all type A records.
+                            _poi_type_clause = ""
                             if "Points_of_Interest" in _base_url or "POI" in _base_url:
                                 for _kw, _ptype in _hub_client_module.HubClient._POI_TYPE_MAP.items():
                                     if _kw in question.lower():
-                                        _where += f" AND Type='{_ptype}'"
+                                        _poi_type_clause = f"Type='{_ptype}'"
                                         break
+                            if _poi_type_clause:
+                                _where = f"({_loc_clause}) AND {_poi_type_clause}"
+                            else:
+                                _where = _loc_clause
                             # Count-only query for exact total
                             try:
                                 _cnt_resp = _req.get(f"{_base_url}/query",
@@ -3052,7 +3057,7 @@ def process_question(question: str):
                     # will find what's within range of the named location's coordinates.
                     pass
                 else:
-                    # Non-radius query: tell Claude data is unavailable for this location
+                    # Non-radius query: tell AI data is unavailable for this location
                     sample_features = [{"_note": (
                         f"No data could be retrieved for {_location}. "
                         f"The live GeoHub server is temporarily unavailable and the pre-loaded "
@@ -3171,7 +3176,7 @@ def process_question(question: str):
     # If the question contains a radius (e.g. "within 5km of Mongu"), compute the
     # buffer center from the highlighted district centroid or the first fetched point,
     # filter map_geojson to only features inside the radius, and annotate each with
-    # its distance so Claude can mention exact distances in its answer.
+    # its distance so the AI can mention exact distances in its answer.
     if _radius_km and map_geojson and map_geojson.get("features"):
         # Determine center: prefer the district polygon centroid (most accurate for
         # location-named queries like "schools within 10km of Kalomo").
@@ -3241,7 +3246,7 @@ def process_question(question: str):
                     f"{_location or 'selected point'} in the offline data "
                     f"(live server unavailable — try again later)."
                 )
-                # Clear sample_features so Claude doesn't receive data from the wrong
+                # Clear sample_features so the AI doesn't receive data from the wrong
                 # location (e.g. Copperbelt schools when the question is about Mongu)
                 sample_features = [{"_note": (
                     f"No data found within {_radius_km} km of {_location or 'the selected point'} "
@@ -3299,7 +3304,7 @@ def process_question(question: str):
             _STREAM_BUFFERS[_sess_buf_key_ma] = ""
 
             def _map_analysis_stream():
-                for chunk in claude.stream_with_history(map_analysis_system_prompt(), _analysis_messages, max_tokens=2000):
+                for chunk in ai_client.stream_with_history(map_analysis_system_prompt(), _analysis_messages, max_tokens=2000):
                     if st.session_state.get("stop_streaming"):
                         break
                     _STREAM_BUFFERS[_sess_buf_key_ma] = _STREAM_BUFFERS.get(_sess_buf_key_ma, "") + chunk
@@ -3379,7 +3384,7 @@ def process_question(question: str):
             with st.spinner("Generating report (~15 seconds)..."):
                 stats = summarize_geojson(map_geojson) if map_geojson else {"feature_count": 0, "geometry_type": "Unknown", "fields": [], "numeric_stats": {}, "exceeded_limit": False}
                 _lang_sfx = _LANG_INSTRUCTIONS.get(st.session_state.get("_lang", "English"), "")
-                rpt_text = claude.ask(
+                rpt_text = ai_client.ask(
                     system=report_system_prompt() + _lang_sfx,
                     user=report_prompt(ds["name"], ds["description"], ds.get("fields", []), stats, sample_features),
                     max_tokens=3000,
@@ -3423,7 +3428,7 @@ def process_question(question: str):
 
             stats = summarize_geojson(map_geojson) if map_geojson else {"feature_count": 0, "geometry_type": "Unknown", "fields": [], "numeric_stats": {}, "exceeded_limit": False}
             with st.spinner("Generating summary..."):
-                summary = claude.ask(
+                summary = ai_client.ask(
                     system=summarizer_system_prompt(),
                     user=summarizer_prompt(ds["name"], ds["description"], ds.get("fields", []), sample_features, stats["feature_count"]),
                     max_tokens=1024,
@@ -3466,7 +3471,7 @@ def process_question(question: str):
                 with st.spinner(f"Loading {_location} overview..."):
                     _render_location_overview(_location, _loc_type, hub, key_prefix=_ov_key)
 
-            # Build multi-turn message history for Claude so follow-up questions
+            # Build multi-turn message history so follow-up questions
             # reference previous answers (e.g. "how many of those are in Lusaka?")
             history = []
             for m in st.session_state.messages[:-1]:  # exclude the just-added user msg
@@ -3540,7 +3545,7 @@ def process_question(question: str):
             _chat_system = chatbot_system_prompt() + _lang_suffix
 
             def _stoppable_stream():
-                for chunk in claude.stream_with_history(_chat_system, history, max_tokens=1500):
+                for chunk in ai_client.stream_with_history(_chat_system, history, max_tokens=1500):
                     if st.session_state.get("stop_streaming"):
                         break
                     _STREAM_BUFFERS[_sess_buf_key] = _STREAM_BUFFERS.get(_sess_buf_key, "") + chunk

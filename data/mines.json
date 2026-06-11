@@ -1,0 +1,131 @@
+{
+  "_note": "Static fallback data — used when live ArcGIS server is unavailable. Data sourced from public records.",
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [26.41, -12.18]},
+      "properties": {"Name": "Kansanshi Mine", "Operator": "First Quantum Minerals (FQM)", "District": "Solwezi", "Province": "North-Western", "Type": "copper", "Status": "active", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [25.50, -12.08]},
+      "properties": {"Name": "Sentinel Mine (Trident)", "Operator": "First Quantum Minerals (FQM)", "District": "Kalumbila", "Province": "North-Western", "Type": "copper", "Status": "active", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [25.87, -12.35]},
+      "properties": {"Name": "Lumwana Mine", "Operator": "Barrick Gold", "District": "Lumwana", "Province": "North-Western", "Type": "copper", "Status": "active", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.83, -12.36]},
+      "properties": {"Name": "Konkola/Nchanga Mine", "Operator": "Konkola Copper Mines (KCM)", "District": "Chililabombwe", "Province": "Copperbelt", "Type": "copper", "Status": "active", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.21, -12.80]},
+      "properties": {"Name": "Nkana Mine", "Operator": "Mopani Copper Mines", "District": "Kitwe", "Province": "Copperbelt", "Type": "copper", "Status": "active", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.10, -12.84]},
+      "properties": {"Name": "Chibuluma Mine", "Operator": "Metorex", "District": "Kalulushi", "Province": "Copperbelt", "Type": "copper", "Status": "active", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.04, -12.94]},
+      "properties": {"Name": "Chambishi Mine", "Operator": "CNMC/NFCA", "District": "Chambishi", "Province": "Copperbelt", "Type": "copper", "Status": "active", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.24, -12.55]},
+      "properties": {"Name": "Mufulira Mine", "Operator": "Mopani Copper Mines", "District": "Mufulira", "Province": "Copperbelt", "Type": "copper", "Status": "active", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.40, -13.13]},
+      "properties": {"Name": "Luanshya/Baluba Mine", "Operator": "Jincheng Mining", "District": "Luanshya", "Province": "Copperbelt", "Type": "copper", "Status": "active", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.14, -17.25]},
+      "properties": {"Name": "Maamba Collieries", "Operator": "Maamba Collieries Ltd", "District": "Sinazongwe", "Province": "Southern", "Type": "coal", "Status": "active", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.90, -15.97]},
+      "properties": {"Name": "Munali Nickel Mine", "Operator": "Consolidated Nickel Mines", "District": "Mazabuka", "Province": "Southern", "Type": "nickel", "Status": "care-and-maintenance", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.45, -14.44]},
+      "properties": {"Name": "Sable Zinc Kabwe", "Operator": "Vendetta Mining", "District": "Kabwe", "Province": "Central", "Type": "zinc/lead", "Status": "care-and-maintenance", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.78, -12.36]},
+      "properties": {"Name": "Lubambe Mine", "Operator": "EMR Capital", "District": "Chililabombwe", "Province": "Copperbelt", "Type": "copper", "Status": "active", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.05, -15.50]},
+      "properties": {"Name": "Nampundwe Pyrite Mine", "Operator": "Chilanga Cement", "District": "Chilanga", "Province": "Lusaka", "Type": "pyrite", "Status": "active", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.12, -17.22]},
+      "properties": {"Name": "Collum Coal Mine", "Operator": "Private (Chinese)", "District": "Sinazongwe", "Province": "Southern", "Type": "coal", "Status": "care-and-maintenance", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.64, -12.97]},
+      "properties": {"Name": "Bwana Mkubwa Mine (SX-EW)", "Operator": "First Quantum Minerals (FQM)", "District": "Ndola", "Province": "Copperbelt", "Type": "copper", "Status": "active", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.86, -12.35]},
+      "properties": {"Name": "Chililabombwe Area Mines", "Operator": "Various", "District": "Chililabombwe", "Province": "Copperbelt", "Type": "copper", "Status": "active", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [25.52, -12.10]},
+      "properties": {"Name": "Enterprise Nickel Project", "Operator": "First Quantum Minerals (FQM)", "District": "Kalumbila", "Province": "North-Western", "Type": "nickel", "Status": "development", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.50, -14.40]},
+      "properties": {"Name": "Mimbula Emerald Deposits", "Operator": "Small-scale miners", "District": "Kabwe", "Province": "Central", "Type": "emerald", "Status": "active", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.68, -13.45]},
+      "properties": {"Name": "Mpongwe Copper Project", "Operator": "Blackthorn Resources", "District": "Mpongwe", "Province": "Copperbelt", "Type": "copper", "Status": "care-and-maintenance", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [32.78, -10.25]},
+      "properties": {"Name": "Kalobwe Cobalt Mine", "Operator": "Various artisanal", "District": "Kawambwa", "Province": "Luapula", "Type": "cobalt", "Status": "active", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [31.45, -9.85]},
+      "properties": {"Name": "Mansa Copper Deposits", "Operator": "Exploration stage", "District": "Mansa", "Province": "Luapula", "Type": "copper", "Status": "closed", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [24.30, -13.10]},
+      "properties": {"Name": "Kalengwa Copper Mine", "Operator": "Zambia Consolidated Copper Mines (historical)", "District": "Mufumbwe", "Province": "North-Western", "Type": "copper", "Status": "closed", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [26.22, -16.50]},
+      "properties": {"Name": "Nkeyema Manganese Prospect", "Operator": "African Minerals", "District": "Nkeyema", "Province": "Western", "Type": "manganese", "Status": "care-and-maintenance", "landuse": "mine"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [31.68, -11.80]},
+      "properties": {"Name": "Kasama Gemstones", "Operator": "Artisanal miners", "District": "Kasama", "Province": "Northern", "Type": "gemstones", "Status": "active", "landuse": "mine"}
+    }
+  ]
+}

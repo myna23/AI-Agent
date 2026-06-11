@@ -1,10 +1,10 @@
 """
 Report generation — Word (.docx) and PDF.
 
-Both methods accept the AI-generated markdown text from Claude and
+Both methods accept the AI-generated markdown text and
 return bytes that can be served directly via st.download_button().
 
-Markdown conventions expected from Claude:
+Markdown conventions expected from the AI:
   ## Heading      → Heading 2
   ### Sub-heading → Heading 3
   - bullet        → List Bullet
@@ -38,7 +38,7 @@ from reportlab.platypus import (
 
 
 class ReportBuilder:
-    """Build Word and PDF reports from Claude AI narrative + dataset metadata."""
+    """Build Word and PDF reports from AI narrative + dataset metadata."""
 
     # ------------------------------------------------------------------
     # Word (.docx)
@@ -56,7 +56,7 @@ class ReportBuilder:
         Parameters
         ----------
         title        : Report / dataset title
-        ai_content   : Claude's markdown response text
+        ai_content   : AI markdown response text
         dataset_meta : Cleaned dataset dict from HubClient
         """
         doc = Document()
@@ -112,7 +112,7 @@ class ReportBuilder:
         doc.add_paragraph()
         footer = doc.add_paragraph(
             "This report was automatically generated using the Zambia GeoHub AI Platform "
-            "powered by Claude (Anthropic). Data sourced from zmb-geowb.hub.arcgis.com. "
+            "powered by AI. Data sourced from zmb-geowb.hub.arcgis.com. "
             "Always verify against the latest official datasets before making decisions."
         )
         footer.runs[0].font.size = Pt(8)
@@ -123,7 +123,7 @@ class ReportBuilder:
         return buf.getvalue()
 
     def _parse_markdown_to_docx(self, doc: Document, md_text: str) -> None:
-        """Walk Claude's markdown output and map it to Word paragraph styles."""
+        """Walk the AI markdown output and map it to Word paragraph styles."""
         for line in md_text.splitlines():
             stripped = line.strip()
             if not stripped:
@@ -299,7 +299,7 @@ class ReportBuilder:
         story.append(
             Paragraph(
                 "This report was automatically generated using the Zambia GeoHub AI Platform "
-                "powered by Claude (Anthropic). Always verify data against official sources.",
+                "powered by AI. Always verify data against official sources.",
                 footer_style,
             )
         )

@@ -2,7 +2,7 @@
 Prompt template functions for the three AI features.
 
 Each function returns either a system-prompt string or a user-prompt string
-ready to pass directly to ClaudeClient.ask() / ClaudeClient.stream().
+ready to pass directly to ModelClient.ask() / ModelClient.stream().
 """
 
 import json
@@ -72,6 +72,10 @@ def chatbot_system_prompt() -> str:
         "unavailable but cached/sample data is being used. Still answer the question fully "
         "from whatever sample records and dataset information are provided — do NOT refuse "
         "to answer just because of the '_note' field.\n"
+        "- Population records may contain a 'Population' field with the total population for "
+        "a district or area, and a 'Source' field such as '2022 Census'. When population data "
+        "is provided this way, state the figure clearly and cite the source year. Do NOT say "
+        "population data is unavailable if Population records are present in the sample.\n"
         "- If no matching datasets are found AND no sample records are provided, say: "
         "'This data is not currently available on the Zambia GeoHub.' Do NOT describe "
         "what the dataset might contain or invent field names.\n"

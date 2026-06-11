@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Zambia GeoHub AI — System Architecture</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0f1117;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  color: #e0e0e0;
+  padding: 36px 32px 60px;
+}
+
+/* ── PAGE TITLE ── */
+.page-title {
+  text-align: center;
+  font-size: 24px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.page-sub {
+  text-align: center;
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 40px;
+}
+
+/* ── LAYER WRAPPER ── */
+.layer {
+  border-radius: 12px;
+  margin-bottom: 6px;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* ── LAYER HEADER ── */
+.layer-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 22px;
+}
+.layer-num {
+  font-size: 28px;
+  font-weight: 900;
+  opacity: 0.25;
+  line-height: 1;
+}
+.layer-title {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+.layer-tagline {
+  font-size: 12.5px;
+  opacity: 0.65;
+  margin-top: 2px;
+}
+
+/* ── LAYER BODY ── */
+.layer-body {
+  padding: 16px 22px 20px;
+  display: grid;
+  gap: 14px;
+}
+
+/* ── CARDS ── */
+.card {
+  background: rgba(0,0,0,0.25);
+  border-radius: 8px;
+  padding: 13px 15px;
+}
+.card-title {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 7px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.card-body {
+  font-size: 12px;
+  color: #bbb;
+  line-height: 1.65;
+}
+.card-body strong { color: #ddd; }
+
+/* ── CODE BLOCK ── */
+.code {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 5px;
+  padding: 9px 12px;
+  margin-top: 8px;
+  line-height: 1.7;
+  overflow-x: auto;
+  white-space: pre;
+  display: block;
+}
+
+/* ── INLINE CODE ── */
+code {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  background: rgba(255,255,255,0.08);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* ── TAG PILL ── */
+.pill {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  margin: 2px 3px 2px 0;
+}
+
+/* ── TWO-COL / THREE-COL GRIDS ── */
+.cols-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.cols-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+/* ── FLOW ARROW between layers ── */
+.flow-arrow {
+  text-align: center;
+  font-size: 22px;
+  color: #444;
+  margin: 0 0 6px;
+  position: relative;
+}
+.flow-arrow span {
+  font-size: 11px;
+  color: #555;
+  margin-left: 8px;
+  font-style: italic;
+}
+
+/* ════════ LAYER COLOURS ════════ */
+
+/* Layer 1 — Data — blue/teal */
+.l1 { background: #071826; border: 1px solid #1e4d6b; }
+.l1 .layer-header { background: #0d2d47; }
+.l1 .layer-title  { color: #7ec8e3; }
+.l1 .code { color: #7ec8e3; border-left: 3px solid #1e4d6b; }
+.l1 .card { border: 1px solid #1a3f56; }
+.l1 .card-title { color: #7ec8e3; }
+.l1 .pill { background: #0d3347; color: #7ec8e3; border: 1px solid #1e4d6b; }
+
+/* Layer 2 — AI — purple */
+.l2 { background: #100b1f; border: 1px solid #3d2a6b; }
+.l2 .layer-header { background: #1a1135; }
+.l2 .layer-title  { color: #b39ddb; }
+.l2 .code { color: #ce93d8; border-left: 3px solid #3d2a6b; }
+.l2 .card { border: 1px solid #2e2050; }
+.l2 .card-title { color: #b39ddb; }
+.l2 .pill { background: #1e1540; color: #b39ddb; border: 1px solid #3d2a6b; }
+
+/* Layer 3 — Map — green */
+.l3 { background: #071a0f; border: 1px solid #1e5c34; }
+.l3 .layer-header { background: #0d2e1c; }
+.l3 .layer-title  { color: #81c784; }
+.l3 .code { color: #a5d6a7; border-left: 3px solid #1e5c34; }
+.l3 .card { border: 1px solid #1a4d2a; }
+.l3 .card-title { color: #81c784; }
+.l3 .pill { background: #0d2e1c; color: #81c784; border: 1px solid #1e5c34; }
+
+/* Layer 4 — Frontend — grey */
+.l4 { background: #111215; border: 1px solid #2e3138; }
+.l4 .layer-header { background: #191b1f; }
+.l4 .layer-title  { color: #9e9e9e; }
+.l4 .code { color: #bbb; border-left: 3px solid #3e4148; }
+.l4 .card { border: 1px solid #252830; }
+.l4 .card-title { color: #bbb; }
+.l4 .pill { background: #1e2025; color: #9e9e9e; border: 1px solid #3e4148; }
+
+/* ── SUMMARY BLOCK ── */
+.summary {
+  background: #0a0c10;
+  border: 1px solid #2a2d35;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-top: 20px;
+}
+.summary-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 14px;
+}
+.flow-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
+}
+.flow-box {
+  flex: 1;
+  min-width: 130px;
+  padding: 11px 14px;
+  border-radius: 7px;
+  text-align: center;
+  font-size: 11.5px;
+}
+.flow-box .fb-title { font-weight: 700; font-size: 12px; margin-bottom: 3px; }
+.flow-box .fb-sub   { font-size: 10.5px; opacity: 0.65; line-height: 1.5; }
+.flow-sep {
+  font-size: 22px;
+  color: #333;
+  padding: 0 6px;
+  flex-shrink: 0;
+}
+.fb-user   { background:#071826; border:1px solid #1e4d6b; }
+.fb-user   .fb-title { color:#7ec8e3; }
+.fb-intent { background:#0d1a0d; border:1px solid #2a4d2a; }
+.fb-intent .fb-title { color:#81c784; }
+.fb-data   { background:#071826; border:1px solid #1e4d6b; }
+.fb-data   .fb-title { color:#7ec8e3; }
+.fb-ai     { background:#100b1f; border:1px solid #3d2a6b; }
+.fb-ai     .fb-title { color:#b39ddb; }
+.fb-map    { background:#071a0f; border:1px solid #1e5c34; }
+.fb-map    .fb-title { color:#81c784; }
+.fb-out    { background:#1a1505; border:1px solid #4d3e0d; }
+.fb-out    .fb-title { color:#ffd54f; }
+
+</style>
+</head>
+<body>
+
+<div class="page-title">Zambia GeoHub AI — System Architecture</div>
+<p class="page-sub">Three-layer backend + Streamlit frontend &nbsp;·&nbsp; World Bank Technical Review</p>
+
+
+<!-- ════════════════════════════════════════════════
+     LAYER 1 — DATA LAYER
+════════════════════════════════════════════════ -->
+<div class="layer l1">
+  <div class="layer-header">
+    <div class="layer-num">1</div>
+    <div>
+      <div class="layer-title">Data Layer</div>
+      <div class="layer-tagline">Pulls live geospatial features from Zambia GeoHub via ArcGIS FeatureServer REST API</div>
+    </div>
+  </div>
+  <div class="layer-body">
+
+    <div class="cols-2">
+
+      <!-- Catalog Discovery -->
+      <div class="card">
+        <div class="card-title">📦 Catalog Discovery — Dataset Index</div>
+        <div class="card-body">
+          At startup, two HTTP GET requests hit the ArcGIS Online search API to build the full dataset index.
+          <span class="code">GET https://www.arcgis.com/sharing/rest/search
+  ?q=tags:zmb type:"Feature Service"
+  &num=100 &f=json
+
+GET https://www.arcgis.com/sharing/rest/search
+  ?q=orgid:iQ1dY19aHwbSDYIF
+    type:"Feature Service"
+  &num=100 &f=json</span>
+          Results are filtered for Zambia keywords, broken hosts excluded, and merged with a hardcoded seed catalogue of ~40 curated entries. Cached for the life of the server process.
+        </div>
+      </div>
+
+      <!-- Exact Count Query -->
+      <div class="card">
+        <div class="card-title">🔢 Exact Count Query — <code>returnCountOnly</code></div>
+        <div class="card-body">
+          Before fetching any geometry, a lightweight count-only request returns an exact integer. No features, no geometry — minimal payload.
+          <span class="code">GET {featureUrl}/query
+  ?where=District='Lusaka'
+  &returnCountOnly=true
+  &f=json
+
+→ Response: { "count": 312 }</span>
+          This integer is injected into the AI prompt as a verified fact. The AI is instructed to state it directly without hedging.
+          <br><br>
+          <strong>WHERE clause construction:</strong><br>
+          — District query → <code>District='{name}' OR DISTRICT='{name}'</code><br>
+          — Province query → <code>Province='{name}' OR PROVINCE='{name}'</code><br>
+          — POI type query → <code>Type='Religion'</code> or <code>Type='Commercial'</code>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Feature Fetch Cascade -->
+    <div class="card">
+      <div class="card-title">📡 Feature Fetch — 4-Tier Cascade</div>
+      <div class="card-body">
+        The same ArcGIS endpoint is tried four ways in sequence. Each tier is only attempted if the previous returned zero features.
+
+        <div class="cols-2" style="margin-top:10px;gap:10px">
+          <div style="background:rgba(0,0,0,0.3);border-radius:6px;padding:10px">
+            <strong style="color:#7ec8e3">Tier 1 — ArcGIS SDK (primary)</strong>
+            <span class="code">from arcgis.features import FeatureLayer
+fl = FeatureLayer(url)
+result = fl.query(
+  where=where,
+  out_fields="*",
+  result_record_count=30
+)</span>
+            Official Esri Python SDK. Sends trusted headers recognised by ArcGIS servers that reject plain <code>requests</code> from cloud datacenter IPs.
+          </div>
+          <div style="background:rgba(0,0,0,0.3);border-radius:6px;padding:10px">
+            <strong style="color:#7ec8e3">Tier 2 — Raw HTTP, GeoJSON format</strong>
+            <span class="code">GET {featureUrl}/query
+  ?where=1=1
+  &outFields=*
+  &resultRecordCount=30
+  &f=geojson
+  &Referer: zmb-geowb.hub.arcgis.com</span>
+            Hard cap of 30 features — keeps payloads under ~60 KB on Streamlit Cloud. <code>Referer</code> header set on every session request.
+          </div>
+          <div style="background:rgba(0,0,0,0.3);border-radius:6px;padding:10px">
+            <strong style="color:#7ec8e3">Tier 3 — Plain JSON, no geometry</strong>
+            <span class="code">GET {featureUrl}/query
+  ?where=1=1
+  &outFields=*
+  &returnGeometry=false
+  &f=json</span>
+            Some ArcGIS servers refuse GeoJSON from cloud IPs but serve plain JSON. The <code>attributes</code> objects are converted to synthetic GeoJSON features with <code>geometry: null</code>.
+          </div>
+          <div style="background:rgba(0,0,0,0.3);border-radius:6px;padding:10px">
+            <strong style="color:#7ec8e3">Tier 4 — Static file fallback</strong>
+            <span class="code">_STATIC_MAP = {
+  "GRID3_ZMB_HealthFac": "health_facilities.json",
+  "GRID3_ZMB_School":    "schools.json",
+  "GRID3_Zambia_Operational_Settlement_Points":
+                         "settlements.json",
+  ...  # 16 files total
+}</span>
+            Pre-downloaded GeoJSON files committed to the repo. District/province filter applied in Python. Returns <code>_source: "static_sample"</code> → UI shows yellow "Static data" badge.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Draw Area: Overpass -->
+    <div class="card">
+      <div class="card-title">🗺️ Spatial Count (Draw Area) — Overpass API for OSM features</div>
+      <div class="card-body">
+        For the Draw Area feature, 5 datasets (Mines, Dams, Churches, Mosques, Markets) are queried from OpenStreetMap via the Overpass API because the ArcGIS versions of these layers have geometry types (MultiLineString, Polygon) that don't resolve cleanly for bounding-box point counting.
+        <span class="code">POST https://overpass.kumi.systems/api/interpreter
+  data=[out:json][timeout:20];
+       (node["amenity"="place_of_worship"]
+            ["religion"="christian"](S,W,N,E);
+        way ["amenity"="place_of_worship"]
+            ["religion"="christian"](S,W,N,E);
+       );out count;
+
+→ Response: elements[0].tags.total = 13</span>
+        Three mirrors tried in sequence — first <code>HTTP 200</code> wins: <code>overpass.kumi.systems</code> → <code>overpass-api.de</code> → <code>maps.mail.ru</code>. If count > 0, a second request with <code>out body 20;</code> fetches names and coordinates.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="flow-arrow">↓ <span>GeoJSON features + exact count passed to AI Layer</span></div>
+
+
+<!-- ════════════════════════════════════════════════
+     LAYER 2 — AI LAYER
+════════════════════════════════════════════════ -->
+<div class="layer l2">
+  <div class="layer-header">
+    <div class="layer-num">2</div>
+    <div>
+      <div class="layer-title">AI Layer</div>
+      <div class="layer-tagline">Assembles a structured, data-grounded prompt and streams the AI response — supports Anthropic, OpenAI, and Google Gemini</div>
+    </div>
+  </div>
+  <div class="layer-body">
+
+    <div class="cols-2">
+
+      <!-- Intent Classification -->
+      <div class="card">
+        <div class="card-title">🧭 Intent Classification &amp; Dataset Ranking</div>
+        <div class="card-body">
+          Every message is classified before any API call is made — purely in Python, no AI used.
+          <span class="code"># Intent detection
+if "generate a report" in query:    → report_mode()
+elif "summarise" in query:          → summariser_mode()
+elif "what data is available" in query: → catalogue_mode()
+else:                               → chatbot_mode()
+
+# Dataset ranking — scores every catalog entry
+for dataset in catalog:
+    for token in query_tokens - STOP_WORDS:
+        if token in dataset["name"]:    score += 2
+        if token in dataset["tags"]:    score += 2
+        if token in dataset["description"]: score += 1
+    score += SUBJECT_BOOST.get(dataset_url_fragment, 0)
+# SUBJECT_BOOST maps ~30 keywords to dataset URLs:
+# "flood" → Zambia_Flood_Prone_Districts
+# "mine"  → zmb_mines_osm_20251009py
+# "poverty" → zmb_ADM3_const_Poverty
+→ return sorted(catalog, key=score)[:5]</span>
+        </div>
+      </div>
+
+      <!-- Provider Router -->
+      <div class="card">
+        <div class="card-title">🔀 Provider Router — ModelClient</div>
+        <div class="card-body">
+          A single <code>ModelClient</code> class abstracts all three providers behind an identical interface. The user selects provider and pastes their API key in the Settings panel — stored in <code>st.session_state</code> only, never written to disk.
+          <span class="code">class ModelClient:
+  def stream_with_history(self, system, messages):
+    if self.provider == "Anthropic (Claude)":
+      with client.messages.stream(
+        model=self.model,
+        max_tokens=2048,
+        system=system,
+        messages=messages
+      ) as s:
+        yield from s.text_stream       # token-by-token
+
+    elif self.provider == "OpenAI (GPT)":
+      stream = client.chat.completions.create(
+        model=self.model, stream=True,
+        messages=[{"role":"system","content":system}]
+                + messages
+      )
+      for chunk in stream:
+        yield chunk.choices[0].delta.content
+
+    elif self.provider == "Google (Gemini)":
+      chat = model.start_chat(history=history)
+      for chunk in chat.send_message(
+                     last_msg, stream=True):
+        yield chunk.text</span>
+          On HTTP <strong>429</strong> (rate limit) or <strong>529</strong> (overloaded): exponential backoff, up to 3 retries at 3 s / 6 s / 9 s intervals.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Prompt Construction -->
+    <div class="card">
+      <div class="card-title">📝 Prompt Constructor — What the AI Actually Receives</div>
+      <div class="card-body">
+        The user prompt is a structured string built entirely in Python before the AI API call. The AI never sees the raw GeoJSON — it receives pre-processed records and aggregations.
+        <div class="cols-2" style="margin-top:10px;gap:10px">
+          <div style="background:rgba(0,0,0,0.3);border-radius:6px;padding:10px">
+            <strong style="color:#b39ddb">System prompt (rules, sent every call):</strong>
+            <span class="code">"You are an AI assistant for the Zambia GeoHub.
+RULES:
+- Answer ONLY from the data provided to you.
+- Never invent statistics, field names, or facts.
+- If ⚡ EXACT COUNT is provided, state it directly.
+- If _note field says unavailable → server status only.
+- Always cite the dataset name used.
+- Never guess or invent a URL.
+- Do NOT add follow-up suggestions."</span>
+          </div>
+          <div style="background:rgba(0,0,0,0.3);border-radius:6px;padding:10px">
+            <strong style="color:#b39ddb">User prompt (assembled per query):</strong>
+            <span class="code">Question: {user text}
+
+Matched datasets (up to 5):
+  Dataset 1: GRID3 ZMB Health Facilities
+  Description: ...
+  Fields: Facility_N, Type, District, Province
+  Source: zmb-geowb.hub.arcgis.com/...
+
+⚡ EXACT COUNT: 312 records in Lusaka District
+
+Sample records (up to 15 features):
+[{"Facility_N":"Chilanga HC",
+  "Type":"Health Facility",
+  "District":"Chilanga",
+  "Province":"Lusaka"}, ...]
+
+Aggregated counts:
+  By District: Lusaka:42, Kafue:18 ...
+  By Type: Health Facility:280, Hospital:32
+
+Cross-context: flood data, risk layers,
+  road count, settlement count
+
+All available datasets: [full list]</span>
+          </div>
+        </div>
+        Aggregations (count by District, Province, Type) are computed in Python before the prompt — the AI receives the answer, not raw rows it has to count itself.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="flow-arrow">↓ <span>Streamed AI response + GeoJSON passed to Map Layer</span></div>
+
+
+<!-- ════════════════════════════════════════════════
+     LAYER 3 — MAP LAYER
+════════════════════════════════════════════════ -->
+<div class="layer l3">
+  <div class="layer-header">
+    <div class="layer-num">3</div>
+    <div>
+      <div class="layer-title">Map Layer</div>
+      <div class="layer-tagline">Renders interactive Leaflet maps, computes spatial analytics, and applies geometric algorithms for the Draw Area feature</div>
+    </div>
+  </div>
+  <div class="layer-body">
+
+    <div class="cols-2">
+
+      <!-- Folium / Leaflet -->
+      <div class="card">
+        <div class="card-title">🗺️ Folium + Leaflet.js Rendering</div>
+        <div class="card-body">
+          Each query result renders a <strong>Folium</strong> map (Python wrapper for Leaflet.js), embedded in Streamlit via <code>streamlit-folium</code>. Map is only built when the user clicks the Map button — not on every rerun.
+          <span class="code">import folium
+
+m = folium.Map(
+  location=[-13.5, 28.5],  # Zambia centre
+  zoom_start=6,
+  tiles="cartodb-darkmatter"  # dark basemap
+)
+
+# Point features → CircleMarker
+for feat in geojson["features"]:
+  props = feat["properties"]
+  lat, lon = feat["geometry"]["coordinates"][1,0]
+  color = _point_color(props, dataset_name)
+
+  folium.CircleMarker(
+    location=[lat, lon],
+    radius=6,
+    color=color, fill=True, fill_opacity=0.8,
+    popup=folium.Popup(html_table(props))
+  ).add_to(m)
+
+# Polygon features → GeoJson layer
+folium.GeoJson(
+  polygon_geojson,
+  style_function=lambda f: {
+    "color":     theme["border"],
+    "fillColor": theme["fill"],
+    "weight": 1, "fillOpacity": 0.35
+  }
+).add_to(m)</span>
+          <strong>Tile layer:</strong> CARTO Dark Matter — dark background makes coloured data points stand out.<br>
+          <strong>Context layers loaded at startup:</strong> district boundary polygons + major roads always rendered underneath data points.
+        </div>
+      </div>
+
+      <!-- Colour System -->
+      <div class="card">
+        <div class="card-title">🎨 Colour Assignment System</div>
+        <div class="card-body">
+          Each feature's colour is determined by a 3-level lookup chain:
+          <span class="code"># 1. POI Type field (most specific)
+_POI_TYPE_COLORS = {
+  "Commercial": "#2d6a4f",  # green
+  "Religion":   "#7b2d8b",  # purple
+  "Farm":       "#90be6d",  # light green
+  "Mining":     "#495057",  # grey
+  ...
+}
+
+# 2. Facility type keyword in Facility_T field
+# "hospital" / "clinic" / "health" → #e63946 red
+# "school" / "education"           → #457b9d blue
+
+# 3. Dataset name keyword fallback
+_TYPE_COLORS = {
+  "health":  "#e63946",   "school":  "#457b9d",
+  "market":  "#2d6a4f",   "mine":    "#495057",
+  "flood":   "#4361ee",   "forest":  "#2d6a4f",
+  "road":    "#d4790a",   "railway": "#9d0208",
+  "power":   "#f8961e",   "poverty": "#7b2d8b",
+  "default": "#e63946"
+}</span>
+          This ensures visual consistency — health is always red, schools always blue, markets always green — regardless of which dataset the feature came from.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Mathematical Models -->
+    <div class="card">
+      <div class="card-title">📐 Mathematical &amp; Geometric Models</div>
+      <div class="card-body">
+        <div class="cols-3" style="margin-top:4px;gap:10px">
+
+          <div style="background:rgba(0,0,0,0.3);border-radius:6px;padding:10px">
+            <strong style="color:#81c784">Haversine Formula — Ground Distance</strong><br>
+            <span style="font-size:11px;color:#aaa">Used to calculate real spherical earth distance between two lat/lon points. Applied for: nearest feature to centroid, radius filtering, area computation.</span>
+            <span class="code">def haversine_km(lat1,lon1,lat2,lon2):
+  R = 6371.0  # Earth radius km
+  φ1 = radians(lat1)
+  φ2 = radians(lat2)
+  Δφ = radians(lat2 - lat1)
+  Δλ = radians(lon2 - lon1)
+  a = sin(Δφ/2)² +
+      cos(φ1)·cos(φ2)·sin(Δλ/2)²
+  return R · 2·atan2(√a, √(1-a))</span>
+          </div>
+
+          <div style="background:rgba(0,0,0,0.3);border-radius:6px;padding:10px">
+            <strong style="color:#81c784">Ray-Casting Algorithm — Point in Polygon</strong><br>
+            <span style="font-size:11px;color:#aaa">Used to determine which district(s) a drawn bounding box intersects. Tests 5 points (4 corners + centroid) against every district boundary ring using the Jordan Curve / even-odd rule.</span>
+            <span class="code">def _point_in_polygon(lat, lon, ring):
+  # ring = [[lon,lat], ...] coordinate pairs
+  inside = False
+  j = len(ring) - 1
+  for i in range(len(ring)):
+    xi,yi = ring[i][0], ring[i][1]
+    xj,yj = ring[j][0], ring[j][1]
+    if ((yi>lat) != (yj>lat)) and \
+       lon < (xj-xi)*(lat-yi)/(yj-yi)+xi:
+      inside = not inside
+    j = i
+  return inside  # even-odd rule</span>
+          </div>
+
+          <div style="background:rgba(0,0,0,0.3);border-radius:6px;padding:10px">
+            <strong style="color:#81c784">Draw Area Analytics — Derived Metrics</strong><br>
+            <span style="font-size:11px;color:#aaa">All 5 analytics computed from count data alone — no AI call required.</span>
+            <span class="code"># Area (rectangular approx)
+area_km2 = haversine_km(
+  min_lat,min_lon,min_lat,max_lon) *
+  haversine_km(
+  min_lat,min_lon,max_lat,min_lon)
+
+# Population estimate
+pop = settlements * 6  # avg HH size
+
+# Healthcare access ratio
+ratio = (health / pop) * 10_000
+
+# School coverage
+school_cov = schools / settlements
+
+# Area classification
+density = (settlements / area_km2) * 100
+if density >= 50:   class = "Urban"
+elif density >= 15: class = "Peri-urban"
+else:               class = "Rural"</span>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Parallel spatial queries -->
+    <div class="card">
+      <div class="card-title">⚡ Parallel Spatial Queries — ThreadPoolExecutor</div>
+      <div class="card-body">
+        When the user clicks "Count features in area", all 9 queries (4 ArcGIS + 5 Overpass) fire simultaneously using Python's <code>concurrent.futures.ThreadPoolExecutor</code>. Total wait time = slowest single query, not the sum of all.
+        <span class="code">with ThreadPoolExecutor(max_workers=9) as pool:
+  arcgis_futures = [
+    pool.submit(_fetch_arcgis, Health_url, bbox),
+    pool.submit(_fetch_arcgis, Schools_url, bbox),
+    pool.submit(_fetch_arcgis, Roads_url,   bbox),
+    pool.submit(_fetch_arcgis, Settlements_url, bbox),
+  ]
+  osm_futures = [
+    pool.submit(_fetch_osm, "Mines",    mine_query),
+    pool.submit(_fetch_osm, "Dams",     dam_query),
+    pool.submit(_fetch_osm, "Churches", church_query),
+    pool.submit(_fetch_osm, "Mosques",  mosque_query),
+    pool.submit(_fetch_osm, "Markets",  market_query),
+  ]
+  for future in arcgis_futures + osm_futures:
+    label, count, details = future.result()
+    # Each returns: count, names[], nearest+distance, subtypes</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="flow-arrow">↓ <span>Folium map object passed to Streamlit frontend for rendering</span></div>
+
+
+<!-- ════════════════════════════════════════════════
+     LAYER 4 — FRONTEND (brief)
+════════════════════════════════════════════════ -->
+<div class="layer l4">
+  <div class="layer-header">
+    <div class="layer-num">4</div>
+    <div>
+      <div class="layer-title">Frontend Layer — Streamlit</div>
+      <div class="layer-tagline">UI framework only · Not part of the core backend · Serves as the interface between user and the three backend layers</div>
+    </div>
+  </div>
+  <div class="layer-body">
+    <div class="cols-3">
+      <div class="card">
+        <div class="card-title">⚙️ Session &amp; State</div>
+        <div class="card-body">
+          Streamlit re-executes the full Python script on every user interaction. <code>st.session_state</code> persists: chat history, GeoJSON per message, draw bbox, language selection, API key (memory only — never written to disk or server).
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📤 Output Components</div>
+        <div class="card-body">
+          Chat answer streamed via <code>st.write_stream()</code> · Map embedded via <code>st_folium()</code> · Table via <code>st.dataframe()</code> · Charts via Plotly · Downloads via <code>st.download_button()</code> (Word + PDF bytes)
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🌐 Deployment</div>
+        <div class="card-body">
+          Hosted on Streamlit Community Cloud. Pulls directly from <code>github.com/myna23/AI-Agent</code> main branch. Stateless container — no persistent disk. Auto-redeploys on every git push.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════
+     SUMMARY FLOW
+════════════════════════════════════════════════ -->
+<div class="summary">
+  <div class="summary-title">End-to-End Flow Summary</div>
+  <div class="flow-row">
+    <div class="flow-box fb-user">
+      <div class="fb-title">User Input</div>
+      <div class="fb-sub">Plain-English question<br>+ language selection<br>+ optional draw area</div>
+    </div>
+    <div class="flow-sep">→</div>
+    <div class="flow-box fb-intent">
+      <div class="fb-title">Intent &amp; Routing</div>
+      <div class="fb-sub">Regex classifier<br>Location extractor<br>Dataset ranker</div>
+    </div>
+    <div class="flow-sep">→</div>
+    <div class="flow-box fb-data">
+      <div class="fb-title">① Data Layer</div>
+      <div class="fb-sub">ArcGIS REST API<br>Exact count query<br>4-tier fetch cascade<br>Overpass (OSM)</div>
+    </div>
+    <div class="flow-sep">→</div>
+    <div class="flow-box fb-ai">
+      <div class="fb-title">② AI Layer</div>
+      <div class="fb-sub">Structured prompt<br>Data-grounded rules<br>Anthropic / OpenAI<br>/ Gemini · Streamed</div>
+    </div>
+    <div class="flow-sep">→</div>
+    <div class="flow-box fb-map">
+      <div class="fb-title">③ Map Layer</div>
+      <div class="fb-sub">Folium / Leaflet<br>Haversine distance<br>Ray-casting polygon<br>Parallel spatial queries</div>
+    </div>
+    <div class="flow-sep">→</div>
+    <div class="flow-box fb-out">
+      <div class="fb-title">Output</div>
+      <div class="fb-sub">Streamed answer<br>Interactive map<br>Table · Chart<br>Word / PDF download</div>
+    </div>
+  </div>
+  <p style="font-size:11px;color:#444;margin-top:14px;text-align:center">
+    All geospatial data is public — no API key required · AI provider key supplied by user per session · github.com/myna23/AI-Agent
+  </p>
+</div>
+
+</body>
+</html>

@@ -16,7 +16,7 @@ An AI-powered geospatial data assistant built for the [Zambia GeoHub](https://zm
 - **Coordinate Input** — Type `lat, lon` coordinates directly in the chat (e.g. `-15.416, 28.283`)
 - **Radius Queries** — Ask "schools within 10km of Lusaka" — haversine distance filtering applied
 - **Document Upload** — Attach PDF, Word, or TXT files; AI reads them alongside GeoHub data
-- **Map Image Upload** — Attach a map screenshot; Claude analyses it visually via vision API
+- **Map Image Upload** — Attach a map screenshot; AI analyses it visually via vision API
 - **Offline Fallback** — Pre-loaded static data (health, schools, POIs, settlements, etc.) serves answers when the live server is unavailable
 
 ---
@@ -26,7 +26,7 @@ An AI-powered geospatial data assistant built for the [Zambia GeoHub](https://zm
 ```
 app.py                  ← Main Streamlit application (~3,000 lines)
 ├── ai/
-│   ├── claude_client.py   ← Anthropic Claude API wrapper (streaming, retry)
+│   ├── model_client.py   ← AI API wrapper (streaming, retry)
 │   └── prompts.py         ← System and user prompt builders for all 3 features
 ├── hub/
 │   ├── client.py          ← HubClient: catalog search, dataset ranking, ArcGIS REST fetch
@@ -53,8 +53,8 @@ User question
     → hub.fetch_geojson()      # live ArcGIS REST API call
         ↓ (if server down)
     → static JSON fallback     # filter by bbox / district / radius
-    → chatbot_user_prompt()    # build Claude prompt with data
-    → claude.stream_with_history()  # streamed answer
+    → chatbot_user_prompt()    # build AI prompt with data
+    → ai_client.stream_with_history()  # streamed answer
     → st_folium map + dataframe table + download buttons
 ```
 
@@ -87,9 +87,9 @@ Edit `.env` and fill in:
 
 | Variable | Required | Description |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Yes | Get from [console.anthropic.com](https://console.anthropic.com) |
+| `OPENAI_API_KEY` | Yes | Get from [console.openai.com](https://console.openai.com) |
 | `ARCGIS_TOKEN` | Recommended | ArcGIS URL token — enables all 74 GeoHub datasets. See below. |
-| `CLAUDE_MODEL` | No | Default: `claude-sonnet-4-6` |
+| `AI_MODEL` | No | Default: `gpt-4o` |
 | `MAX_FEATURES` | No | Default: `200` |
 | `HUB_BASE_URL` | No | Default: `https://zmb-geowb.hub.arcgis.com` |
 
@@ -129,9 +129,9 @@ The app is deployed via [Streamlit Community Cloud](https://share.streamlit.io) 
 **Secrets** (set in Streamlit Cloud dashboard → App Settings → Secrets):
 
 ```toml
-ANTHROPIC_API_KEY = "sk-ant-..."
+OPENAI_API_KEY = "sk-ant-..."
 ARCGIS_TOKEN = "..."
-CLAUDE_MODEL = "claude-sonnet-4-6"
+OPENAI_API_KEY = "sk-..."
 MAX_FEATURES = "200"
 HUB_BASE_URL = "https://zmb-geowb.hub.arcgis.com"
 ```
@@ -218,8 +218,8 @@ Then add keyword boosts in `_SUBJECT_BOOST` and `_SUBJECT_BOOST_MODULE` if neede
    "My_Dataset_URL_Fragment": "mydata.json",
    ```
 
-### Change the Claude model
-No code changes needed. Update `CLAUDE_MODEL` in `.env` (local) or Streamlit Cloud secrets (production).
+### Change the AI model
+No code changes needed. Update `AI_MODEL` in `.env` (local) or Streamlit Cloud secrets (production).
 
 ### Add a new AI feature (beyond chat/summary/report)
 1. Add a new intent keyword in `detect_intent()` in `app.py`
@@ -243,7 +243,7 @@ No code changes needed. Update `CLAUDE_MODEL` in `.env` (local) or Streamlit Clo
 | Library | Version | Purpose |
 |---|---|---|
 | `streamlit` | ≥1.35 | Web app framework |
-| `anthropic` | ≥0.40 | Claude AI API |
+| `openai` | ≥0.40 | AI API |
 | `folium` + `streamlit-folium` | ≥0.17 | Interactive maps |
 | `requests` | ≥2.32 | ArcGIS REST API calls |
 | `python-docx` | ≥1.1 | Report generation |

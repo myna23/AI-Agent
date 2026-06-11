@@ -1,7 +1,7 @@
 """
 Geospatial utility helpers:
 - make_folium_map    : build a Folium map from GeoJSON
-- summarize_geojson  : compute feature stats for Claude prompts
+- summarize_geojson  : compute feature stats for AI prompts
 - geojson_to_sample_rows : extract sample feature properties
 """
 
@@ -640,7 +640,7 @@ def summarize_geojson(geojson: dict) -> dict:
 def geojson_to_sample_rows(geojson: dict, n: int = 5) -> list[dict]:
     """
     Return the first *n* feature properties dicts from a GeoJSON FeatureCollection.
-    Values are truncated to 200 chars to keep Claude prompts concise.
+    Values are truncated to 200 chars to keep AI prompts concise.
     """
     features = geojson.get("features", [])[:n]
     rows = []

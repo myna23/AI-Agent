@@ -11,7 +11,7 @@ git clone https://github.com/myna23/-geohub-ai.git
 cd -geohub-ai
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env          # then fill in ANTHROPIC_API_KEY
+cp .env.example .env          # then fill in OPENAI_API_KEY
 streamlit run app.py
 ```
 
@@ -23,7 +23,7 @@ streamlit run app.py
 |---|---|
 | `app.py` | Streamlit UI, session state, query orchestration, all rendering |
 | `hub/client.py` | ArcGIS catalog loading, dataset ranking, feature fetching |
-| `ai/claude_client.py` | Anthropic API wrapper — `ask()`, `stream()`, `stream_with_history()` |
+| `ai/model_client.py` | AI API wrapper — `ask()`, `stream()`, `stream_with_history()` |
 | `ai/prompts.py` | Builds system + user prompts for chatbot, summarizer, and reporter |
 | `utils/geo_utils.py` | Haversine, polygon centroid, ray-casting, GeoJSON utilities |
 | `reports/builder.py` | `.docx` Word document generation |
@@ -49,7 +49,7 @@ These keys are stored in `st.session_state` and persist across reruns:
 | `uploaded_img_name` | `str` | Filename of uploaded image |
 | `token_set_date` | `str` | ISO date when ArcGIS token was last set (for 14-day countdown) |
 | `stop_streaming` | `bool` | Set to `True` when user clicks the stop button |
-| `is_generating` | `bool` | `True` while Claude is streaming |
+| `is_generating` | `bool` | `True` while AI is streaming |
 | `_scroll_to_bottom` | `bool` | Triggers JS scroll after answer is rendered |
 | `edit_idx` | `int` or `None` | Index of message being edited (re-run mode) |
 
@@ -224,13 +224,13 @@ Datasets with `score > 0` are returned, sorted descending. Top 5 are used.
 
 | Variable | Default | Description |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | — | **Required.** Anthropic API key |
+| `OPENAI_API_KEY` | — | **Required.** AI API key |
 | `ARCGIS_TOKEN` | `""` | ArcGIS URL token or API Key. Without it, only public datasets work |
-| `CLAUDE_MODEL` | `claude-sonnet-4-6` | Any valid Anthropic model ID |
+| `AI_MODEL` | `gpt-4o` | Any valid AI model ID |
 | `MAX_FEATURES` | `200` | Max features fetched per ArcGIS query |
 | `HUB_BASE_URL` | `https://zmb-geowb.hub.arcgis.com` | GeoHub base URL |
 
-To change the Claude model — update this env var only. No code changes needed.
+To change the AI model — update this env var only. No code changes needed.
 
 ---
 

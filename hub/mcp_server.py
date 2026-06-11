@@ -2,14 +2,14 @@
 Zambia GeoHub MCP Server
 ========================
 Exposes the GeoHub data layer as Model Context Protocol (MCP) tools so that
-any MCP-compatible AI client (Claude, OpenAI, etc.) can call them during
+any MCP-compatible AI client (OpenAI, etc.) can call them during
 inference rather than requiring data to be pre-fetched and injected into prompts.
 
 Run standalone:
     python -m hub.mcp_server
 
 Or import get_tools() to use tool definitions directly in the Streamlit app
-with Anthropic's tool_use API without running a separate server process.
+without running a separate server process.
 
 Tools exposed:
     search_datasets        — find relevant datasets by keyword
@@ -412,7 +412,7 @@ def run_server():
     except ImportError:
         print("mcp package not installed. Run: pip install mcp")
         print("The tool definitions in TOOLS and execute_tool() still work")
-        print("for direct tool_use calls via the Anthropic API.")
+        print("The tool definitions in TOOLS and execute_tool() still work for direct tool_use calls.")
 
 
 if __name__ == "__main__":

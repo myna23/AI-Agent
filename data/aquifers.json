@@ -1,0 +1,81 @@
+{
+  "_note": "Static fallback data — used when live ArcGIS server is unavailable. Data sourced from public records.",
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.42, -15.25]},
+      "properties": {"Province": "Lusaka", "aqtyp": "karst", "Description": "Lusaka Dolomite Aquifer — major urban supply aquifer underlying Lusaka; highly productive fractured/karst system", "Potential": "high", "Shape__Area": 3200000000}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.95, -15.60]},
+      "properties": {"Province": "Lusaka/Central", "aqtyp": "alluvial", "Description": "Kafue Flats Alluvial Aquifer — shallow alluvial deposits along Kafue River floodplain; seasonal recharge", "Potential": "moderate", "Shape__Area": 8500000000}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.55, -13.10]},
+      "properties": {"Province": "Copperbelt", "aqtyp": "fractured", "Description": "Copperbelt Basement Fractured Aquifer — fractured crystalline basement underlying mining towns; moderate yield", "Potential": "moderate", "Shape__Area": 6800000000}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [26.20, -12.00]},
+      "properties": {"Province": "North-Western", "aqtyp": "fractured", "Description": "Solwezi/Kansanshi Fractured Aquifer — metamorphic basement fractures around Solwezi; supports mining operations", "Potential": "moderate", "Shape__Area": 5200000000}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [23.50, -15.50]},
+      "properties": {"Province": "Western", "aqtyp": "alluvial", "Description": "Barotse/Zambezi Floodplain Aquifer — large shallow alluvial aquifer of Zambezi/Barotse floodplain; good rural supply", "Potential": "high", "Shape__Area": 28000000000}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [22.85, -12.80]},
+      "properties": {"Province": "Western/North-Western", "aqtyp": "alluvial", "Description": "Kabompo-Zambezi Alluvial System — sandy alluvial deposits along upper Zambezi and Kabompo tributaries", "Potential": "moderate", "Shape__Area": 9500000000}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [32.00, -13.50]},
+      "properties": {"Province": "Eastern", "aqtyp": "alluvial", "Description": "Luangwa Valley Alluvial Aquifer — productive alluvial deposits along Luangwa River valley; key irrigation source", "Potential": "high", "Shape__Area": 12000000000}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [32.80, -14.50]},
+      "properties": {"Province": "Eastern", "aqtyp": "fractured", "Description": "Eastern Plateau Fractured Basement — fractured basement aquifer on Nyika/Chipata plateau; rural borehole supply", "Potential": "low", "Shape__Area": 4200000000}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [29.80, -11.20]},
+      "properties": {"Province": "Northern/Luapula", "aqtyp": "alluvial", "Description": "Bangweulu Basin Aquifer — shallow aquifer associated with Lake Bangweulu wetlands; high water table", "Potential": "moderate", "Shape__Area": 18000000000}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [30.40, -8.90]},
+      "properties": {"Province": "Northern", "aqtyp": "fractured", "Description": "Lake Tanganyika Rift Fractured Aquifer — fractured basement around Tanganyika basin; coastal borehole supply", "Potential": "moderate", "Shape__Area": 3800000000}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [31.50, -10.80]},
+      "properties": {"Province": "Muchinga", "aqtyp": "fractured", "Description": "Muchinga Escarpment Fractured Aquifer — deeply fractured metamorphic rocks on Muchinga escarpment; limited yield", "Potential": "low", "Shape__Area": 7200000000}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.25, -16.00]},
+      "properties": {"Province": "Southern", "aqtyp": "confined", "Description": "Kafue Gorge Karoo Sedimentary Aquifer — confined sandstone aquifer in Karoo basin of Southern Province", "Potential": "moderate", "Shape__Area": 6500000000}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.85, -17.20]},
+      "properties": {"Province": "Southern", "aqtyp": "alluvial", "Description": "Middle Zambezi Alluvial Aquifer — alluvial deposits along Zambezi between Kariba and Victoria Falls", "Potential": "moderate", "Shape__Area": 4800000000}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [29.45, -14.55]},
+      "properties": {"Province": "Central", "aqtyp": "fractured", "Description": "Central Plateau Basement Aquifer — fractured basement underlying Central Province plateau farmlands", "Potential": "low", "Shape__Area": 9500000000}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [29.10, -10.00]},
+      "properties": {"Province": "Luapula", "aqtyp": "alluvial", "Description": "Mweru-Luapula Alluvial Aquifer — alluvial deposits along Luapula River and Lake Mweru shores; rural supply", "Potential": "moderate", "Shape__Area": 5800000000}
+    }
+  ]
+}

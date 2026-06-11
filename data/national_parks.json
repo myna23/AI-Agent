@@ -1,0 +1,106 @@
+{
+  "_note": "Static fallback data — used when live ArcGIS server is unavailable. Data sourced from public records.",
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [26.00, -14.80]},
+      "properties": {"NAME": "Kafue National Park", "PROVINCE": "Western/Southern", "STATUS": "National Park", "Area_km2": 22400, "Notable_Wildlife": "Lion, leopard, cheetah, wild dog, buffalo, elephant, hippo, Kafue lechwe"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [31.80, -13.00]},
+      "properties": {"NAME": "South Luangwa National Park", "PROVINCE": "Eastern", "STATUS": "National Park", "Area_km2": 9050, "Notable_Wildlife": "Elephant, hippo, crocodile, leopard, lion, buffalo, Thornicroft giraffe"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [32.20, -11.80]},
+      "properties": {"NAME": "North Luangwa National Park", "PROVINCE": "Northern", "STATUS": "National Park", "Area_km2": 4636, "Notable_Wildlife": "Buffalo, elephant, lion, leopard, black rhino (reintroduced)"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [29.55, -15.70]},
+      "properties": {"NAME": "Lower Zambezi National Park", "PROVINCE": "Lusaka", "STATUS": "National Park", "Area_km2": 4092, "Notable_Wildlife": "Elephant, hippo, crocodile, lion, leopard, buffalo, wild dog"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [23.50, -16.50]},
+      "properties": {"NAME": "Sioma Ngwezi National Park", "PROVINCE": "Western", "STATUS": "National Park", "Area_km2": 5000, "Notable_Wildlife": "Roan antelope, sable, elephant, lion, wild dog"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [22.80, -14.70]},
+      "properties": {"NAME": "Liuwa Plain National Park", "PROVINCE": "Western", "STATUS": "National Park", "Area_km2": 3660, "Notable_Wildlife": "Wildebeest, tsessebe, zebra, lion, cheetah, hyena (second largest wildebeest migration)"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [29.60, -9.00]},
+      "properties": {"NAME": "Mweru Wantipa National Park", "PROVINCE": "Luapula", "STATUS": "National Park", "Area_km2": 3134, "Notable_Wildlife": "Elephant, buffalo, hippo, reedbuck, otter"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [30.45, -8.55]},
+      "properties": {"NAME": "Sumbu National Park", "PROVINCE": "Northern", "STATUS": "National Park", "Area_km2": 2020, "Notable_Wildlife": "Buffalo, elephant, hippo, crocodile, puku, sitatunga (Lake Tanganyika shoreline)"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [33.10, -13.20]},
+      "properties": {"NAME": "Lukusuzi National Park", "PROVINCE": "Eastern", "STATUS": "National Park", "Area_km2": 2720, "Notable_Wildlife": "Elephant, buffalo, roan, sable, Lichtenstein's hartebeest"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [24.85, -12.15]},
+      "properties": {"NAME": "West Lunga National Park", "PROVINCE": "North-Western", "STATUS": "National Park", "Area_km2": 1684, "Notable_Wildlife": "Sitatunga, shoebill stork, yellow-backed duiker, giant forest squirrel"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [29.55, -12.30]},
+      "properties": {"NAME": "Lavushi Manda National Park", "PROVINCE": "Copperbelt/Northern", "STATUS": "National Park", "Area_km2": 1500, "Notable_Wildlife": "Roan, eland, zebra, buffalo, lion, leopard"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [30.10, -12.57]},
+      "properties": {"NAME": "Kasanka National Park", "PROVINCE": "Central", "STATUS": "National Park", "Area_km2": 390, "Notable_Wildlife": "Sitatunga, puku, wattled crane, shoebill; world's largest bat migration (straw-coloured fruit bats)"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.25, -15.98]},
+      "properties": {"NAME": "Lochinvar National Park", "PROVINCE": "Southern", "STATUS": "National Park", "Area_km2": 410, "Notable_Wildlife": "Kafue lechwe, wattled crane, hippo, crocodile; important Ramsar wetland"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.85, -15.25]},
+      "properties": {"NAME": "Blue Lagoon National Park", "PROVINCE": "Central", "STATUS": "National Park", "Area_km2": 450, "Notable_Wildlife": "Kafue lechwe, wildebeest, zebra, hippo, waterfowl"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [33.15, -10.85]},
+      "properties": {"NAME": "Nyika National Park (Zambia)", "PROVINCE": "Northern", "STATUS": "National Park", "Area_km2": 80, "Notable_Wildlife": "Roan antelope, eland, zebra, leopard, hyena (plateau grassland)"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [29.75, -11.35]},
+      "properties": {"NAME": "Bangweulu Wetlands", "PROVINCE": "Northern", "STATUS": "Game Management Area", "Area_km2": 10000, "Notable_Wildlife": "Black lechwe (endemic), shoebill stork, whale-headed stork, hippo, crocodile"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [31.95, -13.40]},
+      "properties": {"NAME": "Lupande Game Management Area", "PROVINCE": "Eastern", "STATUS": "Game Management Area", "Area_km2": 4870, "Notable_Wildlife": "Elephant, buffalo, lion, hippo (CAMPFIRE-style community conservancy)"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [32.30, -12.20]},
+      "properties": {"NAME": "Munyamadzi Game Management Area", "PROVINCE": "Eastern", "STATUS": "Game Management Area", "Area_km2": 3600, "Notable_Wildlife": "Elephant, buffalo, lion, leopard, wild dog"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [32.10, -13.80]},
+      "properties": {"NAME": "Lumimba Game Management Area", "PROVINCE": "Eastern", "STATUS": "Game Management Area", "Area_km2": 2900, "Notable_Wildlife": "Buffalo, elephant, lion, hippo, puku"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.80, -16.30]},
+      "properties": {"NAME": "Chiawa Game Management Area", "PROVINCE": "Southern/Lusaka", "STATUS": "Game Management Area", "Area_km2": 680, "Notable_Wildlife": "Elephant, hippo, crocodile, leopard, buffalo (adjacent to Lower Zambezi NP)"}
+    }
+  ]
+}

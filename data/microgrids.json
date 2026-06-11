@@ -1,0 +1,156 @@
+{
+  "_note": "Static fallback data — used when live ArcGIS server is unavailable. Data sourced from public records.",
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [22.15, -14.82]},
+      "properties": {"Village_Na": "Kalabo", "District": "Kalabo", "Province": "Western", "Technology": "solar", "Capacity_kW": 50, "Year_Install": 2019, "Operator": "REA/ZESCO"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [22.50, -15.20]},
+      "properties": {"Village_Na": "Lukulu", "District": "Lukulu", "Province": "Western", "Technology": "solar", "Capacity_kW": 30, "Year_Install": 2020, "Operator": "REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [23.12, -16.05]},
+      "properties": {"Village_Na": "Senanga", "District": "Senanga", "Province": "Western", "Technology": "diesel", "Capacity_kW": 75, "Year_Install": 2017, "Operator": "ZESCO"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [22.38, -17.85]},
+      "properties": {"Village_Na": "Sesheke", "District": "Sesheke", "Province": "Western", "Technology": "solar", "Capacity_kW": 40, "Year_Install": 2021, "Operator": "REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [24.75, -11.05]},
+      "properties": {"Village_Na": "Mwinilunga", "District": "Mwinilunga", "Province": "North-Western", "Technology": "mini-hydro", "Capacity_kW": 120, "Year_Install": 2016, "Operator": "ZESCO"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [22.72, -12.35]},
+      "properties": {"Village_Na": "Zambezi Town", "District": "Zambezi", "Province": "North-Western", "Technology": "solar", "Capacity_kW": 60, "Year_Install": 2018, "Operator": "REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [24.42, -13.58]},
+      "properties": {"Village_Na": "Kasempa", "District": "Kasempa", "Province": "North-Western", "Technology": "solar", "Capacity_kW": 45, "Year_Install": 2020, "Operator": "REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [30.25, -8.92]},
+      "properties": {"Village_Na": "Mpulungu", "District": "Mpulungu", "Province": "Northern", "Technology": "mini-hydro", "Capacity_kW": 90, "Year_Install": 2015, "Operator": "ZESCO"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [30.55, -9.40]},
+      "properties": {"Village_Na": "Mbala", "District": "Mbala", "Province": "Northern", "Technology": "solar", "Capacity_kW": 55, "Year_Install": 2019, "Operator": "REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [29.25, -10.45]},
+      "properties": {"Village_Na": "Chilubi Island", "District": "Chilubi", "Province": "Northern", "Technology": "solar", "Capacity_kW": 25, "Year_Install": 2021, "Operator": "GIZ/REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [31.10, -10.95]},
+      "properties": {"Village_Na": "Isoka", "District": "Isoka", "Province": "Muchinga", "Technology": "solar", "Capacity_kW": 35, "Year_Install": 2020, "Operator": "REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [32.35, -11.80]},
+      "properties": {"Village_Na": "Nakonde", "District": "Nakonde", "Province": "Muchinga", "Technology": "diesel", "Capacity_kW": 80, "Year_Install": 2014, "Operator": "ZESCO"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [31.55, -12.55]},
+      "properties": {"Village_Na": "Chinsali", "District": "Chinsali", "Province": "Muchinga", "Technology": "solar", "Capacity_kW": 50, "Year_Install": 2018, "Operator": "REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [29.45, -11.20]},
+      "properties": {"Village_Na": "Samfya", "District": "Samfya", "Province": "Luapula", "Technology": "solar", "Capacity_kW": 40, "Year_Install": 2020, "Operator": "REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.75, -9.20]},
+      "properties": {"Village_Na": "Nchelenge", "District": "Nchelenge", "Province": "Luapula", "Technology": "solar", "Capacity_kW": 55, "Year_Install": 2019, "Operator": "REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [29.95, -10.15]},
+      "properties": {"Village_Na": "Mansa", "District": "Mansa", "Province": "Luapula", "Technology": "mini-hydro", "Capacity_kW": 100, "Year_Install": 2013, "Operator": "ZESCO"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [33.48, -13.95]},
+      "properties": {"Village_Na": "Chipata Rural", "District": "Chipata", "Province": "Eastern", "Technology": "solar", "Capacity_kW": 30, "Year_Install": 2021, "Operator": "GIZ/REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [32.65, -13.60]},
+      "properties": {"Village_Na": "Lundazi", "District": "Lundazi", "Province": "Eastern", "Technology": "solar", "Capacity_kW": 45, "Year_Install": 2018, "Operator": "REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [32.88, -14.35]},
+      "properties": {"Village_Na": "Katete", "District": "Katete", "Province": "Eastern", "Technology": "solar", "Capacity_kW": 35, "Year_Install": 2019, "Operator": "REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [29.85, -13.55]},
+      "properties": {"Village_Na": "Serenje", "District": "Serenje", "Province": "Central", "Technology": "solar", "Capacity_kW": 40, "Year_Install": 2020, "Operator": "REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [30.25, -14.10]},
+      "properties": {"Village_Na": "Mkushi", "District": "Mkushi", "Province": "Central", "Technology": "solar", "Capacity_kW": 50, "Year_Install": 2018, "Operator": "REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.05, -13.60]},
+      "properties": {"Village_Na": "Kapiri Mposhi Rural", "District": "Kapiri Mposhi", "Province": "Central", "Technology": "diesel", "Capacity_kW": 60, "Year_Install": 2016, "Operator": "ZESCO"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.45, -15.95]},
+      "properties": {"Village_Na": "Monze Rural", "District": "Monze", "Province": "Southern", "Technology": "solar", "Capacity_kW": 30, "Year_Install": 2021, "Operator": "REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [26.40, -16.85]},
+      "properties": {"Village_Na": "Choma Rural", "District": "Choma", "Province": "Southern", "Technology": "solar", "Capacity_kW": 25, "Year_Install": 2020, "Operator": "USAID/REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.15, -17.35]},
+      "properties": {"Village_Na": "Sinazongwe Rural", "District": "Sinazongwe", "Province": "Southern", "Technology": "solar", "Capacity_kW": 20, "Year_Install": 2022, "Operator": "REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.85, -14.82]},
+      "properties": {"Village_Na": "Mazabuka Rural", "District": "Mazabuka", "Province": "Southern", "Technology": "solar", "Capacity_kW": 30, "Year_Install": 2020, "Operator": "REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [29.10, -15.72]},
+      "properties": {"Village_Na": "Chirundu Village", "District": "Chirundu", "Province": "Lusaka", "Technology": "solar", "Capacity_kW": 25, "Year_Install": 2021, "Operator": "REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.20, -15.90]},
+      "properties": {"Village_Na": "Kafue Rural North", "District": "Kafue", "Province": "Lusaka", "Technology": "solar", "Capacity_kW": 30, "Year_Install": 2020, "Operator": "REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.68, -13.88]},
+      "properties": {"Village_Na": "Mpongwe Rural", "District": "Mpongwe", "Province": "Copperbelt", "Technology": "solar", "Capacity_kW": 25, "Year_Install": 2022, "Operator": "ZESCO/REA"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.82, -13.80]},
+      "properties": {"Village_Na": "Lufwanyama Rural", "District": "Lufwanyama", "Province": "Copperbelt", "Technology": "solar", "Capacity_kW": 20, "Year_Install": 2021, "Operator": "REA"}
+    }
+  ]
+}

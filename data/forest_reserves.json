@@ -1,0 +1,31 @@
+{
+  "_note": "Static fallback data — used when live ArcGIS server is unavailable. Data sourced from public records.",
+  "type": "FeatureCollection",
+  "features": [
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [31.85, -13.30]}, "properties": {"NAME": "Chichele Forest Reserve", "Province": "Eastern", "District": "Chipata", "Area_ha": 28500, "STATUS": "Forest Reserve"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [32.15, -13.05]}, "properties": {"NAME": "Luambe Forest Reserve", "Province": "Eastern", "District": "Chama", "Area_ha": 45000, "STATUS": "Forest Reserve"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [32.68, -13.55]}, "properties": {"NAME": "Lundazi Forest Reserve", "Province": "Eastern", "District": "Lundazi", "Area_ha": 38000, "STATUS": "Forest Reserve"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [33.05, -14.50]}, "properties": {"NAME": "Petauke Forest Reserve", "Province": "Eastern", "District": "Petauke", "Area_ha": 22000, "STATUS": "Forest Reserve"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [23.80, -16.90]}, "properties": {"NAME": "Mulobezi Forest Reserve", "Province": "Western", "District": "Mulobezi", "Area_ha": 310000, "STATUS": "National Forest"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [22.75, -14.55]}, "properties": {"NAME": "Sioma Forest Reserve", "Province": "Western", "District": "Senanga", "Area_ha": 85000, "STATUS": "Forest Reserve"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [23.45, -13.90]}, "properties": {"NAME": "Kaoma Forest Reserve", "Province": "Western", "District": "Kaoma", "Area_ha": 68000, "STATUS": "Forest Reserve"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [31.12, -10.88]}, "properties": {"NAME": "Isoka Forest Reserve", "Province": "Muchinga", "District": "Isoka", "Area_ha": 52000, "STATUS": "Forest Reserve"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [31.50, -12.45]}, "properties": {"NAME": "Chinsali Forest Reserve", "Province": "Muchinga", "District": "Chinsali", "Area_ha": 41000, "STATUS": "Forest Reserve"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [29.80, -14.15]}, "properties": {"NAME": "Lukanga Swamp Forest", "Province": "Central", "District": "Kabwe", "Area_ha": 92000, "STATUS": "National Forest"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [29.90, -13.55]}, "properties": {"NAME": "Serenje Forest Reserve", "Province": "Central", "District": "Serenje", "Area_ha": 44000, "STATUS": "Forest Reserve"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [30.15, -14.35]}, "properties": {"NAME": "Mkushi Forest Reserve", "Province": "Central", "District": "Mkushi", "Area_ha": 58000, "STATUS": "Forest Reserve"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [28.75, -12.88]}, "properties": {"NAME": "Kafubu Forest Reserve", "Province": "Copperbelt", "District": "Ndola", "Area_ha": 18500, "STATUS": "Forest Reserve"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [28.55, -12.50]}, "properties": {"NAME": "Mwekera Forest Reserve", "Province": "Copperbelt", "District": "Kitwe", "Area_ha": 9800, "STATUS": "Forest Reserve"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [28.20, -13.72]}, "properties": {"NAME": "Lufwanyama Forest Reserve", "Province": "Copperbelt", "District": "Lufwanyama", "Area_ha": 74000, "STATUS": "Forest Reserve"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [27.25, -17.50]}, "properties": {"NAME": "Batoka Forest Reserve", "Province": "Southern", "District": "Choma", "Area_ha": 32000, "STATUS": "Forest Reserve"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [25.88, -17.88]}, "properties": {"NAME": "Livingstone Forest Reserve", "Province": "Southern", "District": "Livingstone", "Area_ha": 8500, "STATUS": "Forest Reserve"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [27.90, -16.22]}, "properties": {"NAME": "Lochinvar Forest Reserve", "Province": "Southern", "District": "Mazabuka", "Area_ha": 15000, "STATUS": "Forest Reserve"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [24.88, -12.05]}, "properties": {"NAME": "West Lunga Forest Reserve", "Province": "North-Western", "District": "Kabompo", "Area_ha": 88000, "STATUS": "National Forest"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [26.50, -12.08]}, "properties": {"NAME": "Solwezi Forest Reserve", "Province": "North-Western", "District": "Solwezi", "Area_ha": 35000, "STATUS": "Forest Reserve"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [31.82, -10.25]}, "properties": {"NAME": "Kasama Forest Reserve", "Province": "Northern", "District": "Kasama", "Area_ha": 28000, "STATUS": "Forest Reserve"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [30.45, -9.40]}, "properties": {"NAME": "Mbala Forest Reserve", "Province": "Northern", "District": "Mbala", "Area_ha": 42000, "STATUS": "Forest Reserve"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [30.15, -12.55]}, "properties": {"NAME": "Kasanka Forest Reserve", "Province": "Central", "District": "Serenje", "Area_ha": 22000, "STATUS": "National Forest"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [29.55, -10.85]}, "properties": {"NAME": "Bangweulu Forest Reserve", "Province": "Northern", "District": "Chilubi", "Area_ha": 125000, "STATUS": "National Forest"}},
+    {"type": "Feature", "geometry": {"type": "Point", "coordinates": [29.90, -9.55]}, "properties": {"NAME": "Mweru Wantipa Forest Reserve", "Province": "Luapula", "District": "Kawambwa", "Area_ha": 98000, "STATUS": "National Forest"}}
+  ]
+}

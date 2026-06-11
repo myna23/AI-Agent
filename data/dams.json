@@ -1,0 +1,81 @@
+{
+  "_note": "Static fallback data — used when live ArcGIS server is unavailable. Data sourced from public records.",
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.72, -16.52]},
+      "properties": {"Name": "Kariba Dam (Zambia side)", "Province": "Southern", "District": "Siavonga", "River": "Zambezi", "Purpose": "hydropower", "Capacity_MW": 1080, "Status": "operational"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.18, -15.77]},
+      "properties": {"Name": "Kafue Gorge Upper Dam", "Province": "Lusaka/Southern", "District": "Kafue/Chirundu", "River": "Kafue", "Purpose": "hydropower", "Capacity_MW": 990, "Status": "operational"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.98, -16.52]},
+      "properties": {"Name": "Kafue Gorge Lower Dam", "Province": "Southern", "District": "Mazabuka", "River": "Kafue", "Purpose": "hydropower", "Capacity_MW": 750, "Status": "operational (commissioned 2022)"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [25.90, -15.72]},
+      "properties": {"Name": "Itezhi-Tezhi Dam", "Province": "Southern", "District": "Namwala", "River": "Kafue", "Purpose": "hydropower/regulation", "Capacity_MW": 120, "Status": "operational"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [25.87, -17.92]},
+      "properties": {"Name": "Victoria Falls / Livingstone Power Station", "Province": "Southern", "District": "Livingstone", "River": "Zambezi", "Purpose": "hydropower", "Capacity_MW": 108, "Status": "operational"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [29.35, -14.85]},
+      "properties": {"Name": "Lunsemfwa Falls Hydro", "Province": "Central", "District": "Mkushi", "River": "Lunsemfwa", "Purpose": "hydropower", "Capacity_MW": 10, "Status": "operational"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.55, -14.30]},
+      "properties": {"Name": "Mulungushi Dam", "Province": "Central", "District": "Kabwe", "River": "Mulungushi", "Purpose": "water supply/hydropower", "Capacity_MW": 10, "Status": "operational"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.93, -11.22]},
+      "properties": {"Name": "Musonda Falls Hydro", "Province": "Luapula", "District": "Mwense", "River": "Luapula", "Purpose": "hydropower", "Capacity_MW": 5, "Status": "operational"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [31.62, -10.36]},
+      "properties": {"Name": "Chishimba Falls Hydro", "Province": "Northern", "District": "Kasama", "River": "Luombe", "Purpose": "hydropower", "Capacity_MW": 6, "Status": "operational"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [31.25, -11.65]},
+      "properties": {"Name": "Lusiwasi Dam", "Province": "Muchinga", "District": "Mpika", "River": "Lusiwasi", "Purpose": "water supply", "Capacity_MW": 0, "Status": "operational"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [26.10, -17.58]},
+      "properties": {"Name": "Batoka Gorge Dam (proposed)", "Province": "Southern", "District": "Kazungula", "River": "Zambezi", "Purpose": "hydropower", "Capacity_MW": 2400, "Status": "proposed"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [25.90, -17.45]},
+      "properties": {"Name": "Devil's Gorge Dam (proposed)", "Province": "Southern", "District": "Kazungula", "River": "Zambezi", "Purpose": "hydropower", "Capacity_MW": 960, "Status": "proposed"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.40, -15.10]},
+      "properties": {"Name": "Kafue Flats — Nega Nega Weir", "Province": "Central", "District": "Kafue", "River": "Kafue", "Purpose": "irrigation/water supply", "Capacity_MW": 0, "Status": "operational"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.45, -13.78]},
+      "properties": {"Name": "Chipata-Luangwa Valley Dam", "Province": "Eastern", "District": "Chipata", "River": "Luangwa tributary", "Purpose": "irrigation", "Capacity_MW": 0, "Status": "operational"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [32.65, -13.65]},
+      "properties": {"Name": "Lundazi Small Dam", "Province": "Eastern", "District": "Lundazi", "River": "Lundazi", "Purpose": "irrigation/water supply", "Capacity_MW": 0, "Status": "operational"}
+    }
+  ]
+}

@@ -95,6 +95,7 @@ _DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 
 # Maps URL substring → static JSON filename (and optional POI type override)
 _STATIC_MAP = {
+    # ── Core GRID3 datasets (original static files) ───────────────────────────
     "GRID3_ZMB_HealthFac":                                          "health_facilities.json",
     "GRID3_ZMB_School":                                             "schools.json",
     "GRID3_Zambia_Operational_Points_of_Interest":                  "poi_all.json",
@@ -110,6 +111,55 @@ _STATIC_MAP = {
     "Zambia_Biodiversity_Data":                                     "biodiversity.json",
     "Zambia_Forests_Data":                                          "forests.json",
     "Zambia_Biodiversity_Point_Data":                               "biodiversity_points.json",
+
+    # ── Population (2022 Census district aggregates) ──────────────────────────
+    "Zambia_Population_2025_WP":                                    "population_districts.json",
+    "ZMB_Boundaries_2023":                                          "population_districts.json",
+
+    # ── Mining ────────────────────────────────────────────────────────────────
+    "zmb_mines_osm":                                                "mines.json",
+    "AGO_COD_ZMB_Mines_pt":                                         "mines.json",
+
+    # ── Energy ───────────────────────────────────────────────────────────────
+    "Zambia_Power_Infrastructure":                                   "power_stations.json",
+    "Existing_Microgrids":                                          "microgrids.json",
+    "zambia_dre_settlement_points":                                  "dre_settlements.json",
+    "Zambia_DRE_Settlement_Polygons":                               "dre_settlements.json",
+    "zmb_DRE_Atlas":                                                "dre_settlements.json",
+
+    # ── Water / Environment ───────────────────────────────────────────────────
+    "zmb_dams":                                                     "dams.json",
+    "main_Zambia_aquifers_polygons":                                 "aquifers.json",
+    "ZMB_National_Parks":                                           "national_parks.json",
+    "ZMB_Forest_Reserves":                                          "forest_reserves.json",
+    "ZMB_Erosion_Hazards_Classification":                           "forest_reserves.json",
+
+    # ── Agriculture / Land ────────────────────────────────────────────────────
+    "ZMB_Agriculture_Blocks_Camps":                                  "agriculture_blocks.json",
+
+    # ── Governance / Demographics ─────────────────────────────────────────────
+    "ZMB_Constituencies":                                           "constituencies.json",
+    "zmb_ADM3_const_Poverty":                                       "poverty_constituencies.json",
+    "Zambia_Net_Migration":                                          "net_migration.json",
+    "Zambia_Relative_Wealth_Index":                                  "wealth_index.json",
+    "Zambia_OSR_LA_Consolidated":                                    "osr_local_authority.json",
+
+    # ── Redirect: duplicate/Overture/NSDI datasets → primary static files ─────
+    "zmb_Operational_schools_NSDI":                                  "schools.json",
+    "Zambia_Education_Facilities":                                   "schools.json",
+    "zmb_Operational_healthfac_NSDI":                               "health_facilities.json",
+    "Zambia_Health_Facilities":                                      "health_facilities.json",
+    "Zambia_HF_20251112":                                            "health_facilities.json",
+    "Zambia_Marketplaces":                                           "poi_commercial.json",
+    "Zambia_Points_of_Interest":                                     "poi_all.json",
+    "Zambia_Road_Network":                                           "roads.json",
+    "LC_MergedRailways":                                             "roads.json",
+    "LobitoCorridor_Stations":                                       "roads.json",
+    "GRID3_ZMB_Settlement_Extents":                                  "settlements.json",
+    "Zambia_Building_Footprints":                                    "settlements.json",
+    "Zambia Borders":                                                "districts.json",
+    "Zambia___Administrative_District_Boundaries_2022":              "districts.json",
+    "ZMB_Soil_Type_Classification":                                  "aquifers.json",
 }
 
 # POI type → dedicated pre-filtered file (better for type-specific queries)
@@ -352,8 +402,6 @@ class HubClient:
                 if keyword in hint_lower:
                     where = f"Type='{poi_type}'"
                     break
-        print(f"DEBUG fetch_geojson WHERE: {where} | hint: {query_hint[:50]}", flush=True)
-
         # Global datasets: restrict to Zambia to avoid worldwide results
         if "Border_Crossing" in base or "GLOBAL_Border" in base:
             where = "iso3_1='ZMB' OR iso3_2='ZMB'"

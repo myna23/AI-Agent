@@ -11,7 +11,7 @@ Think of this system like a very smart research assistant who sits between you a
 2. **Finds the right data** — it searches the Zambia GeoHub (the government's online map library) for the most relevant dataset
 3. **Fetches real records** — it pulls live data from the GeoHub's API (think of it like a government filing cabinet that you can query remotely)
 4. **Reads the data** — it loads the actual feature records (school locations, district names, coordinates)
-5. **Asks Claude (the AI)** — it sends the question + the data to Anthropic's Claude AI for analysis
+5. **Asks AI (the AI)** — it sends the question + the data to AI's AI for analysis
 6. **Shows you the answer** — text answer + interactive map + data table, all on one screen
 
 The whole thing runs on a website built with **Streamlit** (a Python tool for building data apps quickly) and is hosted on **Streamlit Cloud** (so anyone with the link can use it without installing anything).
@@ -29,8 +29,8 @@ User's Browser
 Streamlit App  (app.py — Python web app)
      │
      ├── hub/client.py          ← talks to Zambia GeoHub & ArcGIS API
-     ├── ai/claude_client.py    ← talks to Anthropic Claude API
-     ├── ai/prompts.py          ← builds the instructions sent to Claude
+     ├── ai/model_client.py    ← talks to AI API
+     ├── ai/prompts.py          ← builds the instructions sent to AI
      ├── utils/geo_utils.py     ← geometry tools (distances, polygons)
      └── data/*.json            ← offline fallback datasets (500 facilities etc.)
 ```
@@ -41,7 +41,7 @@ Streamlit App  (app.py — Python web app)
 |---|---|---|
 | **Zambia GeoHub** (zmb-geowb.hub.arcgis.com) | Source of all Zambia spatial datasets | ArcGIS REST API (HTTPS) |
 | **ArcGIS FeatureServer** | Serves the actual feature records (schools, health, POIs) | REST API — `/FeatureServer/0/query` |
-| **Anthropic Claude API** | The AI brain that reads data and writes answers | Python SDK (`anthropic` library) |
+| **AI API** | The AI brain that reads data and writes answers | Python SDK (`openai` library) |
 | **Streamlit Cloud** | Hosts the web app publicly | GitHub → auto-deploys on push |
 
 ---
@@ -104,8 +104,8 @@ You type: "How many schools are in Chongwe District?"
                          │
                          ▼
           ┌──────────────────────────────┐
-          │  6. Claude API Call          │
-          │  claude.stream_with_history()│
+          │  6. AI API Call          │
+          │  ai_client.stream_with_history()│
           │  → system prompt (rules) +   │
           │    conversation history +    │
           │    user prompt with data     │
@@ -129,8 +129,8 @@ You type: "How many schools are in Chongwe District?"
 
 ### Feature 1 — AI Chatbot (default)
 - **What it does:** Answers any question about Zambia's geography, facilities, infrastructure
-- **How:** Finds relevant dataset → fetches records → passes to Claude with instructions
-- **Claude's rules:** Only answer from provided data, cite dataset names, never invent statistics, include map links
+- **How:** Finds relevant dataset → fetches records → passes to AI with instructions
+- **AI's rules:** Only answer from provided data, cite dataset names, never invent statistics, include map links
 
 ### Feature 2 — Dataset Summarizer
 - **Triggered by:** Questions starting with "summarise" or "summarize"
@@ -243,14 +243,14 @@ You can now type coordinates directly in the chat instead of drawing on the map:
 When you attach a document:
 1. The file is read into memory by the browser and sent to Python
 2. Text is extracted (pypdf for PDFs, python-docx for Word, direct read for TXT)
-3. The first 6,000 characters are injected into the Claude prompt as extra context
-4. Claude reads both the document AND the GeoHub data and answers from both
+3. The first 6,000 characters are injected into the AI prompt as extra context
+4. AI reads both the document AND the GeoHub data and answers from both
 
 ### Map Image Upload (PNG, JPG)
 When you attach a map image:
 1. The image is encoded to base64 (a text-safe format for binary files)
-2. It's sent to Claude as a **vision message** — Claude can actually see the image
-3. Claude describes what geographic features it sees and connects them to GeoHub data
+2. It's sent to AI as a **vision message** — AI can actually see the image
+3. AI describes what geographic features it sees and connects them to GeoHub data
 4. Useful for: satellite images, printed maps, spatial analysis screenshots
 
 ---
@@ -272,9 +272,9 @@ The app shows a countdown: how many days until the token expires, with a warning
 
 ---
 
-## PART 11: HOW CLAUDE IS INSTRUCTED
+## PART 11: HOW THE AI IS INSTRUCTED
 
-The system prompt (the rules Claude must follow) is defined in `ai/prompts.py`. Key rules:
+The system prompt (the rules AI must follow) is defined in `ai/prompts.py`. Key rules:
 
 - **Only use provided data** — never answer from general world knowledge
 - **Be specific** — name actual places, districts, exact numbers from the records
@@ -301,9 +301,9 @@ The user prompt contains:
 **Deployment:** Automatic — every `git push` to the `main` branch on GitHub triggers a redeploy within 2–3 minutes
 
 **Environment variables** (stored in Streamlit Cloud secrets, not in code):
-- `ANTHROPIC_API_KEY` — access to Claude
+- `OPENAI_API_KEY` — access to AI
 - `ARCGIS_TOKEN` — access to GeoHub private datasets
-- `CLAUDE_MODEL` — which Claude version to use (currently claude-sonnet-4-5)
+- `AI_MODEL` — which AI version to use (currently gpt-4o)
 - `HUB_BASE_URL` — the GeoHub base URL
 - `MAX_FEATURES` — cap on features fetched per query (200)
 
@@ -318,13 +318,13 @@ A web tool that lets anyone — planners, NGO workers, government officials — 
 The Zambia GeoHub — the government's official open spatial data platform managed by the World Bank, containing 74+ datasets on health, education, infrastructure, environment, and more.
 
 **Is the AI making things up?**
-No. The AI (Claude) is strictly instructed to only use data provided to it from the GeoHub. If data is unavailable, it says so. It cannot access the internet or make up statistics.
+No. The AI (AI) is strictly instructed to only use data provided to it from the GeoHub. If data is unavailable, it says so. It cannot access the internet or make up statistics.
 
 **What happens when the server is down?**
 The system falls back to pre-loaded offline data (health facilities, schools, settlements, etc.) and filters it to the drawn area or district. Users see a notice explaining this.
 
 **Who built it and how?**
-Built in Python using Streamlit (web app), Folium (maps), and the Anthropic Claude API (AI). Deployed on Streamlit Cloud and connected to GitHub for automatic updates.
+Built in Python using Streamlit (web app), Folium (maps), and the AI API (AI). Deployed on Streamlit Cloud and connected to GitHub for automatic updates.
 
 **What could it do in the future?**
 - Permanent API key from admin (access to all 74 datasets, including private ones)

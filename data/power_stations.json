@@ -1,0 +1,106 @@
+{
+  "_note": "Static fallback data — used when live ArcGIS server is unavailable. Data sourced from public records.",
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.72, -16.52]},
+      "properties": {"Name": "Kariba North Bank Power Station", "Province": "Southern", "District": "Siavonga", "feature_type": "power_plant", "Fuel": "hydro", "Capacity_MW": 1080}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.18, -15.77]},
+      "properties": {"Name": "Kafue Gorge Upper Power Station", "Province": "Lusaka/Southern", "District": "Kafue/Chirundu", "feature_type": "power_plant", "Fuel": "hydro", "Capacity_MW": 990}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.98, -16.52]},
+      "properties": {"Name": "Kafue Gorge Lower Power Station", "Province": "Southern", "District": "Mazabuka", "feature_type": "power_plant", "Fuel": "hydro", "Capacity_MW": 750}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [25.90, -15.72]},
+      "properties": {"Name": "Itezhi-Tezhi Power Station", "Province": "Southern", "District": "Namwala", "feature_type": "power_plant", "Fuel": "hydro", "Capacity_MW": 120}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [25.87, -17.92]},
+      "properties": {"Name": "Victoria Falls Power Station", "Province": "Southern", "District": "Livingstone", "feature_type": "power_plant", "Fuel": "hydro", "Capacity_MW": 108}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.64, -12.97]},
+      "properties": {"Name": "Ndola Energy (HFO)", "Province": "Copperbelt", "District": "Ndola", "feature_type": "power_plant", "Fuel": "diesel", "Capacity_MW": 105}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.14, -17.25]},
+      "properties": {"Name": "Maamba Collieries Power Plant", "Province": "Southern", "District": "Sinazongwe", "feature_type": "power_plant", "Fuel": "coal", "Capacity_MW": 300}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.55, -14.30]},
+      "properties": {"Name": "Mulungushi Hydropower Station", "Province": "Central", "District": "Kabwe", "feature_type": "power_plant", "Fuel": "hydro", "Capacity_MW": 10}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [29.35, -14.85]},
+      "properties": {"Name": "Lunsemfwa Hydro Power Company", "Province": "Central", "District": "Mkushi", "feature_type": "power_plant", "Fuel": "hydro", "Capacity_MW": 10}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [31.62, -10.36]},
+      "properties": {"Name": "Chishimba Falls Micro Hydro", "Province": "Northern", "District": "Kasama", "feature_type": "power_plant", "Fuel": "hydro", "Capacity_MW": 6}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.93, -11.22]},
+      "properties": {"Name": "Musonda Falls Hydro", "Province": "Luapula", "District": "Mwense", "feature_type": "power_plant", "Fuel": "hydro", "Capacity_MW": 5}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.35, -15.38]},
+      "properties": {"Name": "Lusaka West Substation (330kV)", "Province": "Lusaka", "District": "Lusaka", "feature_type": "substation", "Fuel": "transmission", "Capacity_MW": 0}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.68, -12.75]},
+      "properties": {"Name": "Nkana Substation (220kV)", "Province": "Copperbelt", "District": "Kitwe", "feature_type": "substation", "Fuel": "transmission", "Capacity_MW": 0}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.82, -13.02]},
+      "properties": {"Name": "Ndola Substation (220kV)", "Province": "Copperbelt", "District": "Ndola", "feature_type": "substation", "Fuel": "transmission", "Capacity_MW": 0}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.55, -14.45]},
+      "properties": {"Name": "Kabwe Substation (132kV)", "Province": "Central", "District": "Kabwe", "feature_type": "substation", "Fuel": "transmission", "Capacity_MW": 0}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [27.52, -15.82]},
+      "properties": {"Name": "Livingstone Substation (132kV)", "Province": "Southern", "District": "Livingstone", "feature_type": "substation", "Fuel": "transmission", "Capacity_MW": 0}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [26.42, -12.25]},
+      "properties": {"Name": "Solwezi Substation (66kV)", "Province": "North-Western", "District": "Solwezi", "feature_type": "substation", "Fuel": "transmission", "Capacity_MW": 0}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [33.45, -13.92]},
+      "properties": {"Name": "Chipata Substation (66kV)", "Province": "Eastern", "District": "Chipata", "feature_type": "substation", "Fuel": "transmission", "Capacity_MW": 0}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [28.26, -15.48]},
+      "properties": {"Name": "Lusaka Solar — Ngwerere (ZESCO)", "Province": "Lusaka", "District": "Lusaka", "feature_type": "power_plant", "Fuel": "solar", "Capacity_MW": 60}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [26.38, -12.10]},
+      "properties": {"Name": "Kansanshi Solar Plant (FQM)", "Province": "North-Western", "District": "Solwezi", "feature_type": "power_plant", "Fuel": "solar", "Capacity_MW": 20}
+    }
+  ]
+}
