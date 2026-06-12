@@ -311,7 +311,8 @@ class ModelClient:
         }, timeout=60)
         resp.raise_for_status()
         data = resp.json()
-        return data.get("content", [{}])[0].get("text", "")
+        content = (data.get("output", {}).get("message", {}).get("content") or data.get("content") or [{}])
+        return content[0].get("text", "")
 
     def _bedrock_claude_stream(self, system, user, max_tokens):
         yield self._bedrock_claude_ask(system, user, max_tokens)
@@ -342,7 +343,8 @@ class ModelClient:
         }, timeout=60)
         resp.raise_for_status()
         data = resp.json()
-        yield data.get("content", [{}])[0].get("text", "")
+        content = (data.get("output", {}).get("message", {}).get("content") or data.get("content") or [{}])
+        yield content[0].get("text", "")
 
     # ------------------------------------------------------------------
     # OpenAI
