@@ -1243,8 +1243,11 @@ with st.sidebar:
     _wb_azure_configured = bool(_os.getenv("WB_AZURE_ENDPOINT", ""))
     if _wb_azure_configured:
         _sb_model_opts = [
-            ("GPT-4o mini (WB)",  "WB Azure OpenAI (Desktop)", "gpt-4o-mini"),
-            ("GPT-4o (WB)",       "WB Azure OpenAI (Desktop)", "gpt-4o"),
+            ("GPT-5 (WB)",            "WB Desktop (GPT)",    "gpt-5"),
+            ("GPT-4o (WB)",           "WB Desktop (GPT)",    "gpt-4o"),
+            ("GPT-4o mini (WB)",      "WB Desktop (GPT)",    "gpt-4o-mini"),
+            ("AI Sonnet (WB)",        "WB Desktop (Claude)", "us.anthropic.claude-sonnet-4-6"),
+            ("AI Haiku (WB)",         "WB Desktop (Claude)", "us.anthropic.claude-haiku-4-5"),
         ]
     elif _mai_configured:
         _sb_model_opts = [

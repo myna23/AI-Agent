@@ -15,19 +15,31 @@ when that provider is actually used.
 # Provider catalogue — shown in the settings UI
 # ---------------------------------------------------------------------------
 PROVIDERS = {
-    # ── World Bank Azure OpenAI — Desktop/POC (Device Code auth) ────────
-    # For local demos on a WB office machine. Authenticates via browser
-    # Device Code flow (no API key needed). Store the Azure endpoint in
-    # WB_AZURE_ENDPOINT in your .env file.
-    "WB Azure OpenAI (Desktop)": {
-        "best":       "gpt-4o-mini",
-        "models":     ["gpt-4o", "gpt-4o-mini"],
+    # ── World Bank Desktop (DesktopToken auth) — GPT via mAI Factory ────
+    # For local demos on a WB office machine. Authenticates via itsai SDK.
+    # Store the mAI Factory endpoint in WB_AZURE_ENDPOINT in your .env file.
+    "WB Desktop (GPT)": {
+        "best":       "gpt-5",
+        "models":     ["gpt-5", "gpt-4o", "gpt-4o-mini"],
         "env_key":    "WB_AZURE_ENDPOINT",
         "package":    "azure-openai",
         "docs_url":   "https://ai.worldbank.org/",
-        "tenant_id":  "31a2fec0-266b-4c67-b56e-2796d8f59c36",
-        "client_id":  "00c104af-b0ae-4557-9787-6e6cfced741e",
-        "api_version": "2024-12-01-preview",
+        "api_version": "2025-04-01-preview",
+        "mai_base":   "https://azapimdev.worldbank.org/conversationalai/v2/",
+    },
+    # ── World Bank Desktop (DesktopToken auth) — Claude via mAI Bedrock ─
+    # Same DesktopToken auth as GPT, but routes to Bedrock Claude endpoint.
+    "WB Desktop (Claude)": {
+        "best":    "us.anthropic.claude-sonnet-4-6",
+        "models":  [
+            "us.anthropic.claude-sonnet-4-6",
+            "us.anthropic.claude-haiku-4-5",
+            "us.anthropic.claude-opus-4-5",
+        ],
+        "env_key":  "WB_AZURE_ENDPOINT",
+        "package":  "bedrock-claude",
+        "docs_url": "https://ai.worldbank.org/",
+        "bedrock_base": "https://azapimdev.worldbank.org/conversationalai/bedrock/model/",
     },
     # ── World Bank mAI Factory (primary for WB deployment) ──────────────
     # Single token from mAI Factory replaces all individual provider keys.
@@ -69,8 +81,8 @@ import os as _os
 _mai_token = _os.getenv("MAI_FACTORY_TOKEN", "")
 _wb_azure = _os.getenv("WB_AZURE_ENDPOINT", "")
 if _wb_azure:
-    DEFAULT_PROVIDER = "WB Azure OpenAI (Desktop)"
-    DEFAULT_MODEL    = "gpt-4o-mini"
+    DEFAULT_PROVIDER = "WB Desktop (GPT)"
+    DEFAULT_MODEL    = "gpt-5"
 elif _mai_token:
     DEFAULT_PROVIDER = "WB mAI Factory (GPT)"
     DEFAULT_MODEL    = "gpt-4o"
@@ -80,10 +92,11 @@ else:
 
 # Best models shown in the quick selector (one per meaningful provider)
 BEST_MODELS = [
-    ("WB Azure OpenAI (Desktop)", "gpt-4o-mini"),
-    ("WB mAI Factory (GPT)",      "gpt-4o"),
-    ("OpenAI (GPT)",              "gpt-4o"),
-    ("Google (Gemini)",           "gemini-2.0-flash"),
+    ("WB Desktop (GPT)",     "gpt-5"),
+    ("WB Desktop (Claude)",  "us.anthropic.claude-sonnet-4-6"),
+    ("WB mAI Factory (GPT)", "gpt-4o"),
+    ("OpenAI (GPT)",         "gpt-4o"),
+    ("Google (Gemini)",      "gemini-2.0-flash"),
 ]
 
 
@@ -164,6 +177,9 @@ class ModelClient:
     def _is_azure_openai(self):
         return PROVIDERS[self.provider].get("package") == "azure-openai"
 
+    def _is_bedrock_claude(self):
+        return PROVIDERS[self.provider].get("package") == "bedrock-claude"
+
     # ------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------
@@ -176,6 +192,8 @@ class ModelClient:
             return self._gemini_ask(system, user, max_tokens)
         if self._is_azure_openai():
             return self._azure_openai_ask(system, user, max_tokens)
+        if self._is_bedrock_claude():
+            return self._bedrock_claude_ask(system, user, max_tokens)
         raise ValueError(f"Unsupported provider: {self.provider}")
 
     def stream(self, system: str, user: str, max_tokens: int = 2048):
@@ -186,6 +204,8 @@ class ModelClient:
             yield from self._gemini_stream(system, user, max_tokens)
         elif self._is_azure_openai():
             yield from self._azure_openai_stream(system, user, max_tokens)
+        elif self._is_bedrock_claude():
+            yield from self._bedrock_claude_stream(system, user, max_tokens)
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
@@ -197,43 +217,58 @@ class ModelClient:
             yield from self._gemini_stream_history(system, messages, max_tokens)
         elif self._is_azure_openai():
             yield from self._azure_openai_stream_history(system, messages, max_tokens)
+        elif self._is_bedrock_claude():
+            yield from self._bedrock_claude_stream_history(system, messages, max_tokens)
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
     # ------------------------------------------------------------------
-    # WB Azure OpenAI (Device Code auth)
+    # WB Desktop (DesktopToken auth) — shared token helper
+    # ------------------------------------------------------------------
+
+    def _get_desktop_token(self) -> str:
+        """Get access token via itsai DesktopToken for mAI Factory calls."""
+        try:
+            from itsai.platform.authentication import DesktopToken
+            token_class = DesktopToken()
+            return token_class.token_provider(env="DEV")
+        except Exception as e:
+            raise RuntimeError(f"DesktopToken auth failed: {e}. Ensure itsai SDK is installed and you are on a WB machine.")
+
+    # ------------------------------------------------------------------
+    # WB Desktop (GPT via mAI Factory) — DesktopToken + AzureOpenAI
     # ------------------------------------------------------------------
 
     def _azure_openai_client(self):
         try:
-            from azure.identity import DeviceCodeCredential, get_bearer_token_provider
+            from itsai.platform.authentication import DesktopToken
             from openai import AzureOpenAI
         except ImportError:
-            raise ImportError("Install: pip install azure-identity openai")
+            raise ImportError("Install: pip install itsai-platform openai")
         pinfo = PROVIDERS[self.provider]
-        token_provider = get_bearer_token_provider(
-            DeviceCodeCredential(
-                tenant_id=pinfo["tenant_id"],
-                client_id=pinfo["client_id"],
-            ),
-            "https://cognitiveservices.azure.com/.default",
-        )
+        token_class = DesktopToken()
+        token_provider = lambda: token_class.token_provider(env="DEV")
         return AzureOpenAI(
-            azure_endpoint=self.api_key,
+            azure_endpoint=pinfo.get("mai_base", self.api_key),
             azure_ad_token_provider=token_provider,
-            api_version=pinfo.get("api_version", "2024-12-01-preview"),
+            api_version=pinfo.get("api_version", "2025-04-01-preview"),
         )
 
     def _azure_openai_ask(self, system, user, max_tokens):
         client = self._azure_openai_client()
-        resp = client.chat.completions.create(
+        kwargs = dict(
             model=self.model,
-            max_tokens=max_tokens,
             messages=[
                 {"role": "system", "content": system},
                 {"role": "user",   "content": user},
             ],
         )
+        if self.model == "gpt-5":
+            kwargs["max_completion_tokens"] = max_tokens
+            kwargs["reasoning_effort"] = "low"
+        else:
+            kwargs["max_tokens"] = max_tokens
+        resp = client.chat.completions.create(**kwargs)
         if not resp.choices:
             return ""
         return resp.choices[0].message.content or ""
@@ -244,12 +279,68 @@ class ModelClient:
     def _azure_openai_stream_history(self, system, messages, max_tokens):
         client = self._azure_openai_client()
         full_messages = [{"role": "system", "content": system}] + messages
-        resp = client.chat.completions.create(
-            model=self.model, max_tokens=max_tokens,
-            messages=full_messages,
-        )
+        kwargs = dict(model=self.model, messages=full_messages)
+        if self.model == "gpt-5":
+            kwargs["max_completion_tokens"] = max_tokens
+            kwargs["reasoning_effort"] = "low"
+        else:
+            kwargs["max_tokens"] = max_tokens
+        resp = client.chat.completions.create(**kwargs)
         if resp.choices:
             yield resp.choices[0].message.content or ""
+
+    # ------------------------------------------------------------------
+    # WB Desktop (Claude via mAI Factory Bedrock) — DesktopToken + requests
+    # ------------------------------------------------------------------
+
+    def _bedrock_claude_ask(self, system, user, max_tokens):
+        import requests, json
+        token = self._get_desktop_token()
+        pinfo = PROVIDERS[self.provider]
+        url = f"{pinfo['bedrock_base']}{self.model}/converse"
+        payload = {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": max_tokens,
+            "system": system,
+            "messages": [{"role": "user", "content": [{"type": "text", "text": user}]}],
+        }
+        resp = requests.post(url, json=payload, headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("content", [{}])[0].get("text", "")
+
+    def _bedrock_claude_stream(self, system, user, max_tokens):
+        yield self._bedrock_claude_ask(system, user, max_tokens)
+
+    def _bedrock_claude_stream_history(self, system, messages, max_tokens):
+        import requests, json
+        token = self._get_desktop_token()
+        pinfo = PROVIDERS[self.provider]
+        url = f"{pinfo['bedrock_base']}{self.model}/converse"
+        bedrock_messages = []
+        for m in messages:
+            role = m["role"]
+            content = m["content"]
+            if isinstance(content, str):
+                bedrock_messages.append({"role": role, "content": [{"type": "text", "text": content}]})
+            else:
+                bedrock_messages.append({"role": role, "content": content})
+        payload = {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": max_tokens,
+            "system": system,
+            "messages": bedrock_messages,
+        }
+        resp = requests.post(url, json=payload, headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+        yield data.get("content", [{}])[0].get("text", "")
 
     # ------------------------------------------------------------------
     # OpenAI
