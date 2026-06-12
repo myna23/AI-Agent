@@ -294,16 +294,17 @@ class ModelClient:
     # ------------------------------------------------------------------
 
     def _bedrock_claude_ask(self, system, user, max_tokens):
-        import requests, json
+        import requests
         token = self._get_desktop_token()
         pinfo = PROVIDERS[self.provider]
         url = f"{pinfo['bedrock_base']}{self.model}/converse"
         payload = {
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": max_tokens,
-            "system": system,
             "messages": [{"role": "user", "content": [{"type": "text", "text": user}]}],
         }
+        if system:
+            payload["system"] = [{"type": "text", "text": system}]
         resp = requests.post(url, json=payload, headers={
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
@@ -316,7 +317,7 @@ class ModelClient:
         yield self._bedrock_claude_ask(system, user, max_tokens)
 
     def _bedrock_claude_stream_history(self, system, messages, max_tokens):
-        import requests, json
+        import requests
         token = self._get_desktop_token()
         pinfo = PROVIDERS[self.provider]
         url = f"{pinfo['bedrock_base']}{self.model}/converse"
@@ -331,9 +332,10 @@ class ModelClient:
         payload = {
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": max_tokens,
-            "system": system,
             "messages": bedrock_messages,
         }
+        if system:
+            payload["system"] = [{"type": "text", "text": system}]
         resp = requests.post(url, json=payload, headers={
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
