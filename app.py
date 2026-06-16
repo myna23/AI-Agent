@@ -1241,7 +1241,7 @@ with st.sidebar:
 
     # Model — at top so it's always accessible without scrolling
     _wb_azure_configured = bool(_os.getenv("WB_AZURE_ENDPOINT", ""))
-    _posit_configured    = bool(_os.getenv("AZURE_CLIENT_ID", ""))
+    _posit_configured    = bool(_os.getenv("CONNECT_SERVER", ""))  # Posit Connect always sets this
     if _wb_azure_configured:
         _sb_model_opts = [
             ("GPT-5 (WB)",            "WB Desktop (GPT)",    "gpt-5"),
@@ -1278,6 +1278,17 @@ with st.sidebar:
         st.session_state["ai_provider"] = _sb_sel_opt[1]
         st.session_state["ai_model"]    = _sb_sel_opt[2]
         st.rerun()
+
+    # Debug panel — visible only when CONNECT_SERVER is set (i.e. on Posit Connect)
+    if _os_mod.getenv("CONNECT_SERVER", ""):
+        with st.expander("🔧 Env debug", expanded=False):
+            _check_vars = ["CONNECT_SERVER", "AZURE_CLIENT_ID", "AZURE_TENANT_ID", "MAI_FACTORY_TOKEN", "WB_AZURE_ENDPOINT"]
+            for _v in _check_vars:
+                _val = _os_mod.getenv(_v, "")
+                st.write(f"`{_v}`: {'✅ set' if _val else '❌ not set'}")
+            _azure_keys = [k for k in _os_mod.environ if "AZURE" in k.upper()]
+            if _azure_keys:
+                st.write("All AZURE* vars: " + ", ".join(_azure_keys))
 
     # Language
     _lang = st.selectbox(
