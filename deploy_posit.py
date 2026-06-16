@@ -22,6 +22,18 @@ if not API_KEY:
 AUTH = {"Authorization": f"Key {API_KEY}"}
 ROOT = Path(__file__).parent
 
+# Step 0 — detach git so bundle upload is allowed
+print("Detaching git repository connection...")
+resp = requests.delete(
+    f"{SERVER}__api__/v1/content/{CONTENT_GUID}/repository",
+    headers=AUTH,
+    verify=False,
+)
+if resp.ok or resp.status_code == 404:
+    print("  Git connection removed (or was already gone)")
+else:
+    print(f"  Warning: could not detach git ({resp.status_code}): {resp.text[:200]}")
+
 # Files and folders to bundle
 INCLUDE = [
     "app.py",
