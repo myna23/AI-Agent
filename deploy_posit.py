@@ -112,7 +112,7 @@ with open(bundle_path, "rb") as f:
     resp = requests.post(
         f"{SERVER}__api__/v1/content/{CONTENT_GUID}/bundles",
         headers={"Authorization": f"Key {API_KEY}"},
-        files={"file": ("bundle.tar.gz", f, "application/gzip")},
+        files={"archive": ("bundle.tar.gz", f, "application/gzip")},
         verify=False,
     )
 
