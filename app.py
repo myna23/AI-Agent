@@ -1241,7 +1241,7 @@ with st.sidebar:
 
     # Model — at top so it's always accessible without scrolling
     _wb_azure_configured = bool(_os.getenv("WB_AZURE_ENDPOINT", ""))
-    _posit_configured    = bool(_os.getenv("CONNECT_SERVER", ""))  # Posit Connect always sets this
+    _posit_configured    = bool(_os.getenv("WB_POSIT", ""))  # set manually in Posit Connect Vars tab
     if _wb_azure_configured:
         _sb_model_opts = [
             ("GPT-5 (WB)",            "WB Desktop (GPT)",    "gpt-5"),

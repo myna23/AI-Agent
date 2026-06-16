@@ -100,7 +100,7 @@ PROVIDERS = {
 # Default provider: desktop → posit → mAI Factory token → plain OpenAI
 import os as _os
 _wb_azure  = _os.getenv("WB_AZURE_ENDPOINT", "")
-_on_posit  = _os.getenv("CONNECT_SERVER", "")   # Posit Connect always sets this
+_on_posit  = _os.getenv("WB_POSIT", "")          # set manually in Posit Connect Vars tab
 _mai_token = _os.getenv("MAI_FACTORY_TOKEN", "")
 if _wb_azure:
     DEFAULT_PROVIDER = "WB Desktop (GPT)"
