@@ -41,6 +41,27 @@ PROVIDERS = {
         "docs_url": "https://ai.worldbank.org/",
         "bedrock_base": "https://azapimdev.worldbank.org/conversationalai/bedrock/model/",
     },
+    # ── World Bank Posit Connect (azure.identity — AZURE_CLIENT_ID set by mAI integration) ─
+    # Used when the app is deployed on Posit Connect with the mAI Factory DEV integration.
+    # The integration injects AZURE_CLIENT_ID + AZURE_TENANT_ID; no manual token needed.
+    "WB Posit (GPT)": {
+        "best":       "gpt-4o",
+        "models":     ["gpt-4o", "gpt-4o-mini"],
+        "env_key":    "AZURE_CLIENT_ID",
+        "package":    "azure-openai",
+        "api_version": "2025-04-01-preview",
+        "mai_base":   "https://azapimdev.worldbank.org/conversationalai/v2/",
+    },
+    "WB Posit (Claude)": {
+        "best":    "us.anthropic.claude-sonnet-4-6",
+        "models":  [
+            "us.anthropic.claude-sonnet-4-6",
+            "us.anthropic.claude-haiku-4-5",
+        ],
+        "env_key":  "AZURE_CLIENT_ID",
+        "package":  "bedrock-claude",
+        "bedrock_base": "https://azapimdev.worldbank.org/conversationalai/bedrock/model/",
+    },
     # ── World Bank mAI Factory (primary for WB deployment) ──────────────
     # Single token from mAI Factory replaces all individual provider keys.
     # Routes to GPT and Gemini through the WB internal gateway.
@@ -76,13 +97,17 @@ PROVIDERS = {
     },
 }
 
-# Default: use WB mAI Factory if token is set, otherwise OpenAI direct
+# Default provider: desktop → posit → mAI Factory token → plain OpenAI
 import os as _os
-_mai_token = _os.getenv("MAI_FACTORY_TOKEN", "")
-_wb_azure = _os.getenv("WB_AZURE_ENDPOINT", "")
+_wb_azure        = _os.getenv("WB_AZURE_ENDPOINT", "")
+_posit_client_id = _os.getenv("AZURE_CLIENT_ID", "")
+_mai_token       = _os.getenv("MAI_FACTORY_TOKEN", "")
 if _wb_azure:
     DEFAULT_PROVIDER = "WB Desktop (GPT)"
     DEFAULT_MODEL    = "gpt-5"
+elif _posit_client_id:
+    DEFAULT_PROVIDER = "WB Posit (GPT)"
+    DEFAULT_MODEL    = "gpt-4o"
 elif _mai_token:
     DEFAULT_PROVIDER = "WB mAI Factory (GPT)"
     DEFAULT_MODEL    = "gpt-4o"
@@ -94,6 +119,8 @@ else:
 BEST_MODELS = [
     ("WB Desktop (GPT)",     "gpt-5"),
     ("WB Desktop (Claude)",  "us.anthropic.claude-sonnet-4-6"),
+    ("WB Posit (GPT)",       "gpt-4o"),
+    ("WB Posit (Claude)",    "us.anthropic.claude-sonnet-4-6"),
     ("WB mAI Factory (GPT)", "gpt-4o"),
     ("OpenAI (GPT)",         "gpt-4o"),
     ("Google (Gemini)",      "gemini-2.0-flash"),
@@ -235,19 +262,34 @@ class ModelClient:
         except Exception as e:
             raise RuntimeError(f"DesktopToken auth failed: {e}. Ensure itsai SDK is installed and you are on a WB machine.")
 
+    def _get_auth_token(self) -> str:
+        """Get bearer token — uses azure.identity on Posit Connect, DesktopToken on WB desktop."""
+        if self.provider == "WB Posit (Claude)":
+            from azure.identity import DefaultAzureCredential
+            scope = _os.getenv("MAI_FACTORY_SCOPE", "api://azapimdev.worldbank.org/.default")
+            cred = DefaultAzureCredential(exclude_interactive_browser_credential=True)
+            return cred.get_token(scope).token
+        return self._get_desktop_token()
+
     # ------------------------------------------------------------------
     # WB Desktop (GPT via mAI Factory) — DesktopToken + AzureOpenAI
     # ------------------------------------------------------------------
 
     def _azure_openai_client(self):
-        try:
-            from itsai.platform.authentication import DesktopToken
-            from openai import AzureOpenAI
-        except ImportError:
-            raise ImportError("Install: pip install itsai-platform openai")
+        from openai import AzureOpenAI
         pinfo = PROVIDERS[self.provider]
-        token_class = DesktopToken()
-        token_provider = lambda: token_class.token_provider(env="DEV")
+        if self.provider == "WB Posit (GPT)":
+            from azure.identity import DefaultAzureCredential
+            scope = _os.getenv("MAI_FACTORY_SCOPE", "api://azapimdev.worldbank.org/.default")
+            cred = DefaultAzureCredential(exclude_interactive_browser_credential=True)
+            token_provider = lambda: cred.get_token(scope).token
+        else:
+            try:
+                from itsai.platform.authentication import DesktopToken
+            except ImportError:
+                raise ImportError("Install: pip install itsai-platform")
+            token_class = DesktopToken()
+            token_provider = lambda: token_class.token_provider(env="DEV")
         return AzureOpenAI(
             azure_endpoint=pinfo.get("mai_base", self.api_key),
             azure_ad_token_provider=token_provider,
@@ -295,7 +337,7 @@ class ModelClient:
 
     def _bedrock_claude_ask(self, system, user, max_tokens):
         import requests
-        token = self._get_desktop_token()
+        token = self._get_auth_token()
         pinfo = PROVIDERS[self.provider]
         url = f"{pinfo['bedrock_base']}{self.model}/converse"
         payload = {
@@ -319,7 +361,7 @@ class ModelClient:
 
     def _bedrock_claude_stream_history(self, system, messages, max_tokens):
         import requests
-        token = self._get_desktop_token()
+        token = self._get_auth_token()
         pinfo = PROVIDERS[self.provider]
         url = f"{pinfo['bedrock_base']}{self.model}/converse"
         bedrock_messages = []

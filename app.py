@@ -1241,6 +1241,7 @@ with st.sidebar:
 
     # Model — at top so it's always accessible without scrolling
     _wb_azure_configured = bool(_os.getenv("WB_AZURE_ENDPOINT", ""))
+    _posit_configured    = bool(_os.getenv("AZURE_CLIENT_ID", ""))
     if _wb_azure_configured:
         _sb_model_opts = [
             ("GPT-5 (WB)",            "WB Desktop (GPT)",    "gpt-5"),
@@ -1248,6 +1249,13 @@ with st.sidebar:
             ("GPT-4o mini (WB)",      "WB Desktop (GPT)",    "gpt-4o-mini"),
             ("Sonnet (WB)",           "WB Desktop (Claude)", "us.anthropic.claude-sonnet-4-6"),
             ("Haiku (WB)",            "WB Desktop (Claude)", "us.anthropic.claude-haiku-4-5"),
+        ]
+    elif _posit_configured:
+        _sb_model_opts = [
+            ("GPT-4o",          "WB Posit (GPT)",    "gpt-4o"),
+            ("GPT-4o mini",     "WB Posit (GPT)",    "gpt-4o-mini"),
+            ("Sonnet",          "WB Posit (Claude)", "us.anthropic.claude-sonnet-4-6"),
+            ("Haiku",           "WB Posit (Claude)", "us.anthropic.claude-haiku-4-5"),
         ]
     elif _mai_configured:
         _sb_model_opts = [
