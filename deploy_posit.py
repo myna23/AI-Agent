@@ -16,8 +16,21 @@ CONTENT_GUID = "900cfa7d-9dde-443a-b75f-f4b5cad7bfb6"
 
 API_KEY = sys.argv[1] if len(sys.argv) > 1 else ""
 if not API_KEY:
-    print("Usage: python deploy_posit.py <YOUR_API_KEY>")
+    print("Usage: python deploy_posit.py <API_KEY>")
+    print("       python deploy_posit.py <API_KEY> activate <BUNDLE_ID>")
     sys.exit(1)
+
+# Activate-only mode: python deploy_posit.py <KEY> activate <BUNDLE_ID>
+if len(sys.argv) == 4 and sys.argv[2] == "activate":
+    bundle_id = int(sys.argv[3])
+    AUTH2 = {"Authorization": f"Key {API_KEY}", "Content-Type": "application/json"}
+    import requests as _r
+    resp = _r.post(
+        f"https://datanalytics-int.worldbank.org/__api__/v1/content/900cfa7d-9dde-443a-b75f-f4b5cad7bfb6/deploy",
+        headers=AUTH2, json={"bundle_id": bundle_id}, verify=False,
+    )
+    print(resp.status_code, resp.text[:300])
+    sys.exit(0)
 
 AUTH = {"Authorization": f"Key {API_KEY}"}
 ROOT = Path(__file__).parent
