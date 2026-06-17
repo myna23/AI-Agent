@@ -274,8 +274,8 @@ class ModelClient:
         url = f"{connect_server}/__api__/v1/oauth/integrations/credentials"
         resp = _req.post(
             url,
-            headers={"Authorization": f"Key {connect_api_key}", "Content-Type": "application/json"},
-            json={"audience": oauth_guid},
+            headers={"Authorization": f"Key {connect_api_key}"},
+            data={"audience": oauth_guid},  # form-encoded, not JSON
             verify=False,
             timeout=30,
         )
