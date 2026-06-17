@@ -271,15 +271,25 @@ class ModelClient:
         oauth_guid = "20c434c5-78f1-431f-a286-76980748bc93"
         if not connect_server or not connect_api_key:
             raise RuntimeError("CONNECT_SERVER or CONNECT_API_KEY not available — is this running on Posit Connect?")
+        url = f"{connect_server}/__api__/v1/oauth/integrations/credentials"
         resp = _req.post(
-            f"{connect_server}/__api__/v1/oauth/integrations/credentials",
+            url,
             headers={"Authorization": f"Key {connect_api_key}", "Content-Type": "application/json"},
             json={"audience": oauth_guid},
             verify=False,
             timeout=30,
         )
-        resp.raise_for_status()
-        return resp.json()["access_token"]
+        if not resp.ok:
+            raise RuntimeError(
+                f"Posit Connect OAuth credentials call failed: {resp.status_code}\n"
+                f"URL: {url}\n"
+                f"Response: {resp.text[:500]}"
+            )
+        data = resp.json()
+        token = data.get("access_token") or data.get("token") or data.get("credentials", {}).get("access_token", "")
+        if not token:
+            raise RuntimeError(f"No access_token in response. Keys returned: {list(data.keys())}")
+        return token
 
     def _get_auth_token(self) -> str:
         """Get bearer token — Posit Connect OAuth on Posit, DesktopToken on WB desktop."""
