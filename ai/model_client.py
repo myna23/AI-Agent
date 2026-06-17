@@ -263,55 +263,16 @@ class ModelClient:
         except Exception as e:
             raise RuntimeError(f"DesktopToken auth failed: {e}. Ensure itsai SDK is installed and you are on a WB machine.")
 
-    def _get_posit_oauth_token(self) -> str:
-        """Get Azure AD Bearer token via Posit Connect OAuth integration (v3)."""
-        import requests as _req
-        connect_server = _os.getenv("CONNECT_SERVER", "").rstrip("/")
-        connect_api_key = _os.getenv("CONNECT_API_KEY", "")
-        oauth_guid = "20c434c5-78f1-431f-a286-76980748bc93"
-        if not connect_server or not connect_api_key:
-            raise RuntimeError("CONNECT_SERVER or CONNECT_API_KEY not available — is this running on Posit Connect?")
-        auth_header = {"Authorization": f"Key {connect_api_key}"}
-        errors = []
-
-        # Try 1: GUID in URL path (REST convention)
-        url1 = f"{connect_server}/__api__/v1/oauth/integrations/{oauth_guid}/credentials"
-        r1 = _req.post(url1, headers=auth_header, verify=False, timeout=30)
-        if r1.ok:
-            data = r1.json()
-            token = data.get("access_token") or data.get("token", "")
-            if token:
-                return token
-            raise RuntimeError(f"Try1 OK but no token. Keys: {list(data.keys())}")
-        errors.append(f"Try1 POST {url1}: {r1.status_code} {r1.text[:200]}")
-
-        # Try 2: JSON body {"audience": guid}
-        url2 = f"{connect_server}/__api__/v1/oauth/integrations/credentials"
-        r2 = _req.post(url2, headers=auth_header, json={"audience": oauth_guid}, verify=False, timeout=30)
-        if r2.ok:
-            data = r2.json()
-            token = data.get("access_token") or data.get("token", "")
-            if token:
-                return token
-            raise RuntimeError(f"Try2 OK but no token. Keys: {list(data.keys())}")
-        errors.append(f"Try2 POST JSON {url2}: {r2.status_code} {r2.text[:200]}")
-
-        # Try 3: form-encoded body
-        r3 = _req.post(url2, headers=auth_header, data={"audience": oauth_guid}, verify=False, timeout=30)
-        if r3.ok:
-            data = r3.json()
-            token = data.get("access_token") or data.get("token", "")
-            if token:
-                return token
-            raise RuntimeError(f"Try3 OK but no token. Keys: {list(data.keys())}")
-        errors.append(f"Try3 POST form {url2}: {r3.status_code} {r3.text[:200]}")
-
-        raise RuntimeError("All OAuth attempts failed:\n" + "\n".join(errors))
-
     def _get_auth_token(self) -> str:
-        """Get bearer token — Posit Connect OAuth on Posit, DesktopToken on WB desktop."""
+        """Get bearer token — MAI_FACTORY_TOKEN on Posit Connect, DesktopToken on WB desktop."""
         if self.provider in ("WB Posit (Claude)", "WB Posit (GPT)"):
-            return self._get_posit_oauth_token()
+            token = _os.getenv("MAI_FACTORY_TOKEN", "")
+            if not token:
+                raise RuntimeError(
+                    "No MAI_FACTORY_TOKEN found. Run refresh_mai_token.py on your WB desktop "
+                    "to push a fresh token to Posit Connect."
+                )
+            return token
         return self._get_desktop_token()
 
     # ------------------------------------------------------------------
@@ -322,7 +283,7 @@ class ModelClient:
         from openai import AzureOpenAI
         pinfo = PROVIDERS[self.provider]
         if self.provider == "WB Posit (GPT)":
-            token = self._get_posit_oauth_token()
+            token = self._get_auth_token()
             token_provider = lambda: token
         else:
             try:
