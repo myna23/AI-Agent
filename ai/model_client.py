@@ -41,15 +41,16 @@ PROVIDERS = {
         "docs_url": "https://ai.worldbank.org/",
         "bedrock_base": "https://azapimdev.worldbank.org/conversationalai/bedrock/model/",
     },
-    # ── World Bank Posit Connect (azure.identity — AZURE_CLIENT_ID set by mAI integration) ─
-    # Used when the app is deployed on Posit Connect with the mAI Factory DEV integration.
-    # The integration injects AZURE_CLIENT_ID + AZURE_TENANT_ID; no manual token needed.
+    # ── World Bank Posit Connect (OAuth via CONNECT_SERVER + CONNECT_API_KEY) ─
+    # Auth: Posit Connect calls /__api__/v1/oauth/integrations/credentials with
+    # the mAI Factory OAuth integration GUID to get an Azure Bearer token.
+    # No manual secrets needed — Posit Connect injects CONNECT_SERVER + CONNECT_API_KEY.
     "WB Posit (GPT)": {
         "best":       "gpt-4o",
         "models":     ["gpt-4o", "gpt-4o-mini"],
-        "env_key":    "AZURE_CLIENT_ID",
+        "env_key":    "WB_POSIT",
         "package":    "azure-openai",
-        "api_version": "2025-04-01-preview",
+        "api_version": "2025-01-01-preview",
         "mai_base":   "https://azapimdev.worldbank.org/conversationalai/v2/",
     },
     "WB Posit (Claude)": {
@@ -58,7 +59,7 @@ PROVIDERS = {
             "us.anthropic.claude-sonnet-4-6",
             "us.anthropic.claude-haiku-4-5",
         ],
-        "env_key":  "AZURE_CLIENT_ID",
+        "env_key":  "WB_POSIT",
         "package":  "bedrock-claude",
         "bedrock_base": "https://azapimdev.worldbank.org/conversationalai/bedrock/model/",
     },
@@ -262,13 +263,28 @@ class ModelClient:
         except Exception as e:
             raise RuntimeError(f"DesktopToken auth failed: {e}. Ensure itsai SDK is installed and you are on a WB machine.")
 
+    def _get_posit_oauth_token(self) -> str:
+        """Get Azure AD Bearer token via Posit Connect OAuth integration."""
+        import requests as _req
+        connect_server = _os.getenv("CONNECT_SERVER", "").rstrip("/")
+        connect_api_key = _os.getenv("CONNECT_API_KEY", "")
+        oauth_guid = "20c434c5-78f1-431f-a286-76980748bc93"
+        if not connect_server or not connect_api_key:
+            raise RuntimeError("CONNECT_SERVER or CONNECT_API_KEY not available — is this running on Posit Connect?")
+        resp = _req.post(
+            f"{connect_server}/__api__/v1/oauth/integrations/credentials",
+            headers={"Authorization": f"Key {connect_api_key}", "Content-Type": "application/json"},
+            json={"audience": oauth_guid},
+            verify=False,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json()["access_token"]
+
     def _get_auth_token(self) -> str:
-        """Get bearer token — uses azure.identity on Posit Connect, DesktopToken on WB desktop."""
-        if self.provider == "WB Posit (Claude)":
-            from azure.identity import DefaultAzureCredential
-            scope = _os.getenv("MAI_FACTORY_SCOPE", "api://azapimdev.worldbank.org/.default")
-            cred = DefaultAzureCredential(exclude_interactive_browser_credential=True)
-            return cred.get_token(scope).token
+        """Get bearer token — Posit Connect OAuth on Posit, DesktopToken on WB desktop."""
+        if self.provider in ("WB Posit (Claude)", "WB Posit (GPT)"):
+            return self._get_posit_oauth_token()
         return self._get_desktop_token()
 
     # ------------------------------------------------------------------
@@ -279,10 +295,8 @@ class ModelClient:
         from openai import AzureOpenAI
         pinfo = PROVIDERS[self.provider]
         if self.provider == "WB Posit (GPT)":
-            from azure.identity import DefaultAzureCredential
-            scope = _os.getenv("MAI_FACTORY_SCOPE", "api://azapimdev.worldbank.org/.default")
-            cred = DefaultAzureCredential(exclude_interactive_browser_credential=True)
-            token_provider = lambda: cred.get_token(scope).token
+            token = self._get_posit_oauth_token()
+            token_provider = lambda: token
         else:
             try:
                 from itsai.platform.authentication import DesktopToken
@@ -290,10 +304,14 @@ class ModelClient:
                 raise ImportError("Install: pip install itsai-platform")
             token_class = DesktopToken()
             token_provider = lambda: token_class.token_provider(env="DEV")
+        extra_headers = {}
+        if self.provider == "WB Posit (GPT)":
+            extra_headers = {"x-source-type": "interactive", "x-team-name": "posit-zambia"}
         return AzureOpenAI(
             azure_endpoint=pinfo.get("mai_base", self.api_key),
             azure_ad_token_provider=token_provider,
             api_version=pinfo.get("api_version", "2025-04-01-preview"),
+            default_headers=extra_headers,
         )
 
     def _azure_openai_ask(self, system, user, max_tokens):

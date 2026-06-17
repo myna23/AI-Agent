@@ -1279,16 +1279,13 @@ with st.sidebar:
         st.session_state["ai_model"]    = _sb_sel_opt[2]
         st.rerun()
 
-    # Debug panel — visible only when CONNECT_SERVER is set (i.e. on Posit Connect)
-    if _os_mod.getenv("CONNECT_SERVER", ""):
+    # Debug panel — visible only on Posit Connect (WB_POSIT is set manually in Vars tab)
+    if _posit_configured:
         with st.expander("🔧 Env debug", expanded=False):
-            _check_vars = ["CONNECT_SERVER", "AZURE_CLIENT_ID", "AZURE_TENANT_ID", "MAI_FACTORY_TOKEN", "WB_AZURE_ENDPOINT"]
+            _check_vars = ["CONNECT_SERVER", "CONNECT_API_KEY", "WB_POSIT", "AZURE_CLIENT_ID", "AZURE_TENANT_ID", "MAI_FACTORY_TOKEN", "WB_AZURE_ENDPOINT"]
             for _v in _check_vars:
                 _val = _os_mod.getenv(_v, "")
                 st.write(f"`{_v}`: {'✅ set' if _val else '❌ not set'}")
-            _azure_keys = [k for k in _os_mod.environ if "AZURE" in k.upper()]
-            if _azure_keys:
-                st.write("All AZURE* vars: " + ", ".join(_azure_keys))
 
     # Language
     _lang = st.selectbox(
