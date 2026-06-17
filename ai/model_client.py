@@ -263,36 +263,18 @@ class ModelClient:
         except Exception as e:
             raise RuntimeError(f"DesktopToken auth failed: {e}. Ensure itsai SDK is installed and you are on a WB machine.")
 
-    def _get_posit_oauth_token(self) -> str:
-        """Get Azure AD Bearer token via Posit Connect OAuth integration."""
-        import requests as _req
-        connect_server = _os.getenv("CONNECT_SERVER", "").rstrip("/")
-        connect_api_key = _os.getenv("CONNECT_API_KEY", "")
-        oauth_guid = "20c434c5-78f1-431f-a286-76980748bc93"
-        if not connect_server or not connect_api_key:
-            raise RuntimeError("CONNECT_SERVER or CONNECT_API_KEY not set")
-        url = f"{connect_server}/__api__/v1/oauth/integrations/credentials"
-        resp = _req.post(
-            url,
-            headers={"Authorization": f"Key {connect_api_key}", "Content-Type": "application/json"},
-            json={"guid": oauth_guid},   # key is "guid" not "audience"
-            verify=False,
-            timeout=30,
-        )
-        if not resp.ok:
-            raise RuntimeError(
-                f"Posit Connect OAuth failed: {resp.status_code} {resp.text[:300]}"
-            )
-        data = resp.json()
-        token = data.get("access_token") or data.get("token", "")
-        if not token:
-            raise RuntimeError(f"No access_token in response. Keys: {list(data.keys())}")
-        return token
-
     def _get_auth_token(self) -> str:
-        """Get bearer token — Posit Connect OAuth on Posit, DesktopToken on WB desktop."""
+        """Get bearer token — Posit Connect: MAI_FACTORY_TOKEN (set by refresh script).
+        WB Desktop: DesktopToken."""
         if self.provider in ("WB Posit (Claude)", "WB Posit (GPT)"):
-            return self._get_posit_oauth_token()
+            token = _os.getenv("MAI_FACTORY_TOKEN", "")
+            if not token:
+                raise RuntimeError(
+                    "No MAI_FACTORY_TOKEN set. Run this on your WB desktop:\n"
+                    "  python refresh_mai_token.py YOUR_POSIT_API_KEY\n"
+                    "This pushes a fresh WB token to Posit Connect (valid ~1 hour)."
+                )
+            return token
         return self._get_desktop_token()
 
     # ------------------------------------------------------------------
