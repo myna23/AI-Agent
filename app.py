@@ -581,38 +581,80 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
     _LABEL_KEYS = ("name", "NAME", "facilityname", "FacilityName", "SchoolName",
                    "school_name", "market_name", "DISTRICT", "District", "PROVINCE", "Province")
 
-    def _rings(geom):
-        gt = geom.get("type", "")
-        c  = geom.get("coordinates", [])
-        if gt == "Polygon":      return c
-        if gt == "MultiPolygon": return [r for poly in c for r in poly]
-        return []
-
     layers = []
     all_lats, all_lons = [], []
+    hl_extent = None  # bounding box of highlighted district/province
 
-    # --- Context boundary layers (district/province outlines) ---
+    # --- Context boundary layers ---
     if context_layers:
         hl_lower = highlight_location.lower() if highlight_location else ""
-        ctx_paths, hl_paths = [], []
+        ctx_paths, road_paths, hl_poly_rows = [], [], []
+
         for ctx in context_layers:
+            ctx_type = ctx.get("type", "boundary")
             for feat in ctx["geojson"].get("features", []):
                 geom  = feat.get("geometry") or {}
                 props = feat.get("properties") or {}
+                gt    = geom.get("type", "")
+                c     = geom.get("coordinates", [])
+
+                # Road / line layers — thin grey lines
+                if ctx_type == "road" or gt in ("LineString", "MultiLineString"):
+                    lines = [c] if gt == "LineString" else (c if gt == "MultiLineString" else [])
+                    for line in lines:
+                        road_paths.append({"path": [[p[0], p[1]] for p in line]})
+                    continue
+
+                # Boundary polygons
+                rings = c if gt == "Polygon" else ([r for poly in c for r in poly] if gt == "MultiPolygon" else [])
+                if not rings:
+                    continue
+
                 name_val = (props.get("DISTRICT") or props.get("District") or
                             props.get("PROVINCE")  or props.get("Province") or "")
-                is_hl = hl_lower and (hl_lower in name_val.lower() or name_val.lower() in hl_lower)
-                for ring in _rings(geom):
-                    path = [[c[0], c[1]] for c in ring]
-                    (hl_paths if is_hl else ctx_paths).append({"path": path, "name": name_val})
+                is_hl = bool(hl_lower and (hl_lower in name_val.lower() or name_val.lower() in hl_lower))
+
+                outer = rings[0]
+                path  = [[p[0], p[1]] for p in outer]
+                ctx_paths.append({"path": path, "name": name_val})
+
+                if is_hl:
+                    # PolygonLayer needs all rings (outer + holes)
+                    hl_poly_rows.append({
+                        "polygon": [[[p[0], p[1]] for p in r] for r in rings],
+                        "name": name_val,
+                    })
+                    lons_r = [p[0] for p in outer]; lats_r = [p[1] for p in outer]
+                    hl_extent = (min(lats_r), max(lats_r), min(lons_r), max(lons_r))
+
+        # All district outlines — light grey
         if ctx_paths:
             layers.append(_pdk.Layer("PathLayer", data=ctx_paths, get_path="path",
-                                     get_color=[160, 160, 160, 180], get_width=1,
+                                     get_color=[180, 180, 180, 160], get_width=1,
                                      width_min_pixels=1))
-        if hl_paths:
-            layers.append(_pdk.Layer("PathLayer", data=hl_paths, get_path="path",
-                                     get_color=[29, 53, 87, 220], get_width=3,
-                                     width_min_pixels=2))
+        # Road lines — even lighter
+        if road_paths:
+            layers.append(_pdk.Layer("PathLayer", data=road_paths, get_path="path",
+                                     get_color=[200, 180, 140, 120], get_width=1,
+                                     width_min_pixels=1))
+        # Highlighted district — filled polygon (blue, like original folium style)
+        if hl_poly_rows:
+            layers.append(_pdk.Layer(
+                "PolygonLayer",
+                data=hl_poly_rows,
+                get_polygon="polygon",
+                get_fill_color=[69, 123, 157, 55],   # semi-transparent blue fill
+                get_line_color=[29, 53, 87, 220],     # dark blue border
+                get_line_width=3,
+                line_width_min_pixels=2,
+                filled=True,
+                stroked=True,
+                pickable=True,
+            ))
+            # Seed zoom from highlighted district extent
+            if hl_extent:
+                all_lats += [hl_extent[0], hl_extent[1]]
+                all_lons += [hl_extent[2], hl_extent[3]]
 
     # --- Main dataset features ---
     point_rows, poly_paths = [], []
@@ -621,6 +663,7 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
         props = f.get("properties") or {}
         gt    = geom.get("type", "")
         c     = geom.get("coordinates", [])
+
         if gt == "Point" and len(c) >= 2:
             lon, lat = c[0], c[1]
             all_lats.append(lat); all_lons.append(lon)
@@ -629,15 +672,14 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
                 label = str(next(iter(props.values()), ""))
             point_rows.append({"lat": lat, "lon": lon, "name": label})
         else:
-            for ring in _rings(geom):
-                lons = [x[0] for x in ring]; lats = [x[1] for x in ring]
-                all_lats += lats; all_lons += lons
+            rings = c if gt == "Polygon" else ([r for poly in c for r in poly] if gt == "MultiPolygon" else [])
+            for ring in rings:
+                all_lons += [x[0] for x in ring]; all_lats += [x[1] for x in ring]
                 poly_paths.append({"path": [[x[0], x[1]] for x in ring]})
 
     if poly_paths:
         layers.append(_pdk.Layer("PathLayer", data=poly_paths, get_path="path",
                                  get_color=[230, 57, 70, 200], get_width=2, width_min_pixels=1))
-
     if point_rows:
         layers.append(_pdk.Layer("ScatterplotLayer",
                                  data=_pd.DataFrame(point_rows),
@@ -659,11 +701,15 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
         layers.append(_pdk.Layer("PathLayer", data=circle, get_path="path",
                                  get_color=[29, 53, 87, 180], get_width=2, width_min_pixels=1))
 
-    # --- View state ---
-    if all_lats:
-        clat = sum(all_lats) / len(all_lats)
-        clon = sum(all_lons) / len(all_lons)
-        span = max(max(all_lats) - min(all_lats), max(all_lons) - min(all_lons), 0.01)
+    # --- View state: zoom to data points; fall back to highlighted district; then all Zambia ---
+    pt_lats = [r["lat"] for r in point_rows]
+    pt_lons = [r["lon"] for r in point_rows]
+    zoom_lats = pt_lats if pt_lats else all_lats
+    zoom_lons = pt_lons if pt_lons else all_lons
+    if zoom_lats:
+        clat = (min(zoom_lats) + max(zoom_lats)) / 2
+        clon = (min(zoom_lons) + max(zoom_lons)) / 2
+        span = max(max(zoom_lats) - min(zoom_lats), max(zoom_lons) - min(zoom_lons), 0.01)
         zoom = max(4, min(12, int(_math.log2(180 / span))))
     else:
         clat, clon, zoom = -13.5, 28.5, 6
