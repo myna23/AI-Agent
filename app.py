@@ -1246,6 +1246,7 @@ with st.sidebar:
     if _wb_azure_configured:
         _sb_model_opts = [
             ("GPT-5 (WB)",            "WB Desktop (GPT)",    "gpt-5"),
+            ("GPT-5 mini (WB)",       "WB Desktop (GPT)",    "gpt-5-mini"),
             ("GPT-4o (WB)",           "WB Desktop (GPT)",    "gpt-4o"),
             ("GPT-4o mini (WB)",      "WB Desktop (GPT)",    "gpt-4o-mini"),
             ("Sonnet (WB)",           "WB Desktop (Claude)", "us.anthropic.claude-sonnet-4-6"),
@@ -1254,6 +1255,7 @@ with st.sidebar:
     elif _posit_configured:
         _sb_model_opts = [
             ("GPT-5",           "WB Posit (GPT)",    "gpt-5"),
+            ("GPT-5 mini",      "WB Posit (GPT)",    "gpt-5-mini"),
             ("GPT-4o",          "WB Posit (GPT)",    "gpt-4o"),
             ("GPT-4o mini",     "WB Posit (GPT)",    "gpt-4o-mini"),
             ("Sonnet",          "WB Posit (Claude)", "us.anthropic.claude-sonnet-4-6"),

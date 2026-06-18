@@ -20,7 +20,7 @@ PROVIDERS = {
     # Store the mAI Factory endpoint in WB_AZURE_ENDPOINT in your .env file.
     "WB Desktop (GPT)": {
         "best":       "gpt-5",
-        "models":     ["gpt-5", "gpt-4o", "gpt-4o-mini"],
+        "models":     ["gpt-5", "gpt-5-mini", "gpt-4o", "gpt-4o-mini"],
         "env_key":    "WB_AZURE_ENDPOINT",
         "package":    "azure-openai",
         "docs_url":   "https://ai.worldbank.org/",
@@ -47,7 +47,7 @@ PROVIDERS = {
     # No manual secrets needed — Posit Connect injects CONNECT_SERVER + CONNECT_API_KEY.
     "WB Posit (GPT)": {
         "best":       "gpt-5",
-        "models":     ["gpt-5", "gpt-4o", "gpt-4o-mini"],
+        "models":     ["gpt-5", "gpt-5-mini", "gpt-4o", "gpt-4o-mini"],
         "env_key":    "WB_POSIT",
         "package":    "azure-openai",
         "api_version": "2025-04-01-preview",
@@ -355,7 +355,7 @@ class ModelClient:
                 {"role": "user",   "content": user},
             ],
         )
-        if self.model == "gpt-5":
+        if self.model in ("gpt-5", "gpt-5-mini"):
             kwargs["max_completion_tokens"] = max_tokens
             kwargs["reasoning_effort"] = "low"
         else:
@@ -372,7 +372,7 @@ class ModelClient:
         client = self._azure_openai_client()
         full_messages = [{"role": "system", "content": system}] + messages
         kwargs = dict(model=self.model, messages=full_messages)
-        if self.model == "gpt-5":
+        if self.model in ("gpt-5", "gpt-5-mini"):
             kwargs["max_completion_tokens"] = max_tokens
             kwargs["reasoning_effort"] = "low"
         else:
