@@ -730,11 +730,12 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
                 data=_labeled,
                 get_position=["lon", "lat"],
                 get_text="name",
-                get_size=15,
+                get_size=300,           # 300 metres — grows as you zoom in
+                size_units="meters",    # scales with zoom, small when zoomed out, large when close
                 get_color=[15, 15, 15, 255],
                 get_background_color=[255, 255, 255, 255],
                 background_padding=[5, 3, 5, 3],
-                get_pixel_offset=[0, -26],
+                get_pixel_offset=[0, -10],
                 get_anchor="middle",
                 font_weight="bold",
                 font_family="Arial, sans-serif",
