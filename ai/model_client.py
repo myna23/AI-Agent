@@ -46,11 +46,11 @@ PROVIDERS = {
     # the mAI Factory OAuth integration GUID to get an Azure Bearer token.
     # No manual secrets needed — Posit Connect injects CONNECT_SERVER + CONNECT_API_KEY.
     "WB Posit (GPT)": {
-        "best":       "gpt-4o",
-        "models":     ["gpt-4o", "gpt-4o-mini"],
+        "best":       "gpt-5",
+        "models":     ["gpt-5", "gpt-4o", "gpt-4o-mini"],
         "env_key":    "WB_POSIT",
         "package":    "azure-openai",
-        "api_version": "2025-01-01-preview",
+        "api_version": "2025-04-01-preview",
         "mai_base":   "https://azapimdev.worldbank.org/conversationalai/v2/",
     },
     "WB Posit (Claude)": {
@@ -108,7 +108,7 @@ if _wb_azure:
     DEFAULT_MODEL    = "gpt-5"
 elif _on_posit:
     DEFAULT_PROVIDER = "WB Posit (GPT)"
-    DEFAULT_MODEL    = "gpt-4o"
+    DEFAULT_MODEL    = "gpt-5"
 elif _mai_token:
     DEFAULT_PROVIDER = "WB mAI Factory (GPT)"
     DEFAULT_MODEL    = "gpt-4o"

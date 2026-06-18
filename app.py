@@ -1253,6 +1253,7 @@ with st.sidebar:
         ]
     elif _posit_configured:
         _sb_model_opts = [
+            ("GPT-5",           "WB Posit (GPT)",    "gpt-5"),
             ("GPT-4o",          "WB Posit (GPT)",    "gpt-4o"),
             ("GPT-4o mini",     "WB Posit (GPT)",    "gpt-4o-mini"),
             ("Sonnet",          "WB Posit (Claude)", "us.anthropic.claude-sonnet-4-6"),
