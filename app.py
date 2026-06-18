@@ -578,9 +578,6 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
     import pandas as _pd
     import math as _math
 
-    _LABEL_KEYS = ("name", "NAME", "facilityname", "FacilityName", "SchoolName",
-                   "school_name", "market_name", "DISTRICT", "District", "PROVINCE", "Province")
-
     layers = []
     all_lats, all_lons = [], []
     hl_extent = None  # bounding box of highlighted district/province
@@ -668,20 +665,40 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
             lon, lat = c[0], c[1]
             all_lats.append(lat); all_lons.append(lon)
 
-            # Try known name keys first, then pick the longest string value
-            _skip = {"objectid", "fid", "globalid", "shape", "shape_area", "shape_length"}
-            label = next((str(props[k]) for k in _LABEL_KEYS if props.get(k)), "")
-            if not label and props:
-                candidates = [str(v) for k, v in props.items()
-                              if v and isinstance(v, str) and k.lower() not in _skip]
-                label = max(candidates, key=len) if candidates else str(next(iter(props.values()), ""))
+            # Keys that hold the actual facility/place name
+            _NAME_KEYS = (
+                "name", "Name", "NAME",
+                "facilityname", "FacilityName", "FACILITYNAME",
+                "SchoolName", "school_name", "SCHOOLNAME",
+                "market_name", "MarketName", "MARKETNAME",
+                "place_name", "Place_name", "PlaceName", "Place_Name",
+                "SiteName", "site_name", "SITENAME",
+                "InstitutionName", "institution_name",
+                "HospitalName", "hospital_name",
+            )
+            # Keys that hold location/admin info — never use these as the display name
+            _LOC_KEYS = {"district", "province", "region", "country", "ward",
+                         "constituency", "type", "status", "ownership",
+                         "objectid", "fid", "globalid", "shape", "shape_area", "shape_length"}
 
-            # Build tooltip: name + district/province/type if available
+            label = next((str(props[k]) for k in _NAME_KEYS if props.get(k)), "")
+            if not label and props:
+                # Pick the longest string that isn't a location/admin field
+                candidates = [(k, str(v)) for k, v in props.items()
+                              if v and isinstance(v, str) and k.lower() not in _LOC_KEYS]
+                if candidates:
+                    # Prefer values with spaces (full names like "SDA Church Lusaka")
+                    spaced = [(k, v) for k, v in candidates if " " in v]
+                    label = max(spaced, key=lambda x: len(x[1]))[1] if spaced \
+                            else max(candidates, key=lambda x: len(x[1]))[1]
+
+            # Build tooltip: name + district/province/type
             district = str(props.get("DISTRICT") or props.get("District") or "")
             province = str(props.get("PROVINCE") or props.get("Province") or "")
             ftype    = str(props.get("Type") or props.get("TYPE") or props.get("FacilityType") or
                            props.get("facilitytype") or props.get("Ownership") or "")
-            tip_parts = [p for p in [label, district and f"District: {district}",
+            tip_parts = [p for p in [label,
+                                     district and f"District: {district}",
                                      province and f"Province: {province}",
                                      ftype and f"Type: {ftype}"] if p]
             tooltip_text = " | ".join(tip_parts) if tip_parts else "—"
@@ -713,13 +730,12 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
                 data=_labeled,
                 get_position=["lon", "lat"],
                 get_text="name",
-                get_size=12,
-                get_color=[25, 25, 25, 240],
-                get_background_color=[255, 255, 255, 200],
-                background=True,
-                get_border_color=[200, 200, 200, 180],
-                border_width=0.5,
-                get_pixel_offset=[0, -20],
+                get_size=13,
+                get_color=[20, 20, 20, 255],
+                get_background_color=[255, 255, 255, 210],
+                background_padding=[3, 2, 3, 2],
+                get_pixel_offset=[0, -22],
+                get_anchor="middle",
                 font_weight="bold",
                 font_family="Arial, sans-serif",
                 pickable=False,
