@@ -263,18 +263,60 @@ class ModelClient:
         except Exception as e:
             raise RuntimeError(f"DesktopToken auth failed: {e}. Ensure itsai SDK is installed and you are on a WB machine.")
 
+    def _get_posit_oauth_token(self) -> str:
+        """Get Azure AD token via Posit Connect OAuth token exchange (Python Shiny pattern)."""
+        import requests as _req
+        connect_server   = _os.getenv("CONNECT_SERVER", "").rstrip("/")
+        connect_api_key  = _os.getenv("CONNECT_API_KEY", "")
+        session_token    = _os.getenv("CONNECT_CONTENT_SESSION_TOKEN", "")
+        oauth_guid       = "20c434c5-78f1-431f-a286-76980748bc93"
+
+        if not connect_server or not connect_api_key or not session_token:
+            missing = [v for v, k in [
+                ("CONNECT_SERVER", connect_server),
+                ("CONNECT_API_KEY", connect_api_key),
+                ("CONNECT_CONTENT_SESSION_TOKEN", session_token),
+            ] if not k]
+            raise RuntimeError(f"Missing env vars for Posit OAuth: {', '.join(missing)}")
+
+        url  = f"{connect_server}/__api__/v1/oauth/integrations/credentials"
+        resp = _req.post(
+            url,
+            headers={
+                "Authorization": f"Key {connect_api_key}",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            data={
+                "grant_type":        "urn:ietf:params:oauth:grant-type:token-exchange",
+                "subject_token_type": "urn:posit:connect:content-session-token",
+                "subject_token":     session_token,
+                "audience":          oauth_guid,
+            },
+            verify=False,
+            timeout=30,
+        )
+        if not resp.ok:
+            raise RuntimeError(f"Posit OAuth exchange failed: {resp.status_code} {resp.text[:300]}")
+        token = resp.json().get("access_token", "")
+        if not token:
+            raise RuntimeError(f"No access_token in response: {resp.json()}")
+        return token
+
     def _get_auth_token(self) -> str:
-        """Get bearer token — Posit Connect: MAI_FACTORY_TOKEN (set by refresh script).
-        WB Desktop: DesktopToken."""
+        """Get bearer token — Posit Connect: OAuth token exchange. WB Desktop: DesktopToken."""
         if self.provider in ("WB Posit (Claude)", "WB Posit (GPT)"):
+            # Try OAuth token exchange first (requires CONNECT_CONTENT_SESSION_TOKEN)
+            session_token = _os.getenv("CONNECT_CONTENT_SESSION_TOKEN", "")
+            if session_token:
+                return self._get_posit_oauth_token()
+            # Fall back to manually refreshed token
             token = _os.getenv("MAI_FACTORY_TOKEN", "")
-            if not token:
-                raise RuntimeError(
-                    "No MAI_FACTORY_TOKEN set. Run this on your WB desktop:\n"
-                    "  python refresh_mai_token.py YOUR_POSIT_API_KEY\n"
-                    "This pushes a fresh WB token to Posit Connect (valid ~1 hour)."
-                )
-            return token
+            if token:
+                return token
+            raise RuntimeError(
+                "No auth available on Posit Connect. Either CONNECT_CONTENT_SESSION_TOKEN "
+                "must be set (automatic) or run refresh_mai_token.py on your WB desktop."
+            )
         return self._get_desktop_token()
 
     # ------------------------------------------------------------------

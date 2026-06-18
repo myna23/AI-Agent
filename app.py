@@ -1282,7 +1282,8 @@ with st.sidebar:
     # Debug panel — visible only on Posit Connect (WB_POSIT is set manually in Vars tab)
     if _posit_configured:
         with st.expander("🔧 Env debug", expanded=False):
-            _check_vars = ["CONNECT_SERVER", "CONNECT_API_KEY", "WB_POSIT", "AZURE_CLIENT_ID", "AZURE_TENANT_ID", "MAI_FACTORY_TOKEN", "WB_AZURE_ENDPOINT"]
+            _check_vars = ["CONNECT_SERVER", "CONNECT_API_KEY", "CONNECT_CONTENT_SESSION_TOKEN",
+                           "WB_POSIT", "MAI_FACTORY_TOKEN", "AZURE_CLIENT_ID", "WB_AZURE_ENDPOINT"]
             for _v in _check_vars:
                 _val = _os_mod.getenv(_v, "")
                 st.write(f"`{_v}`: {'✅ set' if _val else '❌ not set'}")
