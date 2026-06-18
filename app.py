@@ -697,13 +697,33 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
         layers.append(_pdk.Layer("PathLayer", data=poly_paths, get_path="path",
                                  get_color=[230, 57, 70, 200], get_width=2, width_min_pixels=1))
     if point_rows:
+        _pt_df = _pd.DataFrame(point_rows)
         layers.append(_pdk.Layer("ScatterplotLayer",
-                                 data=_pd.DataFrame(point_rows),
+                                 data=_pt_df,
                                  get_position=["lon", "lat"],
                                  get_fill_color=[230, 57, 70, 210],
                                  get_radius=3000,
                                  radius_min_pixels=4, radius_max_pixels=14,
                                  pickable=True))
+        # Show facility names directly on the map as text labels
+        _labeled = _pt_df[_pt_df["name"].str.strip() != ""]
+        if not _labeled.empty:
+            layers.append(_pdk.Layer(
+                "TextLayer",
+                data=_labeled,
+                get_position=["lon", "lat"],
+                get_text="name",
+                get_size=12,
+                get_color=[25, 25, 25, 240],
+                get_background_color=[255, 255, 255, 200],
+                background=True,
+                get_border_color=[200, 200, 200, 180],
+                border_width=0.5,
+                get_pixel_offset=[0, -20],
+                font_weight="bold",
+                font_family="Arial, sans-serif",
+                pickable=False,
+            ))
 
     # --- Buffer circle ---
     if buffer_center and buffer_radius_km:
