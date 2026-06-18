@@ -573,103 +573,107 @@ def _render_location_overview(location: str, loc_type: str, hub, key_prefix: str
 
 def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_location="",
                        buffer_center=None, buffer_radius_km=None, buffer_label="", draw_bbox=None):
-    """Render GeoJSON as a plotly scatter_geo chart.
-    Uses plotly's built-in geographic data — no CDN or tile server needed, works on Posit Connect.
-    """
-    import plotly.graph_objects as _go
-
-    features = gjson.get("features", [])
-    pt_lats, pt_lons, pt_labels = [], [], []
-    poly_lats, poly_lons = [], []
+    """Render GeoJSON map using pydeck — same engine as the working distance/radius map."""
+    import pydeck as _pdk
+    import pandas as _pd
+    import math as _math
 
     _LABEL_KEYS = ("name", "NAME", "facilityname", "FacilityName", "SchoolName",
                    "school_name", "market_name", "DISTRICT", "District", "PROVINCE", "Province")
 
-    def _extract_rings(geom):
+    def _rings(geom):
         gt = geom.get("type", "")
-        coords = geom.get("coordinates", [])
-        if gt == "Polygon":
-            return coords
-        if gt == "MultiPolygon":
-            return [ring for poly in coords for ring in poly]
+        c  = geom.get("coordinates", [])
+        if gt == "Polygon":      return c
+        if gt == "MultiPolygon": return [r for poly in c for r in poly]
         return []
 
-    # Main dataset features
-    for f in features:
-        geom = f.get("geometry") or {}
+    layers = []
+    all_lats, all_lons = [], []
+
+    # --- Context boundary layers (district/province outlines) ---
+    if context_layers:
+        hl_lower = highlight_location.lower() if highlight_location else ""
+        ctx_paths, hl_paths = [], []
+        for ctx in context_layers:
+            for feat in ctx["geojson"].get("features", []):
+                geom  = feat.get("geometry") or {}
+                props = feat.get("properties") or {}
+                name_val = (props.get("DISTRICT") or props.get("District") or
+                            props.get("PROVINCE")  or props.get("Province") or "")
+                is_hl = hl_lower and (hl_lower in name_val.lower() or name_val.lower() in hl_lower)
+                for ring in _rings(geom):
+                    path = [[c[0], c[1]] for c in ring]
+                    (hl_paths if is_hl else ctx_paths).append({"path": path, "name": name_val})
+        if ctx_paths:
+            layers.append(_pdk.Layer("PathLayer", data=ctx_paths, get_path="path",
+                                     get_color=[160, 160, 160, 180], get_width=1,
+                                     width_min_pixels=1))
+        if hl_paths:
+            layers.append(_pdk.Layer("PathLayer", data=hl_paths, get_path="path",
+                                     get_color=[29, 53, 87, 220], get_width=3,
+                                     width_min_pixels=2))
+
+    # --- Main dataset features ---
+    point_rows, poly_paths = [], []
+    for f in gjson.get("features", []):
+        geom  = f.get("geometry") or {}
         props = f.get("properties") or {}
-        gt = geom.get("type", "")
-        coords = geom.get("coordinates", [])
-        if gt == "Point" and len(coords) >= 2:
-            pt_lons.append(coords[0])
-            pt_lats.append(coords[1])
+        gt    = geom.get("type", "")
+        c     = geom.get("coordinates", [])
+        if gt == "Point" and len(c) >= 2:
+            lon, lat = c[0], c[1]
+            all_lats.append(lat); all_lons.append(lon)
             label = next((str(props[k]) for k in _LABEL_KEYS if props.get(k)), "")
             if not label and props:
                 label = str(next(iter(props.values()), ""))
-            pt_labels.append(label)
+            point_rows.append({"lat": lat, "lon": lon, "name": label})
         else:
-            for ring in _extract_rings(geom):
-                poly_lons += [c[0] for c in ring] + [None]
-                poly_lats += [c[1] for c in ring] + [None]
+            for ring in _rings(geom):
+                lons = [x[0] for x in ring]; lats = [x[1] for x in ring]
+                all_lats += lats; all_lons += lons
+                poly_paths.append({"path": [[x[0], x[1]] for x in ring]})
 
-    # Context boundary layers
-    if context_layers:
-        hl_lower = highlight_location.lower() if highlight_location else ""
-        for ctx in context_layers:
-            for feat in ctx["geojson"].get("features", []):
-                geom = feat.get("geometry") or {}
-                props = feat.get("properties") or {}
-                name_val = (props.get("DISTRICT") or props.get("District") or
-                            props.get("PROVINCE") or props.get("Province") or "")
-                is_hl = hl_lower and (hl_lower in name_val.lower() or name_val.lower() in hl_lower)
-                color = "#1d3557" if is_hl else "#999999"
-                width = 2.0 if is_hl else 0.6
-                for ring in _extract_rings(geom):
-                    rlons = [c[0] for c in ring] + [None]
-                    rlats = [c[1] for c in ring] + [None]
-                    # highlighted boundary as separate trace so it shows on top
-                    if is_hl:
-                        _fig_hl_lons = rlons; _fig_hl_lats = rlats
-                    else:
-                        poly_lons += rlons; poly_lats += rlats
+    if poly_paths:
+        layers.append(_pdk.Layer("PathLayer", data=poly_paths, get_path="path",
+                                 get_color=[230, 57, 70, 200], get_width=2, width_min_pixels=1))
 
-    fig = _go.Figure()
+    if point_rows:
+        layers.append(_pdk.Layer("ScatterplotLayer",
+                                 data=_pd.DataFrame(point_rows),
+                                 get_position=["lon", "lat"],
+                                 get_fill_color=[230, 57, 70, 210],
+                                 get_radius=3000,
+                                 radius_min_pixels=4, radius_max_pixels=14,
+                                 pickable=True))
 
-    if poly_lats:
-        fig.add_trace(_go.Scattergeo(
-            lon=poly_lons, lat=poly_lats, mode="lines",
-            line=dict(color="#999999", width=0.6),
-            hoverinfo="skip", showlegend=False,
-        ))
+    # --- Buffer circle ---
+    if buffer_center and buffer_radius_km:
+        blat, blon = buffer_center
+        n = 72
+        circle = [{"path": [
+            [blon + (buffer_radius_km / (111.0 * _math.cos(_math.radians(blat)))) * _math.sin(2*_math.pi*i/n),
+             blat + (buffer_radius_km / 111.0) * _math.cos(2*_math.pi*i/n)]
+            for i in range(n + 1)
+        ]}]
+        layers.append(_pdk.Layer("PathLayer", data=circle, get_path="path",
+                                 get_color=[29, 53, 87, 180], get_width=2, width_min_pixels=1))
 
-    if pt_lats:
-        fig.add_trace(_go.Scattergeo(
-            lat=pt_lats, lon=pt_lons, mode="markers",
-            marker=dict(size=6, color="#e63946", opacity=0.85),
-            text=pt_labels,
-            hovertemplate="%{text}<extra></extra>",
-            name=ds_name, showlegend=False,
-        ))
-
-    all_lats = [x for x in pt_lats + poly_lats if x is not None]
-    all_lons = [x for x in pt_lons + poly_lons if x is not None]
-
-    geo_kwargs = dict(
-        visible=True, resolution=50,
-        showcountries=True, countrycolor="#bbbbbb", countrywidth=0.5,
-        showland=True, landcolor="#f4f4ef",
-        showocean=True, oceancolor="#d6eaf8",
-        showlakes=True, lakecolor="#d6eaf8",
-    )
+    # --- View state ---
     if all_lats:
-        geo_kwargs["fitbounds"] = "locations"
+        clat = sum(all_lats) / len(all_lats)
+        clon = sum(all_lons) / len(all_lons)
+        span = max(max(all_lats) - min(all_lats), max(all_lons) - min(all_lons), 0.01)
+        zoom = max(4, min(12, int(_math.log2(180 / span))))
     else:
-        geo_kwargs["center"] = {"lat": -13.5, "lon": 28.5}
-        geo_kwargs["projection_scale"] = 5
+        clat, clon, zoom = -13.5, 28.5, 6
 
-    fig.update_geos(**geo_kwargs)
-    fig.update_layout(height=400, margin=dict(r=0, t=0, l=0, b=0), showlegend=False)
-    st.plotly_chart(fig, use_container_width=True)
+    st.pydeck_chart(_pdk.Deck(
+        layers=layers,
+        initial_view_state=_pdk.ViewState(latitude=clat, longitude=clon, zoom=zoom, pitch=0),
+        map_style="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
+        tooltip={"text": "{name}"},
+    ), use_container_width=True, height=400)
 
 
 def _render_charts_only(sample_features: list, ds_name: str, key_prefix: str = ""):
