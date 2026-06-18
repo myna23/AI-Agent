@@ -409,7 +409,6 @@ def _render_ondemand_panel(msg_idx: int, msg: dict, ctx_layers: list = None):
             map_layers = [_WATER_LAYER]
         else:
             map_layers = None
-        import folium as _folium_mod
         import streamlit.components.v1 as _cv1
         _fmap = make_folium_map(
             gjson,
@@ -426,9 +425,7 @@ def _render_ondemand_panel(msg_idx: int, msg: dict, ctx_layers: list = None):
             ),
             draw_bbox=msg.get("draw_bbox"),
         )
-        _fig = _folium_mod.Figure(width="100%", height=340)
-        _fmap.add_to(_fig)
-        _cv1.html(_fig.render(), height=360)
+        _cv1.html(_fmap.get_root().render(), height=360)
 
     if msg.get("table_shown") and has_data:
         _render_data_tables(msg["sample_features"], msg.get("ds_name", "Data"), key_prefix=f"tbl_{msg_idx}")
@@ -3423,10 +3420,8 @@ def process_question(question: str):
                 mime="application/pdf", key="dl_pdf_new", use_container_width=True)
 
             display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
-            import folium as _folium_mod; import streamlit.components.v1 as _cv1
-            _fig_rpt = _folium_mod.Figure(width="100%", height=340)
-            _map(display_geojson, ds["name"], with_context=_is_point_geojson(display_geojson), highlight_location=_location or "", draw_bbox=_draw_bbox).add_to(_fig_rpt)
-            _cv1.html(_fig_rpt.render(), height=360)
+            import streamlit.components.v1 as _cv1
+            _cv1.html(_map(display_geojson, ds["name"], with_context=_is_point_geojson(display_geojson), highlight_location=_location or "", draw_bbox=_draw_bbox).get_root().render(), height=360)
 
             st.session_state.messages.append({
                 "role": "assistant", "content": rpt_text, "intent": intent,
@@ -3469,10 +3464,8 @@ def process_question(question: str):
                 mime="text/plain", key="dl_sum_new")
 
             display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
-            import folium as _folium_mod; import streamlit.components.v1 as _cv1
-            _fig_sum = _folium_mod.Figure(width="100%", height=340)
-            _map(display_geojson, ds["name"], with_context=_is_point_geojson(display_geojson), highlight_location=_location or "", draw_bbox=_draw_bbox).add_to(_fig_sum)
-            _cv1.html(_fig_sum.render(), height=360)
+            import streamlit.components.v1 as _cv1
+            _cv1.html(_map(display_geojson, ds["name"], with_context=_is_point_geojson(display_geojson), highlight_location=_location or "", draw_bbox=_draw_bbox).get_root().render(), height=360)
 
             st.session_state.messages.append({
                 "role": "assistant", "content": summary, "intent": intent,

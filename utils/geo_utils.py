@@ -301,7 +301,8 @@ def make_folium_map(
     buffer_radius_km: radius in kilometres — draws a dashed circle on the map.
     buffer_label: label shown in the circle tooltip.
     """
-    m = folium.Map(location=ZAMBIA_CENTER, zoom_start=ZAMBIA_ZOOM, tiles="CartoDB positron")
+    m = folium.Map(location=ZAMBIA_CENTER, zoom_start=ZAMBIA_ZOOM, tiles="CartoDB positron",
+                   width="100%", height=340)
 
     features = geojson.get("features", [])
     highlight_bounds = None  # bounds of the highlighted district/province polygon
