@@ -667,10 +667,26 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
         if gt == "Point" and len(c) >= 2:
             lon, lat = c[0], c[1]
             all_lats.append(lat); all_lons.append(lon)
+
+            # Try known name keys first, then pick the longest string value
+            _skip = {"objectid", "fid", "globalid", "shape", "shape_area", "shape_length"}
             label = next((str(props[k]) for k in _LABEL_KEYS if props.get(k)), "")
             if not label and props:
-                label = str(next(iter(props.values()), ""))
-            point_rows.append({"lat": lat, "lon": lon, "name": label})
+                candidates = [str(v) for k, v in props.items()
+                              if v and isinstance(v, str) and k.lower() not in _skip]
+                label = max(candidates, key=len) if candidates else str(next(iter(props.values()), ""))
+
+            # Build tooltip: name + district/province/type if available
+            district = str(props.get("DISTRICT") or props.get("District") or "")
+            province = str(props.get("PROVINCE") or props.get("Province") or "")
+            ftype    = str(props.get("Type") or props.get("TYPE") or props.get("FacilityType") or
+                           props.get("facilitytype") or props.get("Ownership") or "")
+            tip_parts = [p for p in [label, district and f"District: {district}",
+                                     province and f"Province: {province}",
+                                     ftype and f"Type: {ftype}"] if p]
+            tooltip_text = " | ".join(tip_parts) if tip_parts else "—"
+
+            point_rows.append({"lat": lat, "lon": lon, "name": label, "tooltip": tooltip_text})
         else:
             rings = c if gt == "Polygon" else ([r for poly in c for r in poly] if gt == "MultiPolygon" else [])
             for ring in rings:
@@ -718,7 +734,11 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
         layers=layers,
         initial_view_state=_pdk.ViewState(latitude=clat, longitude=clon, zoom=zoom, pitch=0),
         map_style="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
-        tooltip={"text": "{name}"},
+        tooltip={
+            "html": "<b>{name}</b><br/>{tooltip}",
+            "style": {"background": "#1d3557", "color": "white",
+                      "padding": "6px 10px", "border-radius": "4px", "font-size": "12px"},
+        },
     ), use_container_width=True, height=400)
 
 
