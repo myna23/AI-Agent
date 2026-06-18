@@ -15,7 +15,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import streamlit as st
-from streamlit_folium import st_folium
 
 from hub.client import HubClient
 import hub.client as _hub_client_module
@@ -410,24 +409,26 @@ def _render_ondemand_panel(msg_idx: int, msg: dict, ctx_layers: list = None):
             map_layers = [_WATER_LAYER]
         else:
             map_layers = None
-        st_folium(
-            make_folium_map(
-                gjson,
-                msg.get("ds_name", ""),
-                context_layers=map_layers,
-                highlight_location=msg.get("location", ""),
-                buffer_center=msg.get("buffer_center"),
-                buffer_radius_km=msg.get("buffer_radius_km"),
-                buffer_label=(
-                    (f"{msg.get('buffer_radius_km')} km radius — {msg.get('location')}"
-                     if msg.get("location") else
-                     f"{msg.get('buffer_radius_km')} km radius")
-                    if msg.get("buffer_radius_km") else ""
-                ),
-                draw_bbox=msg.get("draw_bbox"),
+        import folium as _folium_mod
+        import streamlit.components.v1 as _cv1
+        _fmap = make_folium_map(
+            gjson,
+            msg.get("ds_name", ""),
+            context_layers=map_layers,
+            highlight_location=msg.get("location", ""),
+            buffer_center=msg.get("buffer_center"),
+            buffer_radius_km=msg.get("buffer_radius_km"),
+            buffer_label=(
+                (f"{msg.get('buffer_radius_km')} km radius — {msg.get('location')}"
+                 if msg.get("location") else
+                 f"{msg.get('buffer_radius_km')} km radius")
+                if msg.get("buffer_radius_km") else ""
             ),
-            width=720, height=340, returned_objects=[], key=f"map_{msg_idx}"
+            draw_bbox=msg.get("draw_bbox"),
         )
+        _fig = _folium_mod.Figure(width="100%", height=340)
+        _fmap.add_to(_fig)
+        _cv1.html(_fig.render(), height=360)
 
     if msg.get("table_shown") and has_data:
         _render_data_tables(msg["sample_features"], msg.get("ds_name", "Data"), key_prefix=f"tbl_{msg_idx}")
@@ -3419,7 +3420,10 @@ def process_question(question: str):
                 mime="application/pdf", key="dl_pdf_new", use_container_width=True)
 
             display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
-            st_folium(_map(display_geojson, ds["name"], with_context=_is_point_geojson(display_geojson), highlight_location=_location or "", draw_bbox=_draw_bbox), width=720, height=340, returned_objects=[], key="map_new_rpt")
+            import folium as _folium_mod; import streamlit.components.v1 as _cv1
+            _fig_rpt = _folium_mod.Figure(width="100%", height=340)
+            _map(display_geojson, ds["name"], with_context=_is_point_geojson(display_geojson), highlight_location=_location or "", draw_bbox=_draw_bbox).add_to(_fig_rpt)
+            _cv1.html(_fig_rpt.render(), height=360)
 
             st.session_state.messages.append({
                 "role": "assistant", "content": rpt_text, "intent": intent,
@@ -3462,7 +3466,10 @@ def process_question(question: str):
                 mime="text/plain", key="dl_sum_new")
 
             display_geojson = map_geojson or {"type": "FeatureCollection", "features": []}
-            st_folium(_map(display_geojson, ds["name"], with_context=_is_point_geojson(display_geojson), highlight_location=_location or "", draw_bbox=_draw_bbox), width=720, height=340, returned_objects=[], key="map_new_sum")
+            import folium as _folium_mod; import streamlit.components.v1 as _cv1
+            _fig_sum = _folium_mod.Figure(width="100%", height=340)
+            _map(display_geojson, ds["name"], with_context=_is_point_geojson(display_geojson), highlight_location=_location or "", draw_bbox=_draw_bbox).add_to(_fig_sum)
+            _cv1.html(_fig_sum.render(), height=360)
 
             st.session_state.messages.append({
                 "role": "assistant", "content": summary, "intent": intent,
