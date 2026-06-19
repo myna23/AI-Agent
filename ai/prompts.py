@@ -79,10 +79,11 @@ def chatbot_system_prompt() -> str:
         "- If no matching datasets are found AND no sample records are provided, say: "
         "'This data is not currently available on the Zambia GeoHub.' Do NOT describe "
         "what the dataset might contain or invent field names.\n"
-        "- Always cite the dataset name you used. If a 'Source URL' is provided for that dataset, "
-        "include a markdown hyperlink at the end of your answer like this: "
-        "[View dataset on Zambia GeoHub](URL). Only include the link if the URL was given to you — "
-        "never invent or guess URLs.\n"
+        "- Always cite the dataset name you used. You MUST use the EXACT dataset name from the "
+        "'Dataset N: ...' section — copy it word-for-word, do NOT rename, abbreviate, or paraphrase it. "
+        "If a 'Source URL' is provided for that dataset, include a markdown hyperlink at the end of "
+        "your answer like this: [View dataset on Zambia GeoHub](URL). Only include the link if the "
+        "URL was given to you — never invent or guess URLs.\n"
         "- Be concise and analytical — use bullet points with specific numbers and names.\n"
         "- Only say data is unavailable if NO sample records and NO relevant dataset "
         "description exists. If records are present, answer from them.\n"
@@ -120,15 +121,19 @@ def chatbot_user_prompt(
     dataset_context = ""
     for i, ds in enumerate(datasets[:5], 1):
         fields_str = ", ".join(f["name"] for f in ds.get("fields", [])[:15])
-        # Link to the Zambia GeoHub dataset search page.
-        # Always use the Hub search URL — direct dataset page links are fragile
-        # since Hub IDs vary by domain. Stakeholders can browse from the search page.
-        _hub_link = "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb"
+        # Use direct Hub item page URL when a valid 32-char item ID is available.
+        # This lets the AI (and users) link to the exact dataset on the Hub.
+        import re as _re
+        _ds_id = str(ds.get("id", ""))
+        if _ds_id and _re.fullmatch(r"[0-9a-f]{32}", _ds_id):
+            _hub_link = f"https://zmb-geowb.hub.arcgis.com/datasets/{_ds_id}"
+        else:
+            _hub_link = "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb"
         dataset_context += (
             f"\nDataset {i}: {ds['name']}\n"
             f"  Description: {ds['description'][:300]}\n"
         )
-        dataset_context += f"  Source: Zambia GeoHub — {_hub_link}\n"
+        dataset_context += f"  Source URL: {_hub_link}\n"
         if fields_str:
             dataset_context += f"  Fields: {fields_str}\n"
 

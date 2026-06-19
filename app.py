@@ -409,6 +409,13 @@ def _render_ondemand_panel(msg_idx: int, msg: dict, ctx_layers: list = None):
             map_layers = [_WATER_LAYER]
         else:
             map_layers = None
+        # Satellite toggle — shown above the map so users can switch to see buildings
+        _sat_col, _sat_spacer = st.columns([2, 8])
+        with _sat_col:
+            _sat_label = "🗺️ Street map" if msg.get("satellite_mode") else "🛰️ Satellite"
+            if st.button(_sat_label, key=f"satbtn_{msg_idx}", use_container_width=True):
+                msg["satellite_mode"] = not msg.get("satellite_mode", False)
+                st.rerun()
         _render_plotly_map(
             gjson,
             ds_name=msg.get("ds_name", ""),
@@ -423,6 +430,7 @@ def _render_ondemand_panel(msg_idx: int, msg: dict, ctx_layers: list = None):
                 if msg.get("buffer_radius_km") else ""
             ),
             draw_bbox=msg.get("draw_bbox"),
+            satellite_mode=msg.get("satellite_mode", False),
         )
 
     if msg.get("table_shown") and has_data:
@@ -571,8 +579,37 @@ def _render_location_overview(location: str, loc_type: str, hub, key_prefix: str
     st.markdown("---")
 
 
+def _get_dataset_color(ds_name: str):
+    """Return (fill_rgba, line_rgba) tuples based on dataset type for meaningful map colours."""
+    lower = (ds_name or "").lower()
+    if any(k in lower for k in ("mine", "mining", "copper", "mineral")):
+        return [184, 115, 51, 220], [140, 80, 20, 220]     # copper/bronze
+    if any(k in lower for k in ("health", "hospital", "clinic", "medical", "facility")):
+        return [220, 38, 38, 220], [160, 0, 0, 220]         # red
+    if any(k in lower for k in ("school", "education")):
+        return [30, 64, 175, 220], [15, 40, 130, 220]       # blue
+    if any(k in lower for k in ("settlement", "village", "community", "locality")):
+        return [124, 58, 237, 220], [80, 30, 180, 220]      # purple
+    if any(k in lower for k in ("road", "highway", "transport", "railway", "rail")):
+        return [180, 120, 30, 220], [140, 90, 20, 220]      # amber
+    if any(k in lower for k in ("forest", "biodiversity", "wildlife", "park", "reserve")):
+        return [34, 139, 34, 220], [20, 100, 20, 220]       # forest green
+    if any(k in lower for k in ("flood", "river", "wetland", "lake", "dam", "aquifer", "water")):
+        return [30, 100, 200, 220], [20, 70, 150, 220]      # water blue
+    if any(k in lower for k in ("energy", "power", "electricity", "solar", "microgrid")):
+        return [234, 179, 8, 220], [180, 130, 0, 220]       # gold/yellow
+    if any(k in lower for k in ("agriculture", "farm", "crop", "block", "camp")):
+        return [101, 163, 13, 220], [70, 120, 10, 220]      # lime green
+    if any(k in lower for k in ("poverty", "wealth", "risk", "migration", "osr", "revenue")):
+        return [249, 115, 22, 220], [200, 80, 10, 220]      # orange
+    if any(k in lower for k in ("population", "census", "demographic", "constituent")):
+        return [139, 92, 246, 220], [100, 60, 200, 220]     # violet
+    return [230, 57, 70, 220], [180, 30, 50, 220]           # default red
+
+
 def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_location="",
-                       buffer_center=None, buffer_radius_km=None, buffer_label="", draw_bbox=None):
+                       buffer_center=None, buffer_radius_km=None, buffer_label="", draw_bbox=None,
+                       satellite_mode=False):
     """Render GeoJSON map using pydeck — same engine as the working distance/radius map."""
     import pydeck as _pdk
     import pandas as _pd
@@ -710,15 +747,17 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
                 all_lons += [x[0] for x in ring]; all_lats += [x[1] for x in ring]
                 poly_paths.append({"path": [[x[0], x[1]] for x in ring]})
 
+    _fill_color, _line_color = _get_dataset_color(ds_name)
+
     if poly_paths:
         layers.append(_pdk.Layer("PathLayer", data=poly_paths, get_path="path",
-                                 get_color=[230, 57, 70, 200], get_width=2, width_min_pixels=1))
+                                 get_color=_fill_color, get_width=2, width_min_pixels=1))
     if point_rows:
         _pt_df = _pd.DataFrame(point_rows)
         layers.append(_pdk.Layer("ScatterplotLayer",
                                  data=_pt_df,
                                  get_position=["lon", "lat"],
-                                 get_fill_color=[230, 57, 70, 210],
+                                 get_fill_color=_fill_color,
                                  get_radius=3000,
                                  radius_min_pixels=4, radius_max_pixels=14,
                                  pickable=True))
@@ -742,7 +781,7 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
                 pickable=False,
             ))
 
-    # --- Buffer circle ---
+    # --- Buffer circle — same colour as the dataset ---
     if buffer_center and buffer_radius_km:
         blat, blon = buffer_center
         n = 72
@@ -751,8 +790,9 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
              blat + (buffer_radius_km / 111.0) * _math.cos(2*_math.pi*i/n)]
             for i in range(n + 1)
         ]}]
+        _buf_color = list(_fill_color[:3]) + [200]  # same hue, slightly more opaque
         layers.append(_pdk.Layer("PathLayer", data=circle, get_path="path",
-                                 get_color=[29, 53, 87, 180], get_width=2, width_min_pixels=1))
+                                 get_color=_buf_color, get_width=3, width_min_pixels=2))
 
     # --- View state: zoom to data points; fall back to highlighted district; then all Zambia ---
     pt_lats = [r["lat"] for r in point_rows]
@@ -767,10 +807,28 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
     else:
         clat, clon, zoom = -13.5, 28.5, 6
 
+    if satellite_mode:
+        # ESRI World Imagery — free, no token needed; shows real buildings when zoomed in
+        layers.insert(0, _pdk.Layer(
+            "TileLayer",
+            data="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            min_zoom=0,
+            max_zoom=19,
+            tile_size=256,
+        ))
+        _map_style = None
+        # In satellite mode lighten text labels so they show against dark imagery
+        for lyr in layers:
+            if getattr(lyr, "type", "") == "TextLayer":
+                lyr.get_color = [255, 255, 200, 255]
+                lyr.get_background_color = [30, 30, 30, 200]
+    else:
+        _map_style = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
+
     st.pydeck_chart(_pdk.Deck(
         layers=layers,
         initial_view_state=_pdk.ViewState(latitude=clat, longitude=clon, zoom=zoom, pitch=0),
-        map_style="https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
+        map_style=_map_style,
         tooltip={
             "html": "<b>{name}</b><br/>{tooltip}",
             "style": {"background": "#1d3557", "color": "white",
@@ -3810,6 +3868,16 @@ def process_question(question: str):
                     _fs["static"] += 1
             st.session_state["_fetch_stats"] = _fs
 
+            # Build Hub item page URL — direct link so users can find the dataset by name
+            _ds_item_id = ds.get("id", "")
+            import re as _re_ds
+            if _ds_item_id and _re_ds.fullmatch(r"[0-9a-f]{32}", str(_ds_item_id)):
+                _ds_hub_url = f"https://zmb-geowb.hub.arcgis.com/datasets/{_ds_item_id}"
+            elif not _ai_error and ds.get("url", ""):
+                _ds_hub_url = ds["url"]
+            else:
+                _ds_hub_url = ""
+
             # Append message first, then show on-demand panel using the stored message
             _new_msg = {
                 "role": "assistant", "content": response, "intent": intent,
@@ -3819,7 +3887,7 @@ def process_question(question: str):
                 "buffer_center": _buffer_center,
                 "buffer_radius_km": _radius_km,
                 "draw_bbox": _draw_bbox,
-                "data_source_url": ds.get("url", "") if not _ai_error else "",
+                "data_source_url": _ds_hub_url if not _ai_error else "",
                 "data_live": st.session_state.get("_last_fetch_was_live", False),
             }
             st.session_state.messages.append(_new_msg)
