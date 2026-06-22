@@ -3868,13 +3868,7 @@ def process_question(question: str):
                     _fs["static"] += 1
             st.session_state["_fetch_stats"] = _fs
 
-            # Hub search URL by dataset name — always findable, no broken item IDs
-            import urllib.parse as _urlparse
-            _ds_name_val = ds.get("name", "")
-            _ds_hub_url = (
-                "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&q="
-                + _urlparse.quote(_ds_name_val)
-            ) if _ds_name_val and not _ai_error else ""
+            _ds_hub_url = "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb" if not _ai_error else ""
 
             # Append message first, then show on-demand panel using the stored message
             _new_msg = {

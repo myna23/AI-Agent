@@ -81,9 +81,7 @@ def chatbot_system_prompt() -> str:
         "what the dataset might contain or invent field names.\n"
         "- Always cite the dataset name you used. You MUST use the EXACT dataset name from the "
         "'Dataset N: ...' section — copy it word-for-word, do NOT rename, abbreviate, or paraphrase it. "
-        "If a 'Source URL' is provided for that dataset, include a markdown hyperlink at the end of "
-        "your answer like this: [View dataset on Zambia GeoHub](URL). Only include the link if the "
-        "URL was given to you — never invent or guess URLs.\n"
+        "Do NOT include any hyperlink or URL in your answer — the UI displays the source link automatically.\n"
         "- Be concise and analytical — use bullet points with specific numbers and names.\n"
         "- Only say data is unavailable if NO sample records and NO relevant dataset "
         "description exists. If records are present, answer from them.\n"
@@ -121,12 +119,7 @@ def chatbot_user_prompt(
     dataset_context = ""
     for i, ds in enumerate(datasets[:5], 1):
         fields_str = ", ".join(f["name"] for f in ds.get("fields", [])[:15])
-        # Search the Hub by dataset name — always works regardless of item ID.
-        import urllib.parse as _up
-        _hub_link = (
-            "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&q="
-            + _up.quote(ds["name"])
-        )
+        _hub_link = "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb"
         dataset_context += (
             f"\nDataset {i}: {ds['name']}\n"
             f"  Description: {ds['description'][:300]}\n"
