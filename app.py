@@ -409,13 +409,6 @@ def _render_ondemand_panel(msg_idx: int, msg: dict, ctx_layers: list = None):
             map_layers = [_WATER_LAYER]
         else:
             map_layers = None
-        # Satellite toggle — shown above the map so users can switch to see buildings
-        _sat_col, _sat_spacer = st.columns([2, 8])
-        with _sat_col:
-            _sat_label = "🗺️ Street map" if msg.get("satellite_mode") else "🛰️ Satellite"
-            if st.button(_sat_label, key=f"satbtn_{msg_idx}", use_container_width=True):
-                msg["satellite_mode"] = not msg.get("satellite_mode", False)
-                st.rerun()
         _render_plotly_map(
             gjson,
             ds_name=msg.get("ds_name", ""),
@@ -430,7 +423,7 @@ def _render_ondemand_panel(msg_idx: int, msg: dict, ctx_layers: list = None):
                 if msg.get("buffer_radius_km") else ""
             ),
             draw_bbox=msg.get("draw_bbox"),
-            satellite_mode=msg.get("satellite_mode", False),
+            satellite_mode=True,
         )
 
     if msg.get("table_shown") and has_data:
@@ -764,8 +757,8 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
         # Show facility names only when few enough to be readable (no clutter)
         _labeled = _pt_df[_pt_df["name"].str.strip() != ""]
         if not _labeled.empty and len(_labeled) <= 25:
-            _txt_color = [255, 255, 200, 255] if satellite_mode else [15, 15, 15, 255]
-            _bg_color  = [30, 30, 30, 200]    if satellite_mode else [255, 255, 255, 230]
+            _txt_color = [255, 255, 255, 255]
+            _bg_color  = [20, 20, 20, 210]
             layers.append(_pdk.Layer(
                 "TextLayer",
                 data=_labeled,
@@ -809,11 +802,7 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
     else:
         clat, clon, zoom = -13.5, 28.5, 6
 
-    if satellite_mode:
-        # Streamlit injects a Mapbox token automatically — satellite-streets shows real imagery + labels
-        _map_style = "mapbox://styles/mapbox/satellite-streets-v12"
-    else:
-        _map_style = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
+    _map_style = "mapbox://styles/mapbox/satellite-streets-v12"
 
     st.pydeck_chart(_pdk.Deck(
         layers=layers,
