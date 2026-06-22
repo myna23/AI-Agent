@@ -121,14 +121,12 @@ def chatbot_user_prompt(
     dataset_context = ""
     for i, ds in enumerate(datasets[:5], 1):
         fields_str = ", ".join(f["name"] for f in ds.get("fields", [])[:15])
-        # Use direct Hub item page URL when a valid 32-char item ID is available.
-        # This lets the AI (and users) link to the exact dataset on the Hub.
-        import re as _re
-        _ds_id = str(ds.get("id", ""))
-        if _ds_id and _re.fullmatch(r"[0-9a-f]{32}", _ds_id):
-            _hub_link = f"https://zmb-geowb.hub.arcgis.com/datasets/{_ds_id}"
-        else:
-            _hub_link = "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb"
+        # Search the Hub by dataset name — always works regardless of item ID.
+        import urllib.parse as _up
+        _hub_link = (
+            "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&q="
+            + _up.quote(ds["name"])
+        )
         dataset_context += (
             f"\nDataset {i}: {ds['name']}\n"
             f"  Description: {ds['description'][:300]}\n"

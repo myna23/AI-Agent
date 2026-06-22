@@ -3868,15 +3868,13 @@ def process_question(question: str):
                     _fs["static"] += 1
             st.session_state["_fetch_stats"] = _fs
 
-            # Build Hub item page URL — direct link so users can find the dataset by name
-            _ds_item_id = ds.get("id", "")
-            import re as _re_ds
-            if _ds_item_id and _re_ds.fullmatch(r"[0-9a-f]{32}", str(_ds_item_id)):
-                _ds_hub_url = f"https://zmb-geowb.hub.arcgis.com/datasets/{_ds_item_id}"
-            elif not _ai_error and ds.get("url", ""):
-                _ds_hub_url = ds["url"]
-            else:
-                _ds_hub_url = ""
+            # Hub search URL by dataset name — always findable, no broken item IDs
+            import urllib.parse as _urlparse
+            _ds_name_val = ds.get("name", "")
+            _ds_hub_url = (
+                "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&q="
+                + _urlparse.quote(_ds_name_val)
+            ) if _ds_name_val and not _ai_error else ""
 
             # Append message first, then show on-demand panel using the stored message
             _new_msg = {
