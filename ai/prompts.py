@@ -133,35 +133,66 @@ def chatbot_user_prompt(
         _ds_id = str(ds.get("id", ""))
         _svc_url = ds.get("url", "")
         _HUB_CATALOG_URLS = {
+            # --- hex IDs ---
             "3fb6aa51dc9a4df1a1b7f4e48df5a374": "https://zmb-geowb.hub.arcgis.com/datasets/3fb6aa51dc9a4df1a1b7f4e48df5a374",
             "e31efc4a98774524a93e2eb838dd8fc3": "https://zmb-geowb.hub.arcgis.com/datasets/e31efc4a98774524a93e2eb838dd8fc3",
-            "068949f7d4d841f3bc6b485a0a44f3f0": "https://zmb-geowb.hub.arcgis.com/datasets/068949f7d4d841f3bc6b485a0a44f3f0_0",
-            "0c748bfc945c49ce81d07034b1560a68": "https://zmb-geowb.hub.arcgis.com/maps/84d7c9601f8948ae84e3e5b9763a5c08/about",  # Zambia Education Facilities (Overture)
+            "068949f7d4d841f3bc6b485a0a44f3f0": "https://zmb-geowb.hub.arcgis.com/datasets/2ad9f5337d434266a1dc31f8b6834412/about",
+            "0c748bfc945c49ce81d07034b1560a68": "https://zmb-geowb.hub.arcgis.com/datasets/89eab6b828c34316ac94b31f346403af/about",
             "4c90a57457fb4e1cb90888d0d394fb78": "https://zmb-geowb.hub.arcgis.com/datasets/4c90a57457fb4e1cb90888d0d394fb78_0",
             "51ac30a1d6454db18a5dbba03524724d": "https://zmb-geowb.hub.arcgis.com/datasets/51ac30a1d6454db18a5dbba03524724d_0",
             "7b3cf3848be947739d4cdf4e7c836f4c": "https://zmb-geowb.hub.arcgis.com/datasets/7b3cf3848be947739d4cdf4e7c836f4c_0",
             "7be52e48252c464bbb8e1c713f87a5d1": "https://zmb-geowb.hub.arcgis.com/datasets/7be52e48252c464bbb8e1c713f87a5d1_0",
             "7d9e73eb624448c79826d3c3274bf790": "https://zmb-geowb.hub.arcgis.com/datasets/7d9e73eb624448c79826d3c3274bf790_0",
             "883e648672134f6488ffbc9f31533a65": "https://zmb-geowb.hub.arcgis.com/datasets/883e648672134f6488ffbc9f31533a65_0",
+            "8f73c42ed3884256904ae12440fae558": "https://zmb-geowb.hub.arcgis.com/datasets/a4cd238299354939818dd012c7f2fbf4/about",
             "a0293a6e84c143298227518eb3418d23": "https://zmb-geowb.hub.arcgis.com/datasets/a0293a6e84c143298227518eb3418d23_0",
             "a235535d12314d5b87122c8ee4aac7a2": "https://zmb-geowb.hub.arcgis.com/datasets/a235535d12314d5b87122c8ee4aac7a2_0",
             "bb0ba0c4ee1945f0ae35c1430b12574c": "https://zmb-geowb.hub.arcgis.com/datasets/bb0ba0c4ee1945f0ae35c1430b12574c_0",
             "c17e97e2947040e1a0ea547a083533ad": "https://zmb-geowb.hub.arcgis.com/datasets/c17e97e2947040e1a0ea547a083533ad_0",
-            "c571868321cc41ef99ed27535ffa964d": "https://zmb-geowb.hub.arcgis.com/datasets/e7bb69fa761042888cca066a0db132f6/about",  # Zambia Road Network (Overture)
+            "c571868321cc41ef99ed27535ffa964d": "https://zmb-geowb.hub.arcgis.com/datasets/e7bb69fa761042888cca066a0db132f6/about",
             "c6d0ce455cae4f4c96ef98e7d44f9793": "https://zmb-geowb.hub.arcgis.com/datasets/c6d0ce455cae4f4c96ef98e7d44f9793_0",
             "d27357c640394f11943316e36cebaba3": "https://zmb-geowb.hub.arcgis.com/datasets/d27357c640394f11943316e36cebaba3_0",
             "d50e882d14d8454cb15c7467fa050205": "https://zmb-geowb.hub.arcgis.com/datasets/d50e882d14d8454cb15c7467fa050205_0",
             "ef791bcb05db473a9dc4eb04e41664b5": "https://zmb-geowb.hub.arcgis.com/datasets/ef791bcb05db473a9dc4eb04e41664b5_0",
             "f310fa8209cb4685b56e309cf6d1388f": "https://zmb-geowb.hub.arcgis.com/datasets/f310fa8209cb4685b56e309cf6d1388f_0",
-            "f523a78b0e2b4c6a8719ef05a165ab4e": "https://zmb-geowb.hub.arcgis.com/maps/6bfd2553b1d849ba921881308ca98844/about",  # Zambia Health Facilities (Overture)
-            # 8f73c42ed3884256904ae12440fae558 (POI v1.0) — Hub page broken; arcgis.com fallback
+            "f523a78b0e2b4c6a8719ef05a165ab4e": "https://zmb-geowb.hub.arcgis.com/datasets/6032d4c1eb6d4260a3ae86528aa255f0/about",
             "fbff7250ebc94120a1f9d8e332317bbe": "https://zmb-geowb.hub.arcgis.com/datasets/fbff7250ebc94120a1f9d8e332317bbe_0",
             "fc6fc1b222fd400abfdb1158dc27e3bc": "https://zmb-geowb.hub.arcgis.com/datasets/fc6fc1b222fd400abfdb1158dc27e3bc_0",
             "b55592d29ac145ad824bc8531ab75224": "https://zmb-geowb.hub.arcgis.com/maps/b55592d29ac145ad824bc8531ab75224/about",
+            # --- named IDs (zmb_*) ---
+            "zmb_lobito_stations":       "https://zmb-geowb.hub.arcgis.com/datasets/31e16550a8c04f88a79cd40647efb0de/about",
+            "zmb_railways":              "https://zmb-geowb.hub.arcgis.com/datasets/54610f95f3d14bf788edfe9f21a9869c/about",
+            "zmb_population_2025":       "https://zmb-geowb.hub.arcgis.com/datasets/754d3922644c407c95d24f9fe75bb561/about",
+            "zmb_districts_2022":        "https://zmb-geowb.hub.arcgis.com/datasets/66e907d64a164c81966dce4d29dac7e4/about",
+            "zmb_dams":                  "https://zmb-geowb.hub.arcgis.com/datasets/8577bcb6cc484b5186c2421f19cd259e/about",
+            "zmb_dre_atlas":             "https://zmb-geowb.hub.arcgis.com/datasets/ab805a5456a543c3a8910e9913204cdc/about",
+            "zmb_dre_settlement_poly":   "https://zmb-geowb.hub.arcgis.com/datasets/6931a6c09ea6422bbe4343ae38d54b14/about",
+            "zmb_dre_settlement_pt":     "https://zmb-geowb.hub.arcgis.com/datasets/58d613a4ca3742e2a5cf0776904938a6/about",
+            "zmb_mines_cod":             "https://zmb-geowb.hub.arcgis.com/datasets/ca34592fd0f44ce4a1a5b74fe1bb6ded/about",
+            "zmb_mines_osm":             "https://zmb-geowb.hub.arcgis.com/datasets/b5154eee7c3e43c087d4e5a5da6357f3/about",
+            "zmb_microgrids":            "https://zmb-geowb.hub.arcgis.com/datasets/411e400b3c3048679c8962f150a6f308/about",
+            "zmb_constituency_poverty":  "https://zmb-geowb.hub.arcgis.com/datasets/bdb28465de274b5a9dbf8396008825ff/about",
+            "zmb_net_migration":         "https://zmb-geowb.hub.arcgis.com/datasets/ef23c27bad6440a89196b61a92f0e8de/about",
+            "zmb_osr_local_authority":   "https://zmb-geowb.hub.arcgis.com/datasets/05a6847cd8dc4beabfb9b62c07de3210/about",
+            "zmb_power_lines":           "https://zmb-geowb.hub.arcgis.com/maps/70aba11f010c4892896f001271dce65f/about",
+            "zmb_power_stations":        "https://zmb-geowb.hub.arcgis.com/maps/70aba11f010c4892896f001271dce65f/about",
+            "zmb_power_polygons":        "https://zmb-geowb.hub.arcgis.com/maps/70aba11f010c4892896f001271dce65f/about",
+            "zmb_poi_overture":          "https://zmb-geowb.hub.arcgis.com/datasets/a4cd238299354939818dd012c7f2fbf4/about",
+            "zmb_building_footprints":   "https://zmb-geowb.hub.arcgis.com/datasets/6b4022a9961b42958c5ee97c57f7de26/about",
+            "zmb_relative_wealth":       "https://zmb-geowb.hub.arcgis.com/datasets/3908b9b76c17428295d74fcff24a9ecc/about",
+            "zmb_road_network":          "https://zmb-geowb.hub.arcgis.com/datasets/e7bb69fa761042888cca066a0db132f6/about",
+            "zmb_health_2025":           "https://zmb-geowb.hub.arcgis.com/datasets/046547b42f004685913078e998827fb9/about",
+            "zmb_health_poly":           "https://zmb-geowb.hub.arcgis.com/maps/6bfd2553b1d849ba921881308ca98844/about",
+            "zmb_health_pt_overture":    "https://zmb-geowb.hub.arcgis.com/maps/6bfd2553b1d849ba921881308ca98844/about",
+            "zmb_education_poly":        "https://zmb-geowb.hub.arcgis.com/maps/84d7c9601f8948ae84e3e5b9763a5c08/about",
+            "zmb_education_pt":          "https://zmb-geowb.hub.arcgis.com/maps/84d7c9601f8948ae84e3e5b9763a5c08/about",
+            "zmb_marketplaces_poly":     "https://zmb-geowb.hub.arcgis.com/maps/b55592d29ac145ad824bc8531ab75224/about",
+            "zmb_marketplaces_pt":       "https://zmb-geowb.hub.arcgis.com/maps/b55592d29ac145ad824bc8531ab75224/about",
         }
-        if _ds_id and _re.fullmatch(r"[0-9a-f]{32}", _ds_id):
-            _hub_link = _HUB_CATALOG_URLS.get(_ds_id, f"https://www.arcgis.com/home/item.html?id={_ds_id}")
-        else:
+        _hub_link = _HUB_CATALOG_URLS.get(_ds_id)
+        if not _hub_link and _ds_id and _re.fullmatch(r"[0-9a-f]{32}", _ds_id):
+            _hub_link = f"https://www.arcgis.com/home/item.html?id={_ds_id}"
+        if not _hub_link:
             _hub_link = "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb"
         dataset_context += (
             f"\nDataset {i}: {ds['name']}\n"
