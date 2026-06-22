@@ -3870,9 +3870,15 @@ def process_question(question: str):
 
             import re as _re_ds
             _ds_item_id = str(ds.get("id", ""))
-            if _ds_item_id and _re_ds.fullmatch(r"[0-9a-f]{32}", _ds_item_id) and not _ai_error:
-                # Direct ArcGIS Online item page — always correct regardless of Hub search quirks
-                _ds_hub_url = f"https://www.arcgis.com/home/item.html?id={_ds_item_id}"
+            _ds_svc_url = ds.get("url", "")
+            _valid_id = bool(_ds_item_id and _re_ds.fullmatch(r"[0-9a-f]{32}", _ds_item_id))
+            if not _ai_error and _valid_id:
+                # Hub-native dataset (Zambia Hub org) → link directly to the Hub dataset page
+                if "iQ1dY19aHwbSDYIF" in _ds_svc_url:
+                    _ds_hub_url = f"https://zmb-geowb.hub.arcgis.com/datasets/{_ds_item_id}"
+                else:
+                    # External dataset (GRID3, OSM, etc.) → ArcGIS Online item page is the canonical source
+                    _ds_hub_url = f"https://www.arcgis.com/home/item.html?id={_ds_item_id}"
             elif not _ai_error:
                 _ds_hub_url = "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb"
             else:
