@@ -3325,17 +3325,34 @@ def process_question(question: str):
                     # will find what's within range of the named location's coordinates.
                     pass
                 else:
-                    # Non-radius query: live data unavailable — AI answers from general knowledge
-                    _ds_label = (datasets[0]["name"] if datasets else "this dataset")
-                    sample_features = [{"_note": (
-                        f"Live data for {_location} is temporarily unavailable (server error). "
-                        f"The dataset being queried is: {_ds_label}. "
-                        f"Answer the user's question about {_location} using your general knowledge "
-                        f"of Zambia — give facts, counts, names of well-known facilities, or context "
-                        f"that you know. Briefly mention that live figures could not be retrieved "
-                        f"right now, but still provide a helpful answer. "
-                        f"Do NOT say 'I don't know' or refuse to answer."
-                    )}]
+                    # Live unavailable and location not in seed sample.
+                    # Fall back to the full unfiltered seed data so AI answers from real data.
+                    if _static_data and _static_data.get("features"):
+                        _all_feats = _static_data["features"]
+                        sample_features = geojson_to_sample_rows(
+                            {"type": "FeatureCollection", "features": _all_feats},
+                            n=min(len(_all_feats), 200)
+                        )
+                        map_geojson = {"type": "FeatureCollection", "features": _all_feats[:50]}
+                        if _static_candidate:
+                            datasets = [_static_candidate] + [d for d in datasets if d != _static_candidate]
+                        st.session_state["_last_fetch_was_live"] = False
+                        # Prepend a note so the AI knows to look for the location in this data
+                        sample_features = [{"_note": (
+                            f"Live data is temporarily unavailable. The records below are the "
+                            f"pre-loaded sample from the dataset — they cover multiple districts. "
+                            f"Answer the question about {_location} using only records that match "
+                            f"that location. If no matching records are present, say so and summarise "
+                            f"what the dataset covers overall. Do NOT invent data."
+                        )}] + sample_features
+                    else:
+                        # No seed data at all — tell AI to say data is unavailable
+                        _ds_label = (datasets[0]["name"] if datasets else "this dataset")
+                        sample_features = [{"_note": (
+                            f"Live data for {_location} is temporarily unavailable and no "
+                            f"pre-loaded data exists for this dataset. Tell the user the data "
+                            f"service is temporarily down and to try again later."
+                        )}]
 
         # No location: try live fetch, fall back to static
         if not sample_features:
@@ -3519,13 +3536,23 @@ def process_question(question: str):
                 )
                 # Clear sample_features so the AI doesn't receive data from the wrong
                 # location (e.g. Copperbelt schools when the question is about Mongu)
-                sample_features = [{"_note": (
-                    f"Live data within {_radius_km} km of {_location or 'the selected point'} "
-                    f"could not be retrieved (server temporarily unavailable). "
-                    f"Answer using your general knowledge of Zambia — name facilities, give context, "
-                    f"explain what is typically found in that area. Briefly note live data is unavailable "
-                    f"but still give a helpful answer. Do NOT say 'I don't know' or refuse."
-                )}]
+                # Use full unfiltered seed data as fallback when radius live fetch fails
+                if _static_data and _static_data.get("features"):
+                    _all_feats = _static_data["features"]
+                    sample_features = [{"_note": (
+                        f"Live data is temporarily unavailable. The pre-loaded dataset sample below "
+                        f"covers multiple locations. Answer about the area near "
+                        f"{_location or 'the selected point'} using only relevant records. "
+                        f"Do NOT invent data."
+                    )}] + geojson_to_sample_rows(
+                        {"type": "FeatureCollection", "features": _all_feats},
+                        n=min(len(_all_feats), 200)
+                    )
+                else:
+                    sample_features = [{"_note": (
+                        f"Live data is temporarily unavailable and no pre-loaded data exists. "
+                        f"Tell the user the data service is temporarily down and to try again later."
+                    )}]
                 map_geojson = {"type": "FeatureCollection", "features": []}
 
     # If cross-context has settlement points and the current map has no Point features,
