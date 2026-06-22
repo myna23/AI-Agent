@@ -1532,6 +1532,21 @@ with st.sidebar:
     )
     st.session_state["_lang"] = _lang
 
+    # Token status — only shown when a private Hub dataset returned 499
+    if _hub_client_module.token_expired:
+        st.warning("Hub token expired — private datasets unavailable.")
+        _new_tok = st.text_input(
+            "Paste new ArcGIS token",
+            type="password",
+            key="new_arcgis_token",
+            help="Run refresh_arcgis_token.py on your WB machine, then paste the token here.",
+        )
+        if st.button("Apply token", key="apply_arcgis_token"):
+            if _new_tok.strip():
+                _hub_client_module.set_token(_new_tok.strip())
+                st.success("Token updated — private datasets unlocked.")
+                st.rerun()
+
     with st.expander("Compare Two Areas"):
         st.caption("Enter two districts/provinces and a topic.")
         _cmp_col1, _cmp_col2 = st.columns(2)
