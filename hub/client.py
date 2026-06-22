@@ -1176,12 +1176,15 @@ _SEED_CATALOG = [
          {"name": "name"}, {"name": "category_primary"}, {"name": "category_alternate"},
          {"name": "confidence"}, {"name": "data_sector"}, {"name": "country_name"}
      ], "geometry_type": "Point", "extent": {}, "modified": ""},
-    {"id": "b55592d29ac145ad824bc8531ab75224_0", "name": "Zambia Marketplaces — Buildings",
-     "description": "Building footprints associated with Zambia marketplace areas. Includes building class, height, and sector. Fields: name, building_class, height_m, data_sector.",
-     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/ArcGIS/rest/services/Zambia_Marketplaces/FeatureServer/0",
-     "tags": ["buildings", "building footprints", "marketplace", "structures", "zambia", "zmb"],
+    {"id": "b55592d29ac145ad824bc8531ab75224", "name": "Zambia Marketplaces — Buildings",
+     "description": "Building footprint polygons for marketplace areas across Zambia. Each polygon is a physical building footprint with building_class (retail, commercial, etc.), data_sector='Marketplaces', and height_m. Useful for urban structure analysis and marketplace mapping. Fields: name, building_class, height_m, data_sector, country_name.",
+     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/Zambia_Marketplaces/FeatureServer/0",
+     "tags": ["buildings", "building footprints", "marketplace", "market", "retail", "commercial", "structures", "urban", "zambia", "zmb"],
      "fields": [
-         {"name": "name"}, {"name": "building_class"}, {"name": "height_m"},
-         {"name": "data_sector"}, {"name": "country_name"}
+         {"name": "name", "alias": "Name", "type": "esriFieldTypeString"},
+         {"name": "building_class", "alias": "Building Class", "type": "esriFieldTypeString"},
+         {"name": "height_m", "alias": "Height (m)", "type": "esriFieldTypeDouble"},
+         {"name": "data_sector", "alias": "Data Sector", "type": "esriFieldTypeString"},
+         {"name": "country_name", "alias": "Country", "type": "esriFieldTypeString"},
      ], "geometry_type": "Polygon", "extent": {}, "modified": ""},
 ]

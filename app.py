@@ -3891,6 +3891,7 @@ def process_question(question: str):
             _HUB_CATALOG_IDS = {
                 "3fb6aa51dc9a4df1a1b7f4e48df5a374",  # Risk Indicators
                 "e31efc4a98774524a93e2eb838dd8fc3",   # Zambia Borders
+                "b55592d29ac145ad824bc8531ab75224",   # Marketplaces / Buildings
             }
             if not _ai_error and _valid_id:
                 if _ds_item_id in _HUB_CATALOG_IDS:

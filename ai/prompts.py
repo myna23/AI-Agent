@@ -123,7 +123,7 @@ def chatbot_user_prompt(
         import re as _re
         _ds_id = str(ds.get("id", ""))
         _svc_url = ds.get("url", "")
-        _HUB_CATALOG_IDS = {"3fb6aa51dc9a4df1a1b7f4e48df5a374", "e31efc4a98774524a93e2eb838dd8fc3"}
+        _HUB_CATALOG_IDS = {"3fb6aa51dc9a4df1a1b7f4e48df5a374", "e31efc4a98774524a93e2eb838dd8fc3", "b55592d29ac145ad824bc8531ab75224"}
         if _ds_id and _re.fullmatch(r"[0-9a-f]{32}", _ds_id):
             if _ds_id in _HUB_CATALOG_IDS:
                 _hub_link = f"https://zmb-geowb.hub.arcgis.com/datasets/{_ds_id}"
