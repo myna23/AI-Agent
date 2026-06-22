@@ -3868,7 +3868,12 @@ def process_question(question: str):
                     _fs["static"] += 1
             st.session_state["_fetch_stats"] = _fs
 
-            _ds_hub_url = "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb" if not _ai_error else ""
+            import urllib.parse as _up
+            _ds_hub_url = (
+                "https://zmb-geowb.hub.arcgis.com/search?q=" + _up.quote(ds.get("name", ""))
+                if ds.get("name") and not _ai_error
+                else "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb"
+            )
 
             # Append message first, then show on-demand panel using the stored message
             _new_msg = {
