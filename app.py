@@ -2210,7 +2210,7 @@ if not st.session_state.get("messages"):
         },
         {
             "label":    "Environment",
-            "question": "Show me environmental and flood risk data in Zambia",
+            "question": "Which districts in Zambia are most flood-prone and what are the environmental risks?",
             "url":      "https://zmb-geowb.hub.arcgis.com/search?q=environment+flood",
         },
         {
@@ -2838,6 +2838,19 @@ def process_question(question: str):
             except Exception as _ctx_e:
                 st.warning(f"⚠️ Could not load data for {_location or 'this dataset'}: {_ctx_e}")
     else:
+        # Detect meta-questions about the Hub itself (not data queries)
+        _q_lower_meta = question.lower()
+        _META_TRIGGERS = {
+            "what projects", "what's on the hub", "whats on the hub",
+            "what is the geohub", "what is zambia geohub", "tell me about the hub",
+            "what does this platform", "how can this platform", "how can this help",
+            "what can you do", "what can you answer", "what can i ask",
+            "what data is available", "what datasets are available",
+            "country director", "as a director", "as a planner",
+            "what is this app", "what is this tool", "what are you",
+        }
+        _is_meta = any(t in _q_lower_meta for t in _META_TRIGGERS)
+
         # Free search mode — find the most relevant dataset
         with st.spinner("Searching Zambia GeoHub..."):
             try:
@@ -3807,7 +3820,26 @@ def process_question(question: str):
                 f"state the district and province identified above.]"
                 if _draw_bbox else ""
             )
-            user_p = chatbot_user_prompt(question + _compare_note + _doc_ctx + _bbox_note, datasets, sample_features, all_catalog=hub.get_catalog(), total_count=_total_count, location=_location or "", cross_context=_cross_context)
+            _meta_note = ""
+            if _is_meta:
+                _meta_note = (
+                    "\n\n[PLATFORM OVERVIEW — answer this meta-question from the information below, "
+                    "not from a dataset query]\n"
+                    "The Zambia Geospatial Data Portal (Zambia GeoHub) is a World Bank platform that brings "
+                    "together Zambia's national geospatial data in one place. It hosts 49+ open datasets "
+                    "covering: Health (hospitals, clinics, health facilities), Education (schools), "
+                    "Administrative boundaries (provinces, districts), Infrastructure (roads, power lines, "
+                    "railways, microgrids), Environment (flood-prone areas, national parks, forest reserves, "
+                    "rivers, wetlands, biodiversity), Population & demographics (WorldPop 2025, migration, "
+                    "poverty index, relative wealth), Agriculture (farming blocks, aquaculture), "
+                    "Water (aquifers, dams), Mining, Settlements, Points of interest (markets, churches, "
+                    "bridges, banks, police, etc.). "
+                    "This AI assistant can: answer questions in plain English, show results on a map, "
+                    "generate downloadable reports, compare two areas side by side, and work with "
+                    "uploaded documents. It is useful for country directors, planners, researchers, "
+                    "and field teams who need quick data-driven answers about Zambia."
+                )
+            user_p = chatbot_user_prompt(question + _compare_note + _doc_ctx + _bbox_note + _meta_note, datasets, sample_features, all_catalog=hub.get_catalog(), total_count=_total_count, location=_location or "", cross_context=_cross_context)
 
             # If a map image is attached, send it as a vision message block
             _img_b64 = st.session_state.get("uploaded_img_b64", "")
