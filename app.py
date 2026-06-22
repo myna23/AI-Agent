@@ -761,9 +761,11 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
                                  get_radius=3000,
                                  radius_min_pixels=4, radius_max_pixels=14,
                                  pickable=True))
-        # Show facility names directly on the map as text labels
+        # Show facility names only when few enough to be readable (no clutter)
         _labeled = _pt_df[_pt_df["name"].str.strip() != ""]
-        if not _labeled.empty:
+        if not _labeled.empty and len(_labeled) <= 25:
+            _txt_color = [255, 255, 200, 255] if satellite_mode else [15, 15, 15, 255]
+            _bg_color  = [30, 30, 30, 200]    if satellite_mode else [255, 255, 255, 230]
             layers.append(_pdk.Layer(
                 "TextLayer",
                 data=_labeled,
@@ -771,8 +773,8 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
                 get_text="name",
                 get_size=300,           # 300 metres — grows as you zoom in
                 size_units="meters",    # scales with zoom, small when zoomed out, large when close
-                get_color=[15, 15, 15, 255],
-                get_background_color=[255, 255, 255, 255],
+                get_color=_txt_color,
+                get_background_color=_bg_color,
                 background_padding=[5, 3, 5, 3],
                 get_pixel_offset=[0, -10],
                 get_anchor="middle",
@@ -808,20 +810,8 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
         clat, clon, zoom = -13.5, 28.5, 6
 
     if satellite_mode:
-        # ESRI World Imagery — free, no token needed; shows real buildings when zoomed in
-        layers.insert(0, _pdk.Layer(
-            "TileLayer",
-            data="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-            min_zoom=0,
-            max_zoom=19,
-            tile_size=256,
-        ))
-        _map_style = None
-        # In satellite mode lighten text labels so they show against dark imagery
-        for lyr in layers:
-            if getattr(lyr, "type", "") == "TextLayer":
-                lyr.get_color = [255, 255, 200, 255]
-                lyr.get_background_color = [30, 30, 30, 200]
+        # Streamlit injects a Mapbox token automatically — satellite-streets shows real imagery + labels
+        _map_style = "mapbox://styles/mapbox/satellite-streets-v12"
     else:
         _map_style = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
 
