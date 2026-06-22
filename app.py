@@ -433,7 +433,7 @@ def _render_ondemand_panel(msg_idx: int, msg: dict, ctx_layers: list = None):
         _render_charts_only(msg["sample_features"], msg.get("ds_name", "Data"), key_prefix=f"cht_{msg_idx}")
 
 
-def _render_location_overview(location: str, loc_type: str, hub, key_prefix: str = ""):
+def _render_location_overview(location: str, loc_type: str, hub, key_prefix: str = "", question: str = ""):
     """
     Render a compact 'Area Overview' card for a district or province.
 
@@ -554,32 +554,58 @@ def _render_location_overview(location: str, loc_type: str, hub, key_prefix: str
     if not counts:
         return {}, {}
 
-    _render_overview_card(location, loc_type, counts, poi_breakdown)
+    _render_overview_card(location, loc_type, counts, poi_breakdown, question=question)
     return counts, poi_breakdown
 
 
-def _render_overview_card(location: str, loc_type: str, counts: dict, poi_breakdown: dict):
+def _render_overview_card(location: str, loc_type: str, counts: dict, poi_breakdown: dict, question: str = ""):
     """Render the Area Overview metric card from pre-computed counts."""
     if not counts:
         return
     is_province = (loc_type == "province")
-    _OV_DATASETS = [
+    _ALL_TILES = [
         {"label": "Health Facilities", "emoji": "🏥"},
-        {"label": "Schools", "emoji": "🏫"},
-        {"label": "Settlements", "emoji": "🏘️"},
-        {"label": "Points of Interest", "emoji": "📍"},
-        {"label": "Marketplaces", "emoji": "🛒"},
+        {"label": "Schools",           "emoji": "🏫"},
+        {"label": "Settlements",       "emoji": "🏘️"},
+        {"label": "Points of Interest","emoji": "📍"},
+        {"label": "Marketplaces",      "emoji": "🛒"},
     ]
-    # Only render tiles for labels that have data
-    _available = [ds for ds in _OV_DATASETS if ds["label"] in counts]
+    # Pick up to 3 tiles: the one most relevant to the question first,
+    # then complementary tiles to give context about the area.
+    _TOPIC_KEYWORDS = {
+        "Marketplaces":       ["market", "marketplace", "trade", "vendor", "shop", "buy", "sell", "commerce"],
+        "Health Facilities":  ["health", "hospital", "clinic", "medical", "doctor", "nurse", "mfl", "facility", "facilities"],
+        "Schools":            ["school", "education", "teacher", "student", "learning", "primary", "secondary", "basic school"],
+        "Settlements":        ["settlement", "village", "town", "community", "population", "rural", "urban"],
+        "Points of Interest": ["point of interest", "poi", "amenity"],
+    }
+    _COMPLEMENTS = {
+        "Marketplaces":       ["Points of Interest", "Settlements"],
+        "Health Facilities":  ["Schools", "Settlements"],
+        "Schools":            ["Health Facilities", "Settlements"],
+        "Settlements":        ["Health Facilities", "Schools"],
+        "Points of Interest": ["Marketplaces", "Settlements"],
+    }
+    _q = question.lower()
+    _primary = next(
+        (topic for topic, kws in _TOPIC_KEYWORDS.items() if any(kw in _q for kw in kws)),
+        None,
+    )
+    if _primary and _primary in counts:
+        _ordered = [_primary] + [c for c in _COMPLEMENTS[_primary] if c in counts]
+    else:
+        _ordered = [t["label"] for t in _ALL_TILES if t["label"] in counts]
+    _tile_map = {t["label"]: t for t in _ALL_TILES}
+    _show = [_tile_map[lbl] for lbl in _ordered if lbl in counts][:3]
+
     st.markdown(f"#### 📊 {location} — Area Overview")
     st.caption(
         f"Key infrastructure counts for **{location}** {'Province' if is_province else 'District'} "
         f"(from live GeoHub data or pre-loaded sample):"
     )
 
-    _cols = st.columns(len(_available))
-    for i, ds in enumerate(_available):
+    _cols = st.columns(len(_show))
+    for i, ds in enumerate(_show):
         label = ds["label"]
         _cols[i].metric(
             label=f"{ds['emoji']} {label}",
@@ -2557,7 +2583,7 @@ for i, msg in enumerate(st.session_state.messages):
             # Re-render area overview card if it was captured with this response
             if msg.get("area_overview") and msg["area_overview"].get("counts"):
                 _ao = msg["area_overview"]
-                _render_overview_card(_ao["location"], _ao["loc_type"], _ao["counts"], _ao.get("poi_breakdown", {}))
+                _render_overview_card(_ao["location"], _ao["loc_type"], _ao["counts"], _ao.get("poi_breakdown", {}), question=_ao.get("question", ""))
 
             st.markdown(msg["content"])
 
@@ -3810,7 +3836,7 @@ def process_question(question: str):
             if _location and _loc_type in ("district", "province"):
                 _ov_key = f"ov_{_location}_{len(st.session_state.messages)}"
                 with st.spinner(f"Loading {_location} overview..."):
-                    _ov_counts, _ov_poi = _render_location_overview(_location, _loc_type, hub, key_prefix=_ov_key)
+                    _ov_counts, _ov_poi = _render_location_overview(_location, _loc_type, hub, key_prefix=_ov_key, question=question)
 
             # Build multi-turn message history so follow-up questions
             # reference previous answers (e.g. "how many of those are in Lusaka?")
@@ -4054,7 +4080,7 @@ def process_question(question: str):
                 "data_source_url": _ds_hub_url if not _ai_error else "",
                 "data_live": st.session_state.get("_last_fetch_was_live", False),
                 "suggestions": _ai_suggestions if _ai_suggestions else None,
-                "area_overview": {"location": _location or "", "loc_type": _loc_type or "", "counts": _ov_counts, "poi_breakdown": _ov_poi} if _ov_counts else None,
+                "area_overview": {"location": _location or "", "loc_type": _loc_type or "", "counts": _ov_counts, "poi_breakdown": _ov_poi, "question": question} if _ov_counts else None,
             }
             st.session_state.messages.append(_new_msg)
 
