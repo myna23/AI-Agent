@@ -446,16 +446,17 @@ class HubClient:
         except requests.RequestException as exc:
             raise RuntimeError(f"Feature fetch failed: {exc}") from exc
 
-        if "features" not in geojson:
-            snippet = str(geojson)[:300]
-            raise ValueError(f"Response is not GeoJSON — keys={list(geojson.keys())} snippet={snippet}")
-
         if "error" in geojson:
             err = geojson["error"]
             if err.get("code") in (499, 498):
                 global token_expired
                 token_expired = True
-            raise ValueError(f"ArcGIS error: {geojson['error']}")
+                geojson = {"features": []}  # fall through to static data below
+            else:
+                raise ValueError(f"ArcGIS error: {geojson['error']}")
+        elif "features" not in geojson:
+            snippet = str(geojson)[:300]
+            raise ValueError(f"Response is not GeoJSON — keys={list(geojson.keys())} snippet={snippet}")
 
         # If GeoJSON came back empty, retry without geometry (attributes only via JSON).
         # Some ArcGIS servers refuse GeoJSON format from cloud IPs but serve plain JSON.
