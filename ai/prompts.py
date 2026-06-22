@@ -136,7 +136,7 @@ def chatbot_user_prompt(
             "3fb6aa51dc9a4df1a1b7f4e48df5a374": "https://zmb-geowb.hub.arcgis.com/datasets/3fb6aa51dc9a4df1a1b7f4e48df5a374",
             "e31efc4a98774524a93e2eb838dd8fc3": "https://zmb-geowb.hub.arcgis.com/datasets/e31efc4a98774524a93e2eb838dd8fc3",
             "068949f7d4d841f3bc6b485a0a44f3f0": "https://zmb-geowb.hub.arcgis.com/datasets/068949f7d4d841f3bc6b485a0a44f3f0_0",
-            "0c748bfc945c49ce81d07034b1560a68": "https://zmb-geowb.hub.arcgis.com/datasets/0c748bfc945c49ce81d07034b1560a68_0",
+            "0c748bfc945c49ce81d07034b1560a68": "https://zmb-geowb.hub.arcgis.com/maps/84d7c9601f8948ae84e3e5b9763a5c08/about",  # Zambia Education Facilities (Overture)
             "4c90a57457fb4e1cb90888d0d394fb78": "https://zmb-geowb.hub.arcgis.com/datasets/4c90a57457fb4e1cb90888d0d394fb78_0",
             "51ac30a1d6454db18a5dbba03524724d": "https://zmb-geowb.hub.arcgis.com/datasets/51ac30a1d6454db18a5dbba03524724d_0",
             "7b3cf3848be947739d4cdf4e7c836f4c": "https://zmb-geowb.hub.arcgis.com/datasets/7b3cf3848be947739d4cdf4e7c836f4c_0",
@@ -147,13 +147,14 @@ def chatbot_user_prompt(
             "a235535d12314d5b87122c8ee4aac7a2": "https://zmb-geowb.hub.arcgis.com/datasets/a235535d12314d5b87122c8ee4aac7a2_0",
             "bb0ba0c4ee1945f0ae35c1430b12574c": "https://zmb-geowb.hub.arcgis.com/datasets/bb0ba0c4ee1945f0ae35c1430b12574c_0",
             "c17e97e2947040e1a0ea547a083533ad": "https://zmb-geowb.hub.arcgis.com/datasets/c17e97e2947040e1a0ea547a083533ad_0",
-            "c571868321cc41ef99ed27535ffa964d": "https://zmb-geowb.hub.arcgis.com/datasets/c571868321cc41ef99ed27535ffa964d_0",
+            "c571868321cc41ef99ed27535ffa964d": "https://zmb-geowb.hub.arcgis.com/datasets/e7bb69fa761042888cca066a0db132f6/about",  # Zambia Road Network (Overture)
             "c6d0ce455cae4f4c96ef98e7d44f9793": "https://zmb-geowb.hub.arcgis.com/datasets/c6d0ce455cae4f4c96ef98e7d44f9793_0",
             "d27357c640394f11943316e36cebaba3": "https://zmb-geowb.hub.arcgis.com/datasets/d27357c640394f11943316e36cebaba3_0",
             "d50e882d14d8454cb15c7467fa050205": "https://zmb-geowb.hub.arcgis.com/datasets/d50e882d14d8454cb15c7467fa050205_0",
             "ef791bcb05db473a9dc4eb04e41664b5": "https://zmb-geowb.hub.arcgis.com/datasets/ef791bcb05db473a9dc4eb04e41664b5_0",
             "f310fa8209cb4685b56e309cf6d1388f": "https://zmb-geowb.hub.arcgis.com/datasets/f310fa8209cb4685b56e309cf6d1388f_0",
-            # f523a78b0e2b4c6a8719ef05a165ab4e (health) — Hub returns 404 in browser; excluded
+            "f523a78b0e2b4c6a8719ef05a165ab4e": "https://zmb-geowb.hub.arcgis.com/maps/6bfd2553b1d849ba921881308ca98844/about",  # Zambia Health Facilities (Overture)
+            # 8f73c42ed3884256904ae12440fae558 (POI v1.0) — Hub page broken; arcgis.com fallback
             "fbff7250ebc94120a1f9d8e332317bbe": "https://zmb-geowb.hub.arcgis.com/datasets/fbff7250ebc94120a1f9d8e332317bbe_0",
             "fc6fc1b222fd400abfdb1158dc27e3bc": "https://zmb-geowb.hub.arcgis.com/datasets/fc6fc1b222fd400abfdb1158dc27e3bc_0",
             "b55592d29ac145ad824bc8531ab75224": "https://zmb-geowb.hub.arcgis.com/maps/b55592d29ac145ad824bc8531ab75224/about",
