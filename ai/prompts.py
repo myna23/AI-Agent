@@ -123,7 +123,8 @@ def chatbot_user_prompt(
         import re as _re
         _ds_id = str(ds.get("id", ""))
         _svc_url = ds.get("url", "")
-        if _ds_id and _re.fullmatch(r"[0-9a-f]{32}", _ds_id) and "iQ1dY19aHwbSDYIF" in _svc_url:
+        if _ds_id and _re.fullmatch(r"[0-9a-f]{32}", _ds_id):
+            # All zmb-tagged datasets have confirmed Hub pages — always use direct Hub URL
             _hub_link = f"https://zmb-geowb.hub.arcgis.com/datasets/{_ds_id}"
         else:
             _hub_link = "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb"

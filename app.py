@@ -2563,24 +2563,18 @@ for i, msg in enumerate(st.session_state.messages):
             # Data source citation
             if msg.get("ds_name"):
                 _src_url = msg.get("data_source_url", "")
-                _is_exact = "/datasets/" in _src_url  # Hub-native: direct page link
-                _name_html = (
-                    f'<a href="{_src_url}" target="_blank">{msg["ds_name"]}</a>'
-                    if _is_exact else
-                    f'{msg["ds_name"]}'
-                )
-                _browse_html = (
-                    "" if _is_exact else
-                    ' &nbsp;·&nbsp; <a href="https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb" '
-                    'target="_blank" style="color:#5b9bd5">Browse Zambia GeoHub ↗</a>'
-                )
+                # Show name as clickable link whenever we have a direct Hub page URL
+                if _src_url and "/datasets/" in _src_url:
+                    _name_html = f'<a href="{_src_url}" target="_blank">{msg["ds_name"]}</a>'
+                else:
+                    _name_html = msg["ds_name"]
                 _live_html = (
                     f' &nbsp;·&nbsp; <span style="color:{"#2d9c5c" if msg.get("data_live") else "#e07b00"}">'
                     f'{"🟢 Live data" if msg.get("data_live") else "🟡 Cached data"}</span>'
                 )
                 st.markdown(
                     f'<div style="font-size:0.75rem;color:#888;margin-top:4px">'
-                    f'📂 Source: {_name_html}{_live_html}{_browse_html}</div>',
+                    f'📂 Source: {_name_html}{_live_html}</div>',
                     unsafe_allow_html=True,
                 )
 
@@ -3895,30 +3889,8 @@ def process_question(question: str):
             _ds_svc_url = ds.get("url", "")
             _valid_id = bool(_ds_item_id and _re_ds.fullmatch(r"[0-9a-f]{32}", _ds_item_id))
             if not _ai_error and _valid_id:
-                if "iQ1dY19aHwbSDYIF" in _ds_svc_url:
-                    # Hub-native dataset → direct Hub dataset page
-                    _ds_hub_url = f"https://zmb-geowb.hub.arcgis.com/datasets/{_ds_item_id}"
-                else:
-                    # External dataset (GRID3, etc.) — search Hub by data type keyword
-                    import urllib.parse as _up
-                    _ds_lower = ds.get("name", "").lower()
-                    if any(k in _ds_lower for k in ("health", "hospital", "clinic", "facility")):
-                        _kw = "health+facilities"
-                    elif any(k in _ds_lower for k in ("school", "education")):
-                        _kw = "schools"
-                    elif any(k in _ds_lower for k in ("settlement", "village")):
-                        _kw = "settlements"
-                    elif any(k in _ds_lower for k in ("road", "transport")):
-                        _kw = "roads"
-                    elif any(k in _ds_lower for k in ("flood", "wetland", "water")):
-                        _kw = "flood"
-                    elif any(k in _ds_lower for k in ("mine", "mining", "copper")):
-                        _kw = "mining"
-                    elif any(k in _ds_lower for k in ("district", "boundary", "admin")):
-                        _kw = "districts+boundaries"
-                    else:
-                        _kw = "zambia"
-                    _ds_hub_url = f"https://zmb-geowb.hub.arcgis.com/search?q={_kw}&collection=dataset"
+                # All zmb-tagged datasets have confirmed Hub pages — always use direct Hub URL
+                _ds_hub_url = f"https://zmb-geowb.hub.arcgis.com/datasets/{_ds_item_id}"
             elif not _ai_error:
                 _ds_hub_url = "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb"
             else:

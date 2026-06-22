@@ -917,7 +917,7 @@ class HubClient:
 # Built from confirmed working zmb-tagged datasets (April 2025)
 # ------------------------------------------------------------------
 _SEED_CATALOG = [
-    {"id": "f523a78b0e2b4c6a8719ef05a165ab4e", "name": "NSDI Zambia Operational Health Facility Layer",
+    {"id": "f523a78b0e2b4c6a8719ef05a165ab4e", "name": "NSDI Zambia Operational Health Facility Layer, Version 01 (Beta)",
      "description": "Operational health facilities across Zambia including hospitals, health centres, and clinics. Source: Ministry of Health and ZamStats.",
      "url": "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_HealthFac_v01beta/FeatureServer/0",
      "tags": ["health", "facilities", "hospitals", "clinics", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
@@ -925,15 +925,15 @@ _SEED_CATALOG = [
      "description": "Operational schools across Zambia including primary and secondary schools. Source: ZamStats and Ministry of General Education.",
      "url": "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_School_v01beta/FeatureServer/0",
      "tags": ["schools", "education", "primary", "secondary", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
-    {"id": "d27357c640394f11943316e36cebaba3", "name": "ZMB Operational Districts",
+    {"id": "d27357c640394f11943316e36cebaba3", "name": "ZMB - Operational Districts",
      "description": "Administrative district boundaries for Zambia 2020. Source: Office of the Surveyor General and Electoral Commission of Zambia.",
      "url": "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/Zambia_Administrative_Boundaries_Districts_2020/FeatureServer/0",
      "tags": ["districts", "boundaries", "administrative", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
-    {"id": "a0293a6e84c143298227518eb3418d23", "name": "GRID3 ZMB Operational Settlement Names",
+    {"id": "a0293a6e84c143298227518eb3418d23", "name": "GRID3 ZMB - Operational Settlement Names v1.0",
      "description": "Settlement point locations and names across Zambia including villages, towns, and urban areas. Fields: Province, District, Name, settlement type. Source: ZamStats 2010 census cartography.",
      "url": "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_Zambia_Operational_Settlement_Points_and_Names_Version01/FeatureServer/0",
      "tags": ["settlements", "villages", "towns", "urban", "rural", "communities", "population", "copperbelt", "lusaka", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
-    {"id": "8f73c42ed3884256904ae12440fae558", "name": "ZMB Operational Points of Interest",
+    {"id": "8f73c42ed3884256904ae12440fae558", "name": "ZMB - Operational Points of Interest v1.0",
      "description": (
          "Points of interest across Zambia from ZamStats 2010 census. "
          "Contains 90,000+ locations categorised by Type including: "
@@ -954,7 +954,7 @@ _SEED_CATALOG = [
          "cooperative", "pharmacy", "cemetery", "railway", "dam", "borehole",
          "community", "facilities", "infrastructure",
      ], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
-    {"id": "3fb6aa51dc9a4df1a1b7f4e48df5a374", "name": "GRID3 ZMB Risk Indicators by District and Province",
+    {"id": "3fb6aa51dc9a4df1a1b7f4e48df5a374", "name": "GRID3 ZMB - Risk Indicators Aggregated to District and Provinces",
      "description": "Risk index and population at risk by district and province — covering socioeconomic vulnerability, WASH, communication access.",
      "url": "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/Zambia_Risk_Layers_Aggregated_Districts_Provinces/FeatureServer/0",
      "tags": ["risk", "vulnerability", "wash", "population", "districts", "provinces", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
@@ -1036,9 +1036,9 @@ _SEED_CATALOG = [
      "url": "https://services3.arcgis.com/t6lYS2Pmd8iVx1fy/ArcGIS/rest/services/ZMB_Soil_Type_Classification/FeatureServer/0",
      "tags": ["soil", "land use", "agriculture", "geology", "classification", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
     # ---- New authenticated datasets (iQ1dY19aHwbSDYIF org) ----
-    {"id": "068949f7d4d841f3bc6b485a0a44f3f0", "name": "Zambia Settlement Extents (GRID3 v3.0)",
+    {"id": "068949f7d4d841f3bc6b485a0a44f3f0", "name": "GRID3 ZMB - Settlement Extents v3.0",
      "description": "Settlement boundary polygons and centroids across Zambia at 3-arc-second resolution. Fields: building_count, iso3, country. Source: GRID3.",
-     "url": "https://services.arcgis.com/iQ1dY19aHwbSDYIF/arcgis/rest/services/GRID3_ZMB_Settlement_Extents_v3_0/FeatureServer/0",
+     "url": "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_Settlement_Extents_v3_0/FeatureServer/0",
      "tags": ["settlements", "settlement extents", "buildings", "population", "grid3", "zambia", "zmb"], "fields": [], "geometry_type": "Polygon", "extent": {}, "modified": ""},
     {"id": "zmb_power_lines", "name": "Zambia Power Lines",
      "description": "Electrical power transmission and distribution lines across Zambia. Source: Overture Maps Foundation. Fields: name, feature_type, voltage, cables.",
