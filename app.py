@@ -3325,13 +3325,16 @@ def process_question(question: str):
                     # will find what's within range of the named location's coordinates.
                     pass
                 else:
-                    # Non-radius query: tell AI data is unavailable for this location
+                    # Non-radius query: live data unavailable — AI answers from general knowledge
+                    _ds_label = (datasets[0]["name"] if datasets else "this dataset")
                     sample_features = [{"_note": (
-                        f"No data could be retrieved for {_location}. "
-                        f"The live GeoHub server is temporarily unavailable and the pre-loaded "
-                        f"offline data does not cover {_location}. "
-                        f"Tell the user: the live server is down, no offline data exists for {_location}, "
-                        f"and they should try again later. Do NOT show data from other provinces or districts."
+                        f"Live data for {_location} is temporarily unavailable (server error). "
+                        f"The dataset being queried is: {_ds_label}. "
+                        f"Answer the user's question about {_location} using your general knowledge "
+                        f"of Zambia — give facts, counts, names of well-known facilities, or context "
+                        f"that you know. Briefly mention that live figures could not be retrieved "
+                        f"right now, but still provide a helpful answer. "
+                        f"Do NOT say 'I don't know' or refuse to answer."
                     )}]
 
         # No location: try live fetch, fall back to static
@@ -3517,10 +3520,11 @@ def process_question(question: str):
                 # Clear sample_features so the AI doesn't receive data from the wrong
                 # location (e.g. Copperbelt schools when the question is about Mongu)
                 sample_features = [{"_note": (
-                    f"No data found within {_radius_km} km of {_location or 'the selected point'} "
-                    f"in the pre-loaded offline dataset. The live GeoHub server is currently "
-                    f"unavailable. Tell the user this clearly — do NOT describe data from "
-                    f"other districts or provinces."
+                    f"Live data within {_radius_km} km of {_location or 'the selected point'} "
+                    f"could not be retrieved (server temporarily unavailable). "
+                    f"Answer using your general knowledge of Zambia — name facilities, give context, "
+                    f"explain what is typically found in that area. Briefly note live data is unavailable "
+                    f"but still give a helpful answer. Do NOT say 'I don't know' or refuse."
                 )}]
                 map_geojson = {"type": "FeatureCollection", "features": []}
 
@@ -3868,8 +3872,26 @@ def process_question(question: str):
                     # Hub-native dataset → direct Hub dataset page
                     _ds_hub_url = f"https://zmb-geowb.hub.arcgis.com/datasets/{_ds_item_id}"
                 else:
-                    # External dataset (GRID3, etc.) → Hub search so users stay on the World Bank Hub
-                    _ds_hub_url = "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb"
+                    # External dataset (GRID3, etc.) — search Hub by data type keyword
+                    import urllib.parse as _up
+                    _ds_lower = ds.get("name", "").lower()
+                    if any(k in _ds_lower for k in ("health", "hospital", "clinic", "facility")):
+                        _kw = "health+facilities"
+                    elif any(k in _ds_lower for k in ("school", "education")):
+                        _kw = "schools"
+                    elif any(k in _ds_lower for k in ("settlement", "village")):
+                        _kw = "settlements"
+                    elif any(k in _ds_lower for k in ("road", "transport")):
+                        _kw = "roads"
+                    elif any(k in _ds_lower for k in ("flood", "wetland", "water")):
+                        _kw = "flood"
+                    elif any(k in _ds_lower for k in ("mine", "mining", "copper")):
+                        _kw = "mining"
+                    elif any(k in _ds_lower for k in ("district", "boundary", "admin")):
+                        _kw = "districts+boundaries"
+                    else:
+                        _kw = "zambia"
+                    _ds_hub_url = f"https://zmb-geowb.hub.arcgis.com/search?q={_kw}&collection=dataset"
             elif not _ai_error:
                 _ds_hub_url = "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb"
             else:
