@@ -150,6 +150,7 @@ _STATIC_MAP = {
     "zmb_Operational_healthfac_NSDI":                               "health_facilities.json",
     "Zambia_Health_Facilities":                                      "health_facilities.json",
     "Zambia_HF_20251112":                                            "health_facilities.json",
+    "Zambia_Marketplaces/FeatureServer/0":                           "marketplaces_buildings.json",
     "Zambia_Marketplaces":                                           "poi_commercial.json",
     "Zambia_Points_of_Interest":                                     "poi_all.json",
     "Zambia_Road_Network":                                           "roads.json",
