@@ -3886,11 +3886,18 @@ def process_question(question: str):
 
             import re as _re_ds
             _ds_item_id = str(ds.get("id", ""))
-            _ds_svc_url = ds.get("url", "")
             _valid_id = bool(_ds_item_id and _re_ds.fullmatch(r"[0-9a-f]{32}", _ds_item_id))
+            # Only these two items have confirmed Hub dataset pages (API-verified)
+            _HUB_CATALOG_IDS = {
+                "3fb6aa51dc9a4df1a1b7f4e48df5a374",  # Risk Indicators
+                "e31efc4a98774524a93e2eb838dd8fc3",   # Zambia Borders
+            }
             if not _ai_error and _valid_id:
-                # All zmb-tagged datasets have confirmed Hub pages — always use direct Hub URL
-                _ds_hub_url = f"https://zmb-geowb.hub.arcgis.com/datasets/{_ds_item_id}"
+                if _ds_item_id in _HUB_CATALOG_IDS:
+                    _ds_hub_url = f"https://zmb-geowb.hub.arcgis.com/datasets/{_ds_item_id}"
+                else:
+                    # Dataset is part of the Zambia GeoHub initiative but hosted externally
+                    _ds_hub_url = f"https://www.arcgis.com/home/item.html?id={_ds_item_id}"
             elif not _ai_error:
                 _ds_hub_url = "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb"
             else:
