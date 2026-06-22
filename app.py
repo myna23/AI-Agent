@@ -448,7 +448,7 @@ def _render_location_overview(location: str, loc_type: str, hub, key_prefix: str
       - Settlements (GRID3)
     """
     if not location:
-        return
+        return {}, {}
 
     # Dataset URLs from catalog — picked from seed catalog for reliability
     _OV_DATASETS = [
@@ -546,8 +546,23 @@ def _render_location_overview(location: str, loc_type: str, hub, key_prefix: str
             counts[label] = count
 
     if not counts:
-        return
+        return {}, {}
 
+    _render_overview_card(location, loc_type, counts, poi_breakdown)
+    return counts, poi_breakdown
+
+
+def _render_overview_card(location: str, loc_type: str, counts: dict, poi_breakdown: dict):
+    """Render the Area Overview metric card from pre-computed counts."""
+    if not counts:
+        return
+    is_province = (loc_type == "province")
+    _OV_DATASETS = [
+        {"label": "Health Facilities", "emoji": "🏥"},
+        {"label": "Schools", "emoji": "🏫"},
+        {"label": "Settlements", "emoji": "🏘️"},
+        {"label": "Points of Interest", "emoji": "📍"},
+    ]
     st.markdown(f"#### 📊 {location} — Area Overview")
     st.caption(
         f"Key infrastructure counts for **{location}** {'Province' if is_province else 'District'} "
@@ -2531,6 +2546,11 @@ for i, msg in enumerate(st.session_state.messages):
             badge_class = {"chat": "intent-chat", "report": "intent-report", "summary": "intent-summary"}.get(intent, "intent-chat")
             st.markdown(f'<span class="intent-badge {badge_class}">{badge_label}</span>', unsafe_allow_html=True)
 
+            # Re-render area overview card if it was captured with this response
+            if msg.get("area_overview") and msg["area_overview"].get("counts"):
+                _ao = msg["area_overview"]
+                _render_overview_card(_ao["location"], _ao["loc_type"], _ao["counts"], _ao.get("poi_breakdown", {}))
+
             st.markdown(msg["content"])
 
             # Download buttons for reports
@@ -2647,7 +2667,11 @@ for i, msg in enumerate(st.session_state.messages):
 
             # Row 2: follow-up suggestions — only on the most recent answer
             if i == _last_assistant_idx and msg.get("intent", "chat") == "chat" and _prev_q_hist:
-                _hist_sugs = _build_suggestions(_prev_q_hist, bool(msg.get("location")), bool(msg.get("sample_features")), msg.get("ds_name", ""))
+                # Prefer AI-generated suggestions stored with the message; fall back to heuristics
+                _hist_sugs = (
+                    msg.get("suggestions")
+                    or _build_suggestions(_prev_q_hist, bool(msg.get("location")), bool(msg.get("sample_features")), msg.get("ds_name", ""))
+                )
                 if _hist_sugs:
                     st.markdown("<div style='margin-top:6px'></div>", unsafe_allow_html=True)
                     _spacer, _sug_col = st.columns([3, 7])
@@ -3774,10 +3798,11 @@ def process_question(question: str):
 
             # District / Province overview card — shown when the question names a location,
             # giving the user context about the area even if they're unfamiliar with it.
+            _ov_counts, _ov_poi = {}, {}
             if _location and _loc_type in ("district", "province"):
                 _ov_key = f"ov_{_location}_{len(st.session_state.messages)}"
                 with st.spinner(f"Loading {_location} overview..."):
-                    _render_location_overview(_location, _loc_type, hub, key_prefix=_ov_key)
+                    _ov_counts, _ov_poi = _render_location_overview(_location, _loc_type, hub, key_prefix=_ov_key)
 
             # Build multi-turn message history so follow-up questions
             # reference previous answers (e.g. "how many of those are in Lusaka?")
@@ -3936,6 +3961,29 @@ def process_question(question: str):
             else:
                 _ds_hub_url = ""
 
+            # Generate dynamic follow-up suggestions from the response
+            _ai_suggestions = []
+            if not _ai_error and response:
+                try:
+                    import json as _jfu, re as _refu
+                    _fu_user = (
+                        f"User asked: {question}\n\nAnswer given:\n{response[:800]}\n\n"
+                        "Suggest exactly 3 short follow-up questions (max 65 chars each) the user might ask next. "
+                        "Make them specific to the answer — use district names, data types, or figures that appeared. "
+                        "Output ONLY a JSON array of 3 strings, no other text."
+                    )
+                    _fu_raw = ai_client.ask(
+                        system="You suggest follow-up questions for a Zambia geospatial data chatbot. Output only JSON.",
+                        user=_fu_user,
+                        max_tokens=160,
+                    )
+                    _m = _refu.search(r'\[.*?\]', _fu_raw, _refu.DOTALL)
+                    if _m:
+                        _parsed = _jfu.loads(_m.group(0))
+                        _ai_suggestions = [str(s)[:70] for s in _parsed if s][:3]
+                except Exception:
+                    pass
+
             # Append message first, then show on-demand panel using the stored message
             _new_msg = {
                 "role": "assistant", "content": response, "intent": intent,
@@ -3947,6 +3995,8 @@ def process_question(question: str):
                 "draw_bbox": _draw_bbox,
                 "data_source_url": _ds_hub_url if not _ai_error else "",
                 "data_live": st.session_state.get("_last_fetch_was_live", False),
+                "suggestions": _ai_suggestions if _ai_suggestions else None,
+                "area_overview": {"location": _location or "", "loc_type": _loc_type or "", "counts": _ov_counts, "poi_breakdown": _ov_poi} if _ov_counts else None,
             }
             st.session_state.messages.append(_new_msg)
 
