@@ -921,7 +921,7 @@ _SEED_CATALOG = [
      "description": "Operational health facilities across Zambia including hospitals, health centres, and clinics. Source: Ministry of Health and ZamStats.",
      "url": "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_HealthFac_v01beta/FeatureServer/0",
      "tags": ["health", "facilities", "hospitals", "clinics", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
-    {"id": "0c748bfc945c49ce81d07034b1560a68", "name": "GRID3 ZMB Operational Schools",
+    {"id": "0c748bfc945c49ce81d07034b1560a68", "name": "GRID3 ZMB - Operational Schools v1.0",
      "description": "Operational schools across Zambia including primary and secondary schools. Source: ZamStats and Ministry of General Education.",
      "url": "https://services3.arcgis.com/BU6Aadhn6tbBEdyk/arcgis/rest/services/GRID3_ZMB_School_v01beta/FeatureServer/0",
      "tags": ["schools", "education", "primary", "secondary", "zambia", "zmb"], "fields": [], "geometry_type": "Point", "extent": {}, "modified": ""},
