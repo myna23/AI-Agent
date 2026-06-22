@@ -143,7 +143,6 @@ def chatbot_user_prompt(
             "7be52e48252c464bbb8e1c713f87a5d1": "https://zmb-geowb.hub.arcgis.com/datasets/7be52e48252c464bbb8e1c713f87a5d1_0",
             "7d9e73eb624448c79826d3c3274bf790": "https://zmb-geowb.hub.arcgis.com/datasets/7d9e73eb624448c79826d3c3274bf790_0",
             "883e648672134f6488ffbc9f31533a65": "https://zmb-geowb.hub.arcgis.com/datasets/883e648672134f6488ffbc9f31533a65_0",
-            "8f73c42ed3884256904ae12440fae558": "https://zmb-geowb.hub.arcgis.com/datasets/8f73c42ed3884256904ae12440fae558_0",
             "a0293a6e84c143298227518eb3418d23": "https://zmb-geowb.hub.arcgis.com/datasets/a0293a6e84c143298227518eb3418d23_0",
             "a235535d12314d5b87122c8ee4aac7a2": "https://zmb-geowb.hub.arcgis.com/datasets/a235535d12314d5b87122c8ee4aac7a2_0",
             "bb0ba0c4ee1945f0ae35c1430b12574c": "https://zmb-geowb.hub.arcgis.com/datasets/bb0ba0c4ee1945f0ae35c1430b12574c_0",
@@ -154,9 +153,10 @@ def chatbot_user_prompt(
             "d50e882d14d8454cb15c7467fa050205": "https://zmb-geowb.hub.arcgis.com/datasets/d50e882d14d8454cb15c7467fa050205_0",
             "ef791bcb05db473a9dc4eb04e41664b5": "https://zmb-geowb.hub.arcgis.com/datasets/ef791bcb05db473a9dc4eb04e41664b5_0",
             "f310fa8209cb4685b56e309cf6d1388f": "https://zmb-geowb.hub.arcgis.com/datasets/f310fa8209cb4685b56e309cf6d1388f_0",
-            "f523a78b0e2b4c6a8719ef05a165ab4e": "https://zmb-geowb.hub.arcgis.com/datasets/f523a78b0e2b4c6a8719ef05a165ab4e_0",
+            # f523a78b0e2b4c6a8719ef05a165ab4e (health) — Hub returns 404 in browser; excluded
             "fbff7250ebc94120a1f9d8e332317bbe": "https://zmb-geowb.hub.arcgis.com/datasets/fbff7250ebc94120a1f9d8e332317bbe_0",
             "fc6fc1b222fd400abfdb1158dc27e3bc": "https://zmb-geowb.hub.arcgis.com/datasets/fc6fc1b222fd400abfdb1158dc27e3bc_0",
+            "b55592d29ac145ad824bc8531ab75224": "https://zmb-geowb.hub.arcgis.com/maps/b55592d29ac145ad824bc8531ab75224/about",
         }
         if _ds_id and _re.fullmatch(r"[0-9a-f]{32}", _ds_id):
             _hub_link = _HUB_CATALOG_URLS.get(_ds_id, f"https://www.arcgis.com/home/item.html?id={_ds_id}")

@@ -476,6 +476,12 @@ def _render_location_overview(location: str, loc_type: str, hub, key_prefix: str
             "url_key": "GRID3_Zambia_Operational_Points_of_Interest",
             "color": "#2d6a4f",
         },
+        {
+            "label": "Marketplaces",
+            "emoji": "🛒",
+            "url_key": "Zambia_Marketplaces",
+            "color": "#6d3a9c",
+        },
     ]
 
     # Find URLs from catalog
@@ -562,21 +568,23 @@ def _render_overview_card(location: str, loc_type: str, counts: dict, poi_breakd
         {"label": "Schools", "emoji": "🏫"},
         {"label": "Settlements", "emoji": "🏘️"},
         {"label": "Points of Interest", "emoji": "📍"},
+        {"label": "Marketplaces", "emoji": "🛒"},
     ]
+    # Only render tiles for labels that have data
+    _available = [ds for ds in _OV_DATASETS if ds["label"] in counts]
     st.markdown(f"#### 📊 {location} — Area Overview")
     st.caption(
         f"Key infrastructure counts for **{location}** {'Province' if is_province else 'District'} "
         f"(from live GeoHub data or pre-loaded sample):"
     )
 
-    _cols = st.columns(len(_OV_DATASETS))
-    for i, ds in enumerate(_OV_DATASETS):
+    _cols = st.columns(len(_available))
+    for i, ds in enumerate(_available):
         label = ds["label"]
-        if label in counts:
-            _cols[i].metric(
-                label=f"{ds['emoji']} {label}",
-                value=f"{counts[label]:,}",
-            )
+        _cols[i].metric(
+            label=f"{ds['emoji']} {label}",
+            value=f"{counts[label]:,}",
+        )
 
     # POI breakdown by type if available
     if poi_breakdown:
@@ -2584,7 +2592,7 @@ for i, msg in enumerate(st.session_state.messages):
             if msg.get("ds_name"):
                 _src_url = msg.get("data_source_url", "")
                 # Show name as clickable link whenever we have a direct Hub page URL
-                if _src_url and "/datasets/" in _src_url:
+                if _src_url and ("/datasets/" in _src_url or "/maps/" in _src_url):
                     _name_html = f'<a href="{_src_url}" target="_blank">{msg["ds_name"]}</a>'
                 else:
                     _name_html = msg["ds_name"]
@@ -3958,7 +3966,6 @@ def process_question(question: str):
                 "7be52e48252c464bbb8e1c713f87a5d1": "https://zmb-geowb.hub.arcgis.com/datasets/7be52e48252c464bbb8e1c713f87a5d1_0",
                 "7d9e73eb624448c79826d3c3274bf790": "https://zmb-geowb.hub.arcgis.com/datasets/7d9e73eb624448c79826d3c3274bf790_0",
                 "883e648672134f6488ffbc9f31533a65": "https://zmb-geowb.hub.arcgis.com/datasets/883e648672134f6488ffbc9f31533a65_0",
-                "8f73c42ed3884256904ae12440fae558": "https://zmb-geowb.hub.arcgis.com/datasets/8f73c42ed3884256904ae12440fae558_0",
                 "a0293a6e84c143298227518eb3418d23": "https://zmb-geowb.hub.arcgis.com/datasets/a0293a6e84c143298227518eb3418d23_0",
                 "a235535d12314d5b87122c8ee4aac7a2": "https://zmb-geowb.hub.arcgis.com/datasets/a235535d12314d5b87122c8ee4aac7a2_0",
                 "bb0ba0c4ee1945f0ae35c1430b12574c": "https://zmb-geowb.hub.arcgis.com/datasets/bb0ba0c4ee1945f0ae35c1430b12574c_0",
@@ -3969,9 +3976,11 @@ def process_question(question: str):
                 "d50e882d14d8454cb15c7467fa050205": "https://zmb-geowb.hub.arcgis.com/datasets/d50e882d14d8454cb15c7467fa050205_0",
                 "ef791bcb05db473a9dc4eb04e41664b5": "https://zmb-geowb.hub.arcgis.com/datasets/ef791bcb05db473a9dc4eb04e41664b5_0",
                 "f310fa8209cb4685b56e309cf6d1388f": "https://zmb-geowb.hub.arcgis.com/datasets/f310fa8209cb4685b56e309cf6d1388f_0",
-                "f523a78b0e2b4c6a8719ef05a165ab4e": "https://zmb-geowb.hub.arcgis.com/datasets/f523a78b0e2b4c6a8719ef05a165ab4e_0",
+                # f523a78b0e2b4c6a8719ef05a165ab4e (health) — indexed in Hub API but browser returns 404; use arcgis.com fallback
+                # 8f73c42ed3884256904ae12440fae558 (POI v1.0) — same issue; excluded
                 "fbff7250ebc94120a1f9d8e332317bbe": "https://zmb-geowb.hub.arcgis.com/datasets/fbff7250ebc94120a1f9d8e332317bbe_0",
                 "fc6fc1b222fd400abfdb1158dc27e3bc": "https://zmb-geowb.hub.arcgis.com/datasets/fc6fc1b222fd400abfdb1158dc27e3bc_0",
+                "b55592d29ac145ad824bc8531ab75224": "https://zmb-geowb.hub.arcgis.com/maps/b55592d29ac145ad824bc8531ab75224/about",
             }
             if not _ai_error and _valid_id:
                 _ds_hub_url = _HUB_CATALOG_URLS.get(
