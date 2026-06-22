@@ -802,7 +802,7 @@ def _render_plotly_map(gjson, ds_name="", context_layers=None, highlight_locatio
     else:
         clat, clon, zoom = -13.5, 28.5, 6
 
-    _map_style = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+    _map_style = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
 
     st.pydeck_chart(_pdk.Deck(
         layers=layers,
@@ -2561,14 +2561,26 @@ for i, msg in enumerate(st.session_state.messages):
                 )
 
             # Data source citation
-            if msg.get("data_source_url") and msg.get("ds_name"):
+            if msg.get("ds_name"):
+                _src_url = msg.get("data_source_url", "")
+                _is_exact = "/datasets/" in _src_url  # Hub-native: direct page link
+                _name_html = (
+                    f'<a href="{_src_url}" target="_blank">{msg["ds_name"]}</a>'
+                    if _is_exact else
+                    f'{msg["ds_name"]}'
+                )
+                _browse_html = (
+                    "" if _is_exact else
+                    ' &nbsp;·&nbsp; <a href="https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb" '
+                    'target="_blank" style="color:#5b9bd5">Browse Zambia GeoHub ↗</a>'
+                )
+                _live_html = (
+                    f' &nbsp;·&nbsp; <span style="color:{"#2d9c5c" if msg.get("data_live") else "#e07b00"}">'
+                    f'{"🟢 Live data" if msg.get("data_live") else "🟡 Cached data"}</span>'
+                )
                 st.markdown(
                     f'<div style="font-size:0.75rem;color:#888;margin-top:4px">'
-                    f'📂 Source: <a href="{msg["data_source_url"]}" target="_blank">'
-                    f'{msg["ds_name"]}</a>'
-                    + (f' &nbsp;·&nbsp; <span style="color:{"#2d9c5c" if msg.get("data_live") else "#e07b00"}">'
-                       f'{"🟢 Live data" if msg.get("data_live") else "🟡 Cached data"}</span>' )
-                    + '</div>',
+                    f'📂 Source: {_name_html}{_live_html}{_browse_html}</div>',
                     unsafe_allow_html=True,
                 )
 
