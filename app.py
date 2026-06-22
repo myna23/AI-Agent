@@ -3868,12 +3868,15 @@ def process_question(question: str):
                     _fs["static"] += 1
             st.session_state["_fetch_stats"] = _fs
 
-            import urllib.parse as _up
-            _ds_hub_url = (
-                "https://zmb-geowb.hub.arcgis.com/search?q=" + _up.quote(ds.get("name", ""))
-                if ds.get("name") and not _ai_error
-                else "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb"
-            )
+            import re as _re_ds
+            _ds_item_id = str(ds.get("id", ""))
+            if _ds_item_id and _re_ds.fullmatch(r"[0-9a-f]{32}", _ds_item_id) and not _ai_error:
+                # Direct ArcGIS Online item page — always correct regardless of Hub search quirks
+                _ds_hub_url = f"https://www.arcgis.com/home/item.html?id={_ds_item_id}"
+            elif not _ai_error:
+                _ds_hub_url = "https://zmb-geowb.hub.arcgis.com/search?collection=dataset&tags=zmb"
+            else:
+                _ds_hub_url = ""
 
             # Append message first, then show on-demand panel using the stored message
             _new_msg = {
