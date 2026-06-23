@@ -4006,6 +4006,13 @@ def process_question(question: str):
                 "fbff7250ebc94120a1f9d8e332317bbe": "https://zmb-geowb.hub.arcgis.com/datasets/fbff7250ebc94120a1f9d8e332317bbe_0",
                 "fc6fc1b222fd400abfdb1158dc27e3bc": "https://zmb-geowb.hub.arcgis.com/datasets/fc6fc1b222fd400abfdb1158dc27e3bc_0",
                 "b55592d29ac145ad824bc8531ab75224": "https://zmb-geowb.hub.arcgis.com/maps/b55592d29ac145ad824bc8531ab75224/about",
+                "454e766492f64869940ce1dd7454821c": "https://zmb-geowb.hub.arcgis.com/datasets/454e766492f64869940ce1dd7454821c/about",
+                "e216143d86bb4cf786ebd0354501e41a": "https://zmb-geowb.hub.arcgis.com/datasets/e216143d86bb4cf786ebd0354501e41a/about",
+                "d7c050048fe5466799388598df72f51e": "https://zmb-geowb.hub.arcgis.com/datasets/d7c050048fe5466799388598df72f51e/about",
+                "a871cc69630c40f194b253c692cf73e6": "https://zmb-geowb.hub.arcgis.com/datasets/a871cc69630c40f194b253c692cf73e6/about",
+                "74a208e49afc4635a384b389922f3485": "https://zmb-geowb.hub.arcgis.com/datasets/74a208e49afc4635a384b389922f3485/about",
+                "75bb9b653ee042bfb904685df66b96b6": "https://zmb-geowb.hub.arcgis.com/datasets/75bb9b653ee042bfb904685df66b96b6/about",
+                "77f5e32488cf4e5bb03e17d6bf3440b5": "https://zmb-geowb.hub.arcgis.com/datasets/77f5e32488cf4e5bb03e17d6bf3440b5/about",
                 # --- named IDs (zmb_*) ---
                 "zmb_lobito_stations":       "https://zmb-geowb.hub.arcgis.com/datasets/31e16550a8c04f88a79cd40647efb0de/about",
                 "zmb_railways":              "https://zmb-geowb.hub.arcgis.com/datasets/54610f95f3d14bf788edfe9f21a9869c/about",
